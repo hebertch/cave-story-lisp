@@ -2,20 +2,13 @@
 
 (defun vertical? (dir) (member dir '(:up :down)))
 (defun horizontal? (dir) (member dir '(:left :right)))
+
 (defun opposite-dir (dir)
   (ecase dir
     (:left :right)
     (:right :left)
-    (:up :down)
-    (:down :up)))
-
-(defun amt-and-dir->v (amt dir)
-  "Converts the pseudo-polar coordinates to velocity."
-  (ecase dir
-    (:left (make-v (- amt) 0))
-    (:right (make-v amt 0))
-    (:up (make-v 0 (- amt)))
-    (:down (make-v 0 amt))))
+    ((:top :up) :down)
+    ((:bottom :down) :up)))
 
 (defun flush-rect-pos (rect scalar-pos offset-dir)
   "Return a pos of RECT moved in OFFSET-DIR so that it's flush with SCALAR-POS"
@@ -34,17 +27,17 @@
 (defun flush-rect-with-wall (rect tile-pos offset-dir)
   "Return a pos of RECT moved in OFFSET-DIR so that it's flush with the wall at ROW, COL"
   (ecase offset-dir
-    (:left  (flush-rect-pos rect (* (x tile-pos) tile-size) offset-dir))
-    (:right (flush-rect-pos rect (* (1+ (x tile-pos)) tile-size) offset-dir))
-    (:up    (flush-rect-pos rect (* (y tile-pos) tile-size) offset-dir))
-    (:down  (flush-rect-pos rect (* (1+ (y tile-pos)) tile-size) offset-dir))))
+    (:left  (flush-rect-pos rect (tiles (x tile-pos))      offset-dir))
+    (:right (flush-rect-pos rect (tiles (1+ (x tile-pos))) offset-dir))
+    (:up    (flush-rect-pos rect (tiles (y tile-pos))      offset-dir))
+    (:down  (flush-rect-pos rect (tiles (1+ (y tile-pos))) offset-dir))))
 
 (defun tile-type-offset (tile-type)
   (ecase tile-type
     ((:lbt :rts) 0)
-    ((:lbs :rtt) (* 1/2 tile-size))
-    ((:rbs :ltt) tile-size)
-    ((:rbt :lts) (/ tile-size 2))))
+    ((:lbs :rtt) (tiles 1/2))
+    ((:rbs :ltt) (tiles 1))
+    ((:rbt :lts) (tiles 1/2))))
 
 (defun tile-type-slope (tile-type)
   (ecase tile-type
@@ -67,17 +60,13 @@
     (+ (x pos) (/ (- y (y pos) (tile-type-offset tile-type))
 		  (tile-type-slope tile-type)))))
 
-(defun rect-slope-collision? (rect slope-point offset-dir)
+(defun rect-slope-collision? (rect slope-x slope-y offset-dir)
   "Should a rect slope collision occur?"
   (ecase offset-dir
-    (:up
-     (>= (bottom rect) (y slope-point)))
-    (:down
-     (<= (top rect) (y slope-point)))
-    (:left
-     (>= (right rect) (x slope-point)))
-    (:right
-     (<= (left rect) (x slope-point)))))
+    (:up    (>= (bottom rect) slope-y))
+    (:down  (<= (top rect)    slope-y))
+    (:left  (>= (right rect)  slope-x))
+    (:right (<= (left rect)   slope-x))))
 
 (defun flush-rect-with-slope (rect tile-pos tile-type offset-dir)
   "Return a pos of RECT moved in OFFSET-DIR so that it's flush with the slope tile."
@@ -87,7 +76,7 @@
 	     tile-pos
 	     tile-type
 	     x)))
-    (when (rect-slope-collision? rect (make-v x y) offset-dir)
+    (when (rect-slope-collision? rect x y offset-dir)
       (flush-rect-pos rect y offset-dir))))
 
 (defun slope? (tile-type)
@@ -98,6 +87,7 @@
   (member tile-type '(:lts :rts :lbs :rbs)))
 (defun wall? (tile-type)
   (eq tile-type :wall))
+
 (defun top-slope? (tile-type)
   (member tile-type '(:ltt :lts :rts :rtt)))
 (defun bottom-slope? (tile-type)
@@ -122,5 +112,6 @@
 (defun rect-center-in-tile? (rect tile-pos offset-dir)
   "Checks to see if RECT's center along OFFSET-DIR is w/in the TILE-POS."
   (if (vertical? offset-dir)
-      (<= (* (x tile-pos) tile-size) (x (center rect)) (* (1+ (x tile-pos)) tile-size))
-      (<= (* (y tile-pos) tile-size) (y (center rect)) (* (1+ (y tile-pos)) tile-size))))
+      (<= (tiles (x tile-pos)) (x (center rect)) (tiles (1+ (x tile-pos))))
+      (<= (tiles (y tile-pos)) (y (center rect)) (tiles (1+ (y tile-pos))))))
+(defparameter collision-order '(:bottom :left :right :top))

@@ -3,18 +3,48 @@
 (defstruct player
   (h-facing :left)
   v-facing
-  (walk-cycle (create-cycle :fps 12
-			    :data '(0 1 0 2)))
+  (walk-cycle
+   (create-anim-cycle
+    :fps 12
+    :seq #(0 1 0 2)
+    :start-paused? t
+    :callback
+    (lambda (cycle)
+      (when (/= 0 (cycle-current cycle))
+	(push-sound :step)))))
+
   interacting?
-  (pos (make-v 320 240))
+  (pos (v/2 window-dims))
   (vel (zero-v))
   acc-dir
   ground-tile
+  ground-inertia
   jumping?
 
-  (invincible-time-remaining 0)
+  (health-amt 3)
 
-  (current-gun-name :polar-star))
+  (invincible-timer (create-expiring-timer (s->ms 3) nil))
+
+  (gun-name-cycle (create-cycle gun-names)))
+
+(defun player-dead? (p)
+  (<= (player-health-amt p) 0))
+
+(defun create-player ()
+  (let* ((player (make-player))
+	 (dead?-fn (lambda () (player-dead? player))))
+    (def-entity-physics
+	(()
+	 (player-physics player)))
+
+    (def-entity-stage-collision
+	((stage)
+	 (player-collisions player stage)))
+
+    (def-entity-drawable
+	(()
+	 (player-draw player)))
+    player))
 
 (defparameter player-walk-acc 0.00083007812)
 (defparameter player-max-speed-x 0.15859375)
@@ -24,13 +54,14 @@
 (defparameter player-jump-gravity-acc 0.0003125)
 (defparameter player-air-acc 0.0003125)
 (defparameter player-jump-speed 0.25)
+(defparameter player-hop-speed (/ player-jump-speed 1.5))
 
 (defparameter player-collision-rectangles-alist
   (loop for (key x y w h) in
        '((:bottom 11 16 10 15)
 	 (:top 7 2 18 15)
-	 (:left 6 10 10 12)
-	 (:right 16 10 10 12))
+	 (:left 6 8 10 12)
+	 (:right 16 8 10 12))
      collect (cons key (make-rect :pos (make-v x y) :size (make-v w h)))))
 
 (defun player-collision-rect (side)
@@ -45,20 +76,20 @@
 	       :size (make-v (- right left)
 			     (- bottom top)))))
 
-(defun char-sprite-tile-pos (h-facing v-facing interacting? walk-idx)
+(defun char-sprite-pos (h-facing v-facing interacting? walk-idx)
   "Grabs the tile-pos for the character given the character's state."
-  (let ((row (ecase h-facing
-	       (:left 0)
-	       (:right 1))))
+  (let ((y (ecase h-facing
+	     (:left 0)
+	     (:right 1))))
     (if interacting?
-	(make-v 7 row)
-	(let ((col (case v-facing
-		     (:up (+ 3 walk-idx))
-		     (:down 6)
-		     (t
-		      (assert (<= 0 walk-idx 2))
-		      walk-idx))))
-	  (make-v col row)))))
+	(tile-v 7 y)
+	(let ((x (case v-facing
+		   (:up (+ 3 walk-idx))
+		   (:down 6)
+		   (t
+		    (assert (<= 0 walk-idx 2))
+		    walk-idx))))
+	  (tile-v x y)))))
 
 (defun player-on-ground? (p)
   (player-ground-tile p))
@@ -72,22 +103,22 @@
 	vf)))
 
 (defun player-walk-idx (player)
-  (car (cycle-current (player-walk-cycle player))))
+  (anim-cycle-current (player-walk-cycle player)))
 
 (defun player-walking? (player)
   (and (player-acc-dir player) (player-on-ground? player)))
 
 (defun player-sprite-rect (p)
   "The sprite-rect for player P."
-  (tile-rect (char-sprite-tile-pos
+  (tile-rect (char-sprite-pos
 	      (player-h-facing p)
 	      (player-actual-v-facing p)
 	      (player-interacting? p)
 	      (cond
-		((player-walking? player)
+		((player-walking? p)
 		 (player-walk-idx p))
-		((plusp (y (player-vel player))) 1)
-		((minusp (y (player-vel player))) 2)
+		((plusp (y (player-vel p))) 1)
+		((minusp (y (player-vel p))) 2)
 		(t 0)))))
 
 
@@ -95,25 +126,27 @@
   (unless (player-jumping? player)
     (when (player-on-ground? player)
       (setf (y (player-vel player)) (- player-jump-speed))
-      (push (make-sound :key :jump) sfx-play-list))
+      (push-sound :jump))
     (nilf (player-interacting? player)
 	  (player-ground-tile player))
+    (anim-cycle-pause (player-walk-cycle player))
     (tf (player-jumping? player))))
 
 (defun player-move (player dir)
   "Moves the player in a horizontal direction."
-  (when (and (not (player-acc-dir player))
-	     (player-on-ground? player))
-    (cycle-reset (player-walk-cycle player)))
+  (when (player-on-ground? player)
+    (anim-cycle-resume (player-walk-cycle player))
+    (when (not (player-acc-dir player))
+      (anim-cycle-reset (player-walk-cycle player))))
   (setf (player-acc-dir player) dir)
   (setf (player-h-facing player) dir)
   (nilf (player-interacting? player)))
 
 (defun player-input (player input)
-  (let ((left?  (key-held? input :left))
-	(right? (key-held? input :right))
-	(down?  (key-held? input :down))
-	(up?    (key-held? input :up)))
+  (let ((left?  (or (key-held? input :left) (eq :negative (input-joy-axis-x input))))
+	(right? (or (key-held? input :right) (eq :positive (input-joy-axis-x input))))
+	(down?  (or (key-held? input :down) (eq :positive (input-joy-axis-y input))))
+	(up?    (or (key-held? input :up) (eq :negative (input-joy-axis-y input)))))
     (cond
       ;; Look Up/Down or Interact
       ((and up? (not down?))
@@ -122,6 +155,7 @@
       ((and down? (not up?))
        (unless (eq (player-v-facing player) :down)
 	 (setf (player-v-facing player) :down)
+	 (anim-cycle-pause (player-walk-cycle player))
 	 (setf (player-interacting? player)
 	       (player-on-ground? player))))
       (t (nilf (player-v-facing player))))
@@ -133,129 +167,127 @@
        (player-move player :right))
       (t
        (when (player-walking? player)
-	 (push (make-sound :key :step)
-	       sfx-play-list))
+	 (anim-cycle-pause (player-walk-cycle player))
+	 (push-sound :step))
        (nilf (player-acc-dir player))))
 
 
-    (if (key-held? input :z)
+    (if (or (key-held? input :z) (member 0 (input-held-joy-buttons input)))
 	(player-jump player)
 	(nilf (player-jumping? player)))))
 
 (defun player-physics (player)
-  ;; Vertical motion
-  (let ((acc (if (and (minusp (y (player-vel player)))
-		      (player-jumping? player))
-		 player-jump-gravity-acc
-		 gravity-acc)))
-    (mvbind (posp vp) (accelerate (y (player-pos player)) (y (player-vel player)) acc)
-      (setf (y (player-pos player)) posp
-	    (y (player-vel player)) vp)))
+  (let ((acc-y
+	 ;; Vertical motion
+	 (const-accelerator
+	  (if (and (minusp (y (player-vel player)))
+		   (player-jumping? player))
+	      player-jump-gravity-acc
+	      gravity-acc)))
+	(acc-x
+	 ;; Horizontal motion
+	 (cond
+	   ((and (player-on-ground? player)
+		 (null (player-acc-dir player)))
+	    ;; Not accelerating, apply friction.
+	    (friction-accelerator player-friction-acc))
+	   (t
+	    ;; Apply walking accelerations.
+	    (const-accelerator
+	     (* (if (player-on-ground? player)
+		    player-walk-acc
+		    player-air-acc)
+		(case (player-acc-dir player)
+		  (:left -1)
+		  (:right 1)
+		  (t 0))))))))
 
-  ;; Horizontal motion
-  (cond
-    ((and (player-on-ground? player)
-	  (null (player-acc-dir player)))
-     ;; Not accelerating, apply friction.
-     (mvbind (posp vp) (friction-accelerate (x (player-pos player)) (x (player-vel player)) player-friction-acc)
-       (setf (x (player-pos player)) posp
-	     (x (player-vel player)) vp)))
-    (t
-     ;; Apply walking accelerations.
-     (let ((acc
-	    (let ((move-acc (if (player-on-ground? player)
-				player-walk-acc
-				player-air-acc)))
-	      (case (player-acc-dir player)
-		(:left (- move-acc))
-		(:right move-acc)
-		(t 0)))))
-       (mvbind (posp vp) (accelerate (x (player-pos player)) (x (player-vel player)) acc)
-	 (setf (x (player-pos player)) posp
-	       (x (player-vel player)) vp)))))
+    (physics-2d
+     (player-pos player)
+     (player-vel player)
+     acc-x acc-y
+     :clamper-vx
+     (clamper+- player-max-speed-x)
+     :clamper-vy
+     (clamper+- terminal-speed)))
 
-  ;; Clamp the Player's velocity
-  (setf (player-vel player)
-	(make-v (clamp (x (player-vel player)) (- player-max-speed-x) player-max-speed-x)
-		(clamp (y (player-vel player)) (- terminal-speed) terminal-speed)))
-  (push-debug-render (make-line-drawing :color #(255 0 255 255)
-					:a (player-pos player)
-					:b (add-v (player-pos player)
-						  (scale-v (player-vel player) 500)))))
+  (when (eq (player-ground-tile player) :dynamic)
+    (awhen (player-ground-inertia player)
+      (incf (x (player-pos player)) (accelerate (x (funcall it)) 0))))
+
+  (draw-line (player-pos player)
+	     (+v (player-pos player)
+		 (*v (player-vel player) debug-velocity-scale))
+	     magenta))
 
 (defun player-collisions (player stage)
-  (flet ((collision-check (side dir react-fn rect-color)
-	   (let* ((collision-rect (player-collision-rect side))
-		  (rect (rect-offset collision-rect (player-pos player))))
-	     (when rect-color
-	       (push-debug-render (make-rect-drawing
-				   :color rect-color
-				   :rect rect
-				   :filled? t)))
-	     (mvbind (new-pos tile-type) (stage-check/resolve-sticky-collision
-					  stage
-					  rect
-					  dir
-					  (player-ground-tile player))
-	       (when new-pos
-		 (setf (player-pos player) (sub-v new-pos (rect-pos collision-rect)))
-		 (funcall react-fn tile-type)))))
-	 (stop-x (&optional tile-type)
-	   (declare (ignore tile-type))
-	   (setf (x (player-vel player)) 0)))
+  (let (ground-tile
+	(stop-x
+	 (collision-lambda
+	   (setf (x (player-vel player)) 0))))
 
-    ;; Bottom side
-    (let (ground-tile)
-      (collision-check
-       :bottom :up
-       (lambda (&optional tile-type)
-	 (setf (y (player-vel player)) 0)
-	 (unless (player-ground-tile player)
-	   (push (make-sound :key :land)
-		 sfx-play-list))
-	 (setf ground-tile tile-type))
-       #(255 0 0 255))
-      (if ground-tile
-	  (setf (player-ground-tile player) ground-tile)
-	  (nilf (player-ground-tile player))))
+    (stage-collisions ((player-pos player) player-collision-rectangles-alist stage (player-ground-tile player))
+      :bottom
+      (collision-lambda
+	(setf (y (player-vel player)) 0)
+	(unless (player-ground-tile player)
+	  (push-sound :land))
+	(setf ground-tile tile-type))
 
-    ;; Left
-    (collision-check
-     :left :right
-     #'stop-x
-     #(255 0 255 255))
+      :left stop-x
+      :right stop-x
 
-    ;; Right
-    (collision-check
-     :right :left
-     #'stop-x
-     #(0 0 255 255))
+      :top
+      (collision-lambda
+	(when (minusp (y (player-vel player)))
+	  (push-sound :head-bump))
+	(maxf (y (player-vel player)) 0)))
 
-    ;; Top
-    (collision-check
-     :top :down
-     (lambda (&optional tile-type)
-       (declare (ignore tile-type))
-       (when (minusp (y (player-vel player)))
-	(push (make-sound :key :head-bump) sfx-play-list))
-       (setf (y (player-vel player)) (max 0 (y (player-vel player)))))
-     #(255 255 255 255))))
+    (setf (player-ground-tile player) ground-tile)
+    (unless ground-tile
+      (anim-cycle-pause (player-walk-cycle player))
+      (nilf (player-ground-tile player)))))
 
 (defun player-draw (player)
-  (unless (and (plusp (player-invincible-time-remaining player))
-	       (not (= (mod (/ (player-invincible-time-remaining player) 50) 2)
-		       0)))
-    (push-render (make-sprite-drawing
-		  :layer :player
-		  :sheet-key :my-char
-		  :src-rect (player-sprite-rect player)
-		  :pos (pixel-v (player-pos player))))
-    (player-draw-gun player)))
+  (let ((invincible-timer (player-invincible-timer player)))
+    (unless (and (timer-active? invincible-timer)
+		 (plusp (chunk-time-period invincible-timer 50)))
+      (draw-sprite :player :my-char (player-sprite-rect player) (pixel-v (player-pos player)))
+      (player-draw-gun player))))
 
 (defun player-damage-collision-rect (p)
-  (let ((r (rect-offset player-damage-rect (player-pos p))))
-    (push-debug-render (make-rect-drawing
-			:color #(0 0 255 255)
-			:filled? t
-			:rect r))
-    r))
+  (rect-offset player-damage-rect (player-pos p)))
+
+(defun player-current-gun-name (p)
+  (cycle-current (player-gun-name-cycle p)))
+
+(defun player-fire-gun (player)
+  (let ((gun-name (player-current-gun-name player)))
+    (let ((num-projectile-groups (count gun-name projectile-groups :key #'car))
+	  (nozzle-pos (player-nozzle-pos player))
+	  (dir (aif (player-actual-v-facing player)
+		    it
+		    (player-h-facing player)))
+	  ;; TODO: Determine the level of the gun.
+	  (lvl 2)
+	  (max-projectiles (cdr (assoc gun-name max-projectile-groups))))
+      (unless (null max-projectiles)
+	(when (< num-projectile-groups max-projectiles)
+	  (push (make-projectile-group gun-name lvl dir nozzle-pos)
+		projectile-groups))))))
+
+(defun player-take-damage (p hud dmg-amt)
+  (unless (timer-active? (player-invincible-timer p))
+    (cond
+      ((>= (abs dmg-amt) (player-health-amt p))
+       (push-sound :player-die)
+       (stop-music)
+       (setf (player-health-amt p) 0)
+       (tf paused?))
+      (t
+       (reset-timer (player-invincible-timer p))
+       (nilf (player-ground-tile p))
+       (push-sound :hurt)
+       (incf (player-health-amt p) dmg-amt)
+       (update-damage-number-amt p (lambda () (+v (tile-dims/2) (player-pos p))) dmg-amt)
+       (minf (y (player-vel p)) (- player-hop-speed))))))

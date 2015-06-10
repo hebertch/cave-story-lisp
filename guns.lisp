@@ -6,17 +6,18 @@
 (defun gun-pos (player)
   (let ((gun-x-off (if (eq (player-h-facing player) :right)
 		       0
-		       (- (* 1/2 tile-size))))
+		       (- (tiles 1/2))))
+
 	(gun-y-off (case (player-actual-v-facing player)
-		     (:up (- (* 1/4 tile-size)))
-		     (:down (* 1/4 tile-size))
-		     (t 0)))
+		     (:up   (tiles -1/4))
+		     (:down (tiles  1/4))
+		     (t     0)))
 	(gun-bob-y-off (if (and (player-walking? player)
 				(= (player-walk-idx player)
 				   0))
 			   -2
 			   0)))
-    (add-v (player-pos player) (make-v gun-x-off (+ gun-y-off gun-bob-y-off)))))
+    (+v (player-pos player) (make-v gun-x-off (+ gun-y-off gun-bob-y-off)))))
 
 
 
@@ -80,15 +81,15 @@
 	      19 382)))
   "Positions of the nozzle relative to Arms.BMP 0x0")
 
-(defparameter gun-width (* 3/2 tile-size))
+(defparameter gun-width (tiles 3/2))
 
 (defun gun-sprite-rect (gun-name h-facing v-facing)
   (let ((gun-y-idx (+ (if (eq gun-name :spur) 6 0)
 		      (position h-facing '(:left :right))
 		      (* 2
 			 (position v-facing '(nil :up :down))))))
-    (make-rect :pos (make-v (* (position gun-name gun-x-idxs) gun-width) (* tile-size gun-y-idx))
-	       :size (make-v gun-width tile-size))))
+    (create-rect-cmpts (* (position gun-name gun-x-idxs) gun-width) (tiles gun-y-idx)
+		       gun-width (tiles 1))))
 
 (defun nozzle-pixel-positions->nozzle-offsets (gun-name)
   (let ((npp (cdr (assoc gun-name nozzle-pixel-positions)))
@@ -113,27 +114,29 @@
 
 (defun player-draw-gun (player)
   (let* ((gun-name (player-current-gun-name player)))
-    (push-render (make-sprite-drawing
-		  :layer :gun
-		  :sheet-key :arms
-		  :src-rect (gun-sprite-rect gun-name (player-h-facing player) (player-actual-v-facing player))
-		  :pos (gun-pos player)))))
+    (draw-sprite :gun :arms
+		 (gun-sprite-rect gun-name (player-h-facing player) (player-actual-v-facing player))
+		 (gun-pos player))))
 
 (defparameter gun-nozzle-offsets
   (loop for gun-name across gun-names
      collecting
        (cons gun-name (nozzle-pixel-positions->nozzle-offsets gun-name))))
 
-(defun nozzle-offset (player gun-name)
-  (let ((v-facing (player-actual-v-facing player))
-	(h-facing (player-h-facing player)))
-    (let* ((offsets (cdr (assoc v-facing (cdr (assoc gun-name gun-nozzle-offsets)))))
-	   (x-offsets (first offsets))
-	   (y-offset (second offsets)))
-      (make-v (ecase h-facing
-		(:left (first x-offsets))
-		(:right (second x-offsets)))
-	      y-offset))))
+(defun nozzle-offset (h-facing v-facing gun-name)
+  (let* ((offsets (cdr (assoc v-facing (cdr (assoc gun-name gun-nozzle-offsets)))))
+	 (x-offsets (first offsets))
+	 (y-offset (second offsets)))
+    (make-v (ecase h-facing
+	      (:left (first x-offsets))
+	      (:right (second x-offsets)))
+	    y-offset)))
+
+(defun player-nozzle-pos (player)
+  (+v (nozzle-offset (player-h-facing player)
+		     (player-actual-v-facing player)
+		     (player-current-gun-name player))
+      (gun-pos player)))
 
 (defun gun-level (exp exp-list)
   (aif (position-if-not (lambda (lvl-exp)
@@ -152,9 +155,9 @@
 (defparameter polar-star-level-exps
   '(10 30 40))
 (defparameter polar-star-projectile-max-offsets
-  (mapcar (curry #'* tile-size) '(7/2 5 7)))
+  (mapcar #'tiles '(7/2 5 7)))
 
 
 ;; Missile Launcher
 (defparameter missile-projectile-amplitude 4)
-(defparameter missile-radial-speed 0.18)
+(defparameter missile-radial-speed 0.010800001)
