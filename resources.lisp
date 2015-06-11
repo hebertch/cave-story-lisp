@@ -54,15 +54,7 @@ the get- function that is produced."
     (funcall (resource-type-cleanup-fn rt))))
 
 ;;; SPRITES
-(defparameter spritesheet-fnames
-  '(:my-char "MyChar"
-    :npc-sym "NpcSym"
-    :prt-cave "PrtCave"
-    :arms "Arms"
-    :bullet "Bullet"
-    :npc-cemet "NpcCemet"
-    :caret "Caret"
-    :text-box "TextBox"))
+
 
 (defun bmp-path (fname)
   (format nil "./content/~A.bmp" fname))
@@ -86,9 +78,6 @@ the get- function that is produced."
 (defstruct song intro loop)
 (defvar current-song)
 
-(defparameter song-names
-  '(:curly "curly"
-    :fanfare1 "fanfale1"))
 
 (defun load-song (name)
   (make-song
@@ -137,20 +126,6 @@ the get- function that is produced."
 
 ;;; SOUNDS
 
-(defparameter sfx-fnames
-  '(:step "Step"
-    :jump "Jump"
-    :hurt "Hurt"
-    :enemy-explode "EnemyExplode"
-    :head-bump "HeadBump"
-    :land "Land"
-    :dissipate "Dissipate"
-    :hit-wall "HitWall"
-    :polar-star-shoot-3 "PolarStarShoot3"
-    :dorito-bounce "DoritoBounce"
-    :pickup "Pickup"
-    :enemy-hurt "EnemyHurt"
-    :player-die "PlayerDie"))
 
 (defun wav-path (fname)
   (format nil "./content/sfx/~A.wav" fname))
@@ -170,3 +145,49 @@ the get- function that is produced."
      (sdl.mixer:load-wav (wav-path fname)))
   sfx-fnames
   #'sdl.mixer:free-chunk)
+
+(defparameter sfx-fnames
+  '(:step "Step"
+    :jump "Jump"
+    :hurt "Hurt"
+    :enemy-explode "EnemyExplode"
+    :head-bump "HeadBump"
+    :land "Land"
+    :dissipate "Dissipate"
+    :hit-wall "HitWall"
+    :polar-star-shoot-3 "PolarStarShoot3"
+    :dorito-bounce "DoritoBounce"
+    :pickup "Pickup"
+    :enemy-hurt "EnemyHurt"
+    :player-die "PlayerDie"))
+
+(defun generate-song-fnames ()
+  (loop for f in (directory "/home/chebert/Projects/lisp/cave-story/content/remastered-music/*_intro.ogg")
+     appending (let* ((str (file-namestring f))
+		      (name (subseq str 0 (- (length str) (length "_intro.ogg")))))
+		 (list (alexandria:make-keyword (format nil "~:@(~A~)" name)) name))))
+
+(defparameter song-names
+  '(:ACCESS "access" :ANZEN "anzen" :BALCONY "balcony" :BALLOS "ballos" :BDOWN
+    "bdown" :BREAKDOWN "breakdown" :CEMETERY "cemetery" :CREDITS "credits" :CURLY
+    "curly" :DR "dr" :ENDING "ending" :ESCAPE "escape" :FANFALE1 "fanfale1"
+    :FANFALE2 "fanfale2" :FANFALE3 "fanfale3" :FIREEYE "fireeye" :GAMEOVER
+    "gameover" :GINSUKE "ginsuke" :GRAND "grand" :GRAVITY "gravity" :HELL "hell"
+    :IRONH "ironh" :JENKA2 "jenka2" :JENKA "jenka" :KAZE "kaze" :KODOU "kodou"
+    :LASTBT3 "lastbt3" :LASTCAVE2 "lastcave2" :LASTCAVE "lastcave" :MARINE
+    "marine" :MAZE "maze" :MDOWN2 "mdown2" :MURA "mura" :OSIDE "oside" :PLANT
+    "plant" :QUIET "quiet" :REQUIEM "requiem" :SILENCE "silence" :TOROKO "toroko"
+    :VIVI "vivi" :WANPAK2 "wanpak2" :WANPAKU_ENDING "wanpaku_ending" :WANPAKU
+    "wanpaku" :WEED "weed" :WHITE "white" :ZONBIE "zonbie"))
+
+;; TODO: Generate meaningful names or just live with these?
+(defparameter spritesheet-fnames
+  '(:my-char "MyChar"
+    :npc-sym "NpcSym"
+    :prt-cave "PrtCave"
+    :arms "Arms"
+    :bullet "Bullet"
+    :npc-cemet "NpcCemet"
+    :caret "Caret"
+    :text-box "TextBox"
+    :bk-blue "bkBlue"))

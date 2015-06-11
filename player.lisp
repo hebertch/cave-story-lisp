@@ -22,17 +22,29 @@
   jumping?
 
   (health-amt 3)
+  (max-health-amt 3)
 
   (invincible-timer (create-expiring-timer (s->ms 3) nil))
 
+  hud-take-damage-fn
+  gun-exp-fn
   (gun-name-cycle (create-cycle gun-names)))
+
+(defun player-pickup (p pickup)
+  (ecase (pickup-type pickup)
+    (:dorito
+     (awhen (player-gun-exp-fn p)
+       (funcall it (pickup-amt pickup))))))
 
 (defun player-dead? (p)
   (<= (player-health-amt p) 0))
 
-(defun create-player ()
-  (let* ((player (make-player))
+(defun create-player (hud-take-damage-fn gun-exp-for-fn)
+  (let* ((player (make-player :hud-take-damage-fn hud-take-damage-fn))
 	 (dead?-fn (lambda () (player-dead? player))))
+    (setf (player-gun-exp-fn player)
+	  (lambda (amt)
+	    (funcall gun-exp-for-fn (player-current-gun-name player) amt)))
     (def-entity-physics
 	(()
 	 (player-physics player)))
@@ -261,7 +273,7 @@
 (defun player-current-gun-name (p)
   (cycle-current (player-gun-name-cycle p)))
 
-(defun player-fire-gun (player)
+(defun player-fire-gun (player gun-exps)
   (let ((gun-name (player-current-gun-name player)))
     (let ((num-projectile-groups (count gun-name projectile-groups :key #'car))
 	  (nozzle-pos (player-nozzle-pos player))
@@ -269,25 +281,27 @@
 		    it
 		    (player-h-facing player)))
 	  ;; TODO: Determine the level of the gun.
-	  (lvl 2)
+	  (lvl (gun-level (cdr (assoc gun-name gun-exps)) (cdr (assoc gun-name gun-level-exps))))
 	  (max-projectiles (cdr (assoc gun-name max-projectile-groups))))
       (unless (null max-projectiles)
 	(when (< num-projectile-groups max-projectiles)
 	  (push (make-projectile-group gun-name lvl dir nozzle-pos)
 		projectile-groups))))))
 
-(defun player-take-damage (p hud dmg-amt)
+(defun player-take-damage (p dmg-amt)
   (unless (timer-active? (player-invincible-timer p))
     (cond
       ((>= (abs dmg-amt) (player-health-amt p))
        (push-sound :player-die)
-       (stop-music)
+       (switch-to-new-song :gameover)
        (setf (player-health-amt p) 0)
        (tf paused?))
       (t
        (reset-timer (player-invincible-timer p))
        (nilf (player-ground-tile p))
        (push-sound :hurt)
-       (incf (player-health-amt p) dmg-amt)
+       (funcall (player-hud-take-damage-fn player))
+       (decf (player-health-amt p) dmg-amt)
+       (funcall (player-gun-exp-fn p) (- (* 2 dmg-amt)))
        (update-damage-number-amt p (lambda () (+v (tile-dims/2) (player-pos p))) dmg-amt)
        (minf (y (player-vel p)) (- player-hop-speed))))))

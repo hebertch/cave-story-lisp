@@ -119,7 +119,7 @@
 	(()
 	 (tf (missile-projectile-dead? p)))
       (()
-       -3))
+       3))
     p))
 
 (defun make-missile-projectile-group (lvl dir nozzle-pos)
@@ -165,7 +165,7 @@
 	(()
 	 (tf (polar-star-projectile-dead? p)))
       (()
-       -4))
+       (elt '(1 2 4) lvl)))
     (def-entity-stage-collision
 	((stage)
 	 (polar-star-projectile-collisions p stage)))

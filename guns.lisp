@@ -152,8 +152,6 @@
 
 ;; Polar Star
 (defparameter polar-star-exp 40)
-(defparameter polar-star-level-exps
-  '(10 30 40))
 (defparameter polar-star-projectile-max-offsets
   (mapcar #'tiles '(7/2 5 7)))
 
@@ -161,3 +159,8 @@
 ;; Missile Launcher
 (defparameter missile-projectile-amplitude 4)
 (defparameter missile-radial-speed 0.010800001)
+
+(defparameter gun-level-exps
+  (append '((:polar-star . (10 30 40)))
+	  (loop for g across gun-names
+	       collecting (cons g (list 10 30 40)))))

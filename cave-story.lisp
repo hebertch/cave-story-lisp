@@ -14,8 +14,9 @@
 
 (defvar stage)
 (defvar player)
-(defvar hud)
 (defvar projectile-groups)
+
+(defvar gun-exps)
 
 ;; Debug params.
 (defparameter paused? nil)
@@ -39,10 +40,15 @@
 		  (when (>= frame-timer (* update-period frame-time))
 		    (unless paused?
 		      (update-and-render renderer stage player))
-		    (render renderer render-list (camera-focus->camera-pos
-						  (clamp-pos (camera-focus camera) (stage-dims->camera-bounds (stage-dims stage)))))
+		    (render renderer
+			    render-list
+			    (camera-focus->camera-pos
+			     (clamp-pos (camera-focus camera) (stage-dims->camera-bounds (stage-dims stage)))))
 		    (decf frame-timer (* update-period frame-time)))
-		  (incf frame-timer (- (sdl:get-ticks) last-update-time))
+
+		  (let ((dt (- (sdl:get-ticks) last-update-time)))
+		    ;; NOTE: if we are paused beyond our control, Don't play catchup.
+		    (incf frame-timer (min dt (* 2 frame-time))))
 		  (setf last-update-time (sdl:get-ticks))
 		  (music-update)
 		  (sdl:delay 1))))
@@ -79,7 +85,7 @@ This can be abused with the machine gun in TAS."
     (when (or (member 1 (ti-pressed-joy-buttons (input-transient-input input)))
 	      (key-pressed? input :x))
       ;; Fire Gun
-      (player-fire-gun player))
+      (player-fire-gun player gun-exps))
 
     (when (or (key-pressed? input :a) (member 3 (ti-pressed-joy-buttons (input-transient-input input))))
       (cycle-previous (player-gun-name-cycle player)))
@@ -122,6 +128,8 @@ This can be abused with the machine gun in TAS."
 		(create-timer :length time :ms-remaining time)))
   dead?)
 
+(defstruct pickup type amt)
+
 (defun create-dorito (pos vel size)
   (let* ((d (make-dorito :pos pos
 			 :size size
@@ -153,7 +161,12 @@ This can be abused with the machine gun in TAS."
 	 (rect-offset (dorito-collision-rect d) (dorito-pos d)))
 	(()
 	 (push-sound :pickup)
-	 (tf (dorito-dead? d))))
+	 (tf (dorito-dead? d)))
+      (()
+       (make-pickup :type :dorito :amt (ecase size
+					 (:small 1)
+					 (:medium 10)
+					 (:large 20)))))
     d))
 
 (defun dorito-draw (d)
@@ -291,9 +304,9 @@ This can be abused with the machine gun in TAS."
   (aif (gethash e damage-numbers)
        (progn
 	 (reset-timer (floating-number-life-timer it))
-	 (incf (floating-number-amt it) amt))
+	 (decf (floating-number-amt it) amt))
        (let ((dn (make-floating-number :origin-fn origin-fn
-				       :amt amt)))
+				       :amt (- amt))))
 	 (setf (gethash e damage-numbers) dn)
 	 (register-drawable :draw-fn (curry #'draw-floating-number dn)
 			    :dead?-fn (curry #'floating-number-dead? dn))
@@ -332,23 +345,98 @@ This can be abused with the machine gun in TAS."
 				    (if (eq facing :left) 2 3)))
 		 pos)))
 
-(defun create-hud (player)
-  (let ((hud nil)
-	(dead?-fn (lambda () (player-dead? player))))
+(defun draw-hud-number (tile/2-y number)
+  (draw-number (tiles/2-v (+ (if (< number 10) 1 0) 3)
+			  tile/2-y)
+	       number
+	       :centered? nil
+	       :show-sign? nil
+	       :push-fn #'push-screen-render))
+
+(defun exp-for-gun-level (gun-name lvl)
+  (when (eq lvl :max)
+    (setf lvl 2))
+  (elt (cdr (assoc gun-name gun-level-exps)) lvl))
+
+(defun create-hud (player current-gun-experience)
+  (let* ((dead?-fn (lambda () (player-dead? player)))
+	 (timer (create-expiring-timer (s->ms 1) dead?-fn))
+	 (health-change-timer (create-expiring-timer (s->ms 1/2) dead?-fn))
+	 last-health-amt)
     (def-entity-drawable
 	(()
-	 (draw-hud-sprite
-	  :hud-bg :text-box
-	  (create-rect-cmpts 0 (tiles/2 5) (tiles/2 8) (tiles/2 1))
-	  (tile-v 1 2))
+	 (let ((bar-tile/2-w 5)
+	       (bar-tile/2-x 5))
+	   (draw-hud-sprite
+	    :hud-bg :text-box
+	    (create-rect-cmpts 0 (tiles/2 5) (tiles/2 8) (tiles/2 1))
+	    (tile-v 1 2))
 
-	 (let ((health (player-health-amt player)))
-	   (draw-number (tiles/2-v (if (< health 10) 4 3) 4)
-			health
-			:centered? nil
-			:show-sign? nil
-			:push-fn #'push-screen-render))))
-    hud))
+	   (let ((health (player-health-amt player)))
+	     (when (timer-active? health-change-timer)
+	       (draw-hud-sprite
+		:hud :text-box
+		(create-rect-cmpts 0 (tiles/2 4)
+				   (floor (* (tiles/2 bar-tile/2-w)
+					     (/ last-health-amt
+						(player-max-health-amt player))))
+				   (tiles/2 1))
+		(tiles/2-v bar-tile/2-x 4)))
+	     (draw-hud-sprite
+	      :hud-fg :text-box
+	      (create-rect-cmpts 0 (tiles/2 3)
+				 (floor (* (tiles/2 bar-tile/2-w)
+					   (/ health
+					      (player-max-health-amt player))))
+				 (tiles/2 1))
+	      (tiles/2-v bar-tile/2-x 4))
+	     (draw-hud-number 4 health))
+
+	   (let ((exp-pos (tiles/2-v bar-tile/2-x 3)))
+	     (draw-hud-sprite
+	      :hud-bg :text-box
+	      (create-rect-cmpts 0 (tiles/2 9) (tiles/2 5) (tiles/2 1))
+	      exp-pos)
+
+	     (when (and (timer-active? timer)
+			(zerop (chunk-time-period timer 50)))
+	       (draw-hud-sprite :hud-fg
+				:text-box
+				(create-rect (tiles/2-v 5 10)
+					     (tiles/2-v bar-tile/2-w 1))
+				exp-pos))
+
+	     (mvbind (exp gun-name) (funcall current-gun-experience)
+	       (let* ((current-level (gun-level exp (cdr (assoc gun-name gun-level-exps))))
+		      (next-lvl-exp (exp-for-gun-level gun-name current-level))
+		      (current-lvl-exp (if (zerop current-level) 0 (exp-for-gun-level gun-name (1- current-level)))))
+		 (if (= exp (exp-for-gun-level gun-name :max))
+		     (draw-hud-sprite :hud-fg :text-box
+				      (create-rect (tiles/2-v 5 9)
+						   (tiles/2-v bar-tile/2-w 1))
+				      exp-pos)
+
+		     (draw-hud-sprite
+		      :hud :text-box
+		      (create-rect-cmpts 0 (tiles/2 10)
+					 (floor (* (tiles/2 bar-tile/2-w)
+						   (/ (- exp current-lvl-exp)
+						      (- next-lvl-exp current-lvl-exp))))
+					 (tiles/2 1))
+		      exp-pos))
+
+		 (draw-hud-sprite
+		  :hud :text-box
+		  (create-rect-cmpts (tiles/2 10) (tiles/2 10)
+				     (tiles/2 2) (tiles/2 1))
+		  (make-v (tiles/2 2) (y exp-pos)))
+
+		 (draw-hud-number 3 (1+ current-level))))))))
+
+    (values (lambda () (reset-timer timer))
+	    (lambda ()
+	      (setf last-health-amt (player-health-amt player))
+	      (reset-timer health-change-timer)))))
 
 (defun update-and-render (renderer stage player)
   "The Main Loop, called once per FRAME-TIME."
@@ -362,7 +450,7 @@ This can be abused with the machine gun in TAS."
   (update-stage-collision-subsystem stage)
   (update-pickup-subsystem player)
 
-  (update-damage-collision-subsystem player hud)
+  (update-damage-collision-subsystem player)
   (update-dynamic-collision-subsystem player)
   (update-drawable-subsystem)
 
@@ -384,20 +472,39 @@ This can be abused with the machine gun in TAS."
 
 (defun reset ()
   (nilf paused?)
-  (switch-to-new-song :curly)
+  (switch-to-new-song :weed)
   (set-music-volume 20)
 
   (dolist (s subsystems)
     (funcall (cdr s)))
+  (nilf player)
   (nilf projectile-groups)
   (setf input (make-input))
-  (setf player (create-player))
+  (setf gun-exps (loop for g across gun-names collecting (cons g 0)))
+
+  (mvbind (hud-exp-flash-fn hud-player-take-damage-fn)
+      (create-hud player (lambda ()
+			   (let* ((gun-name (player-current-gun-name player))
+				  (exp (cdr (assoc gun-name gun-exps))))
+			     (values
+			      exp
+			      gun-name))))
+
+    (setf player (create-player
+		  hud-player-take-damage-fn
+		  (lambda (gun-name amt)
+		    (incf (alexandria:assoc-value gun-exps gun-name) amt)
+		    (maxf (alexandria:assoc-value gun-exps gun-name) 0)
+		    (when (plusp amt)
+		      (funcall hud-exp-flash-fn))
+		    (minf (alexandria:assoc-value gun-exps gun-name)
+			  (exp-for-gun-level gun-name :max))))))
+
   (setf stage (basic-stage))
 
   (setf camera (create-player-camera (v/2 window-dims) (zero-v) player))
   (setf damage-numbers (make-hash-table :test 'eq))
 
-  (setf hud (create-hud player))
   (create-critter (make-v (+ (tiles 14) (tiles 1/4)) (tiles 6)) player)
   (dolist (x '(1 3 6 7))
     (create-bat x 7 player))
@@ -467,13 +574,15 @@ This can be abused with the machine gun in TAS."
     (def-entity-damage-collision
 	(()
 	 (bat-damage-collision-rect bat))
-	(() -1))
+	(() 1))
+
     (def-entity-damageable
 	(()
 	 (bat-collision-rect bat))
 	((bullet-hit-amt)
 	 (declare (ignore bullet-hit-amt))
 	 (push-sound :enemy-explode)
+	 (create-dorito (bat-pos bat) (zero-v) :large)
 	 (tf (bat-dead? bat))))
 
     (def-entity-drawable
@@ -544,7 +653,7 @@ This can be abused with the machine gun in TAS."
     (def-entity-damage-collision
 	(()
 	 (tile-rect pos))
-	(() -1))
+	(() 1))
 
     (def-entity-dynamic-collision
 	(() (rect-offset critter-dynamic-collision-rect pos))

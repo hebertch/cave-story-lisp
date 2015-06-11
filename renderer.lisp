@@ -108,7 +108,7 @@ These are drawn relative to the SCREEN and not relative to the camera position."
 
 (defparameter debug-layers
   (list :debug :debug-damage-collision :debug-stage-collision :debug-pickup :debug-damageable :debug-dynamic-collision))
-(defparameter game-layers (list :gun :enemy :pickup :player :projectile :foreground :particle :hud-bg :hud))
+(defparameter game-layers (list :gun :enemy :pickup :player :projectile :foreground :particle :hud-bg :hud :hud-fg))
 (defparameter layers (append game-layers debug-layers))
 (defparameter visible-layers game-layers)
 
@@ -166,11 +166,25 @@ These are drawn relative to the SCREEN and not relative to the camera position."
 					   :src-rect src-rect
 					   :pos pos)))
 
+(defparameter parallax-scale 1/8)
+
 (defun render (renderer render-list camera-pos)
   (sdl:set-render-draw-color renderer 128 128 128 255)
   (sdl:render-clear renderer)
 
   (setf render-list (sort-by-layers render-list))
+
+  (let ((len (tiles 4)))
+    (dotimes (x (1+ (floor (x window-dims) len)))
+      (dotimes (y (+ 2 (floor (y window-dims) len)))
+	(render-sprite renderer (make-sprite-drawing
+				 :layer :foreground
+				 :sheet-key :bk-blue
+				 :src-rect (create-rect (zero-v) (both-v len))
+				 :pos (make-v (+ (* (1- x) len) (mod (* parallax-scale (x camera-pos)) len))
+					      (+ (* (1- y) len) (mod (* parallax-scale (y camera-pos)) len))))
+		       (zero-v)))))
+
   (dolist (r render-list)
     (cond
       ((sprite-drawing-p r) (render-sprite renderer r camera-pos))

@@ -103,7 +103,7 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
   (update-damageable-subsystem
    (funcall rect-fn) (funcall damage-amt-fn) hit-fn dead?-fn))
 
-(def-subsystem pickup (rect-fn kill-fn)
+(def-subsystem pickup (rect-fn kill-fn pickup-data-fn)
     (player)
   (let ((rect (funcall rect-fn))
 	(player-rect  (player-damage-collision-rect player)))
@@ -112,14 +112,15 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
     (when (rects-collide? rect player-rect)
       (draw-rect rect yellow :layer :debug-pickup :filled? t)
       (draw-rect player-rect yellow :layer :debug-pickup :filled? t)
+      (player-pickup player (funcall pickup-data-fn))
       (funcall kill-fn))))
 
-(def-subsystem damage-collision (rect-fn dmg-amt-fn) (player hud)
+(def-subsystem damage-collision (rect-fn dmg-amt-fn) (player)
   (let ((rect (funcall rect-fn))
 	(player-rect (player-damage-collision-rect player)))
     (draw-rect rect red :layer :debug-damage-collision)
     (draw-rect player-rect blue :layer :debug-damage-collision)
     (when (rects-collide? rect player-rect)
-      (player-take-damage player hud (funcall dmg-amt-fn))
+      (player-take-damage player (funcall dmg-amt-fn))
       (draw-rect rect magenta :layer :debug-damage-collision :filled? t)
       (draw-rect player-rect magenta :layer :debug-damage-collision :filled? t))))
