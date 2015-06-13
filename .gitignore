@@ -1,2 +1,3 @@
 content
 *.fasl
+/#cave-story.lisp#

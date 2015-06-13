@@ -1,8 +1,24 @@
 (in-package :cave-story)
 
-(defstruct player
-  (h-facing :left)
+(defstructure player
+    ;; State-vars
+    (h-facing :left)
   v-facing
+  interacting?
+  (pos (v/2 window-dims))
+  (vel (zero-v))
+  acc-dir
+  ground-tile
+  ground-inertia
+  jumping?
+  (gun-name-cycle (create-cycle gun-names))
+
+  (health-amt 1)
+  (max-health-amt 3)
+
+  ;; Their interface.
+  ;; Referenced entites.
+  (invincible-timer (create-expiring-timer (s->ms 3) nil))
   (walk-cycle
    (create-anim-cycle
     :fps 12
@@ -13,22 +29,8 @@
       (when (/= 0 (cycle-current cycle))
 	(push-sound :step)))))
 
-  interacting?
-  (pos (v/2 window-dims))
-  (vel (zero-v))
-  acc-dir
-  ground-tile
-  ground-inertia
-  jumping?
-
-  (health-amt 3)
-  (max-health-amt 3)
-
-  (invincible-timer (create-expiring-timer (s->ms 3) nil))
-
   hud-take-damage-fn
-  gun-exp-fn
-  (gun-name-cycle (create-cycle gun-names)))
+  gun-exp-fn)
 
 (defun player-pickup (p pickup)
   (ecase (pickup-type pickup)
@@ -39,12 +41,14 @@
 (defun player-dead? (p)
   (<= (player-health-amt p) 0))
 
-(defun create-player (hud-take-damage-fn gun-exp-for-fn)
+(defun create-default-player (hud-take-damage-fn gun-exp-for-fn)
   (let* ((player (make-player :hud-take-damage-fn hud-take-damage-fn))
+	 ;; My interface.
 	 (dead?-fn (lambda () (player-dead? player))))
     (setf (player-gun-exp-fn player)
 	  (lambda (amt)
 	    (funcall gun-exp-for-fn (player-current-gun-name player) amt)))
+
     (def-entity-physics
 	(()
 	 (player-physics player)))
@@ -184,7 +188,7 @@
        (nilf (player-acc-dir player))))
 
 
-    (if (or (key-held? input :z) (member 0 (input-held-joy-buttons input)))
+    (if (or (key-held? input :z) (joy-held? input :a))
 	(player-jump player)
 	(nilf (player-jumping? player)))))
 
@@ -263,7 +267,7 @@
 (defun player-draw (player)
   (let ((invincible-timer (player-invincible-timer player)))
     (unless (and (timer-active? invincible-timer)
-		 (plusp (chunk-time-period invincible-timer 50)))
+		 (plusp (chunk-timer-period invincible-timer 50)))
       (draw-sprite :player :my-char (player-sprite-rect player) (pixel-v (player-pos player)))
       (player-draw-gun player))))
 
@@ -288,14 +292,26 @@
 	  (push (make-projectile-group gun-name lvl dir nozzle-pos)
 		projectile-groups))))))
 
+
+(defun player-die (p)
+  (push-sound :player-die)
+  (stop-music)
+  (setf (player-health-amt p) 0)
+  (setf active-update-systems (list :dialog))
+  (setf active-input-system :dialog)
+  (push :dialog active-draw-systems)
+  (let ((entity-system-type :dialog))
+    (create-callback-timer
+     (s->ms 1/2)
+     (lambda ()
+       (switch-to-new-song :gameover)
+       (create-text-display (tiles/2-v 7 24) "You have died.")))))
+
 (defun player-take-damage (p dmg-amt)
   (unless (timer-active? (player-invincible-timer p))
     (cond
       ((>= (abs dmg-amt) (player-health-amt p))
-       (push-sound :player-die)
-       (switch-to-new-song :gameover)
-       (setf (player-health-amt p) 0)
-       (tf paused?))
+       (player-die p))
       (t
        (reset-timer (player-invincible-timer p))
        (nilf (player-ground-tile p))

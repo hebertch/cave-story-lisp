@@ -1,6 +1,6 @@
 (in-package :cave-story)
 
-(defstruct resource-type
+(defstructure resource-type
   put-fn
   fnames-fn
   cleanup-fn
@@ -75,12 +75,12 @@ the get- function that is produced."
   #'sdl:destroy-texture)
 
 ;;; MUSIC
-(defstruct song intro loop)
+(defstructure song intro loop name)
 (defvar current-song)
-
 
 (defun load-song (name)
   (make-song
+   :name name
    :loop  (sdl.mixer:load-mus (format nil "./content/remastered-music/~A_loop.ogg" name))
    :intro (sdl.mixer:load-mus (format nil "./content/remastered-music/~A_intro.ogg" name))))
 
@@ -159,7 +159,8 @@ the get- function that is produced."
     :dorito-bounce "DoritoBounce"
     :pickup "Pickup"
     :enemy-hurt "EnemyHurt"
-    :player-die "PlayerDie"))
+    :player-die "PlayerDie"
+    :text-click "TextClick"))
 
 (defun generate-song-fnames ()
   (loop for f in (directory "/home/chebert/Projects/lisp/cave-story/content/remastered-music/*_intro.ogg")
@@ -190,4 +191,5 @@ the get- function that is produced."
     :npc-cemet "NpcCemet"
     :caret "Caret"
     :text-box "TextBox"
-    :bk-blue "bkBlue"))
+    :bk-blue "bkBlue"
+    :npc-regu "NpcRegu"))

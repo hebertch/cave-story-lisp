@@ -33,7 +33,7 @@
 	    t)))))
 
 ;; Missiles
-(defstruct missile-projectile
+(defstructure missile-projectile
   sprite-rect
   origin
   offset
@@ -49,8 +49,8 @@
   (when (> (offset-motion-dist (missile-projectile-offset p)) (x window-dims))
     (tf (missile-projectile-dead? p)))
   (awhen (missile-projectile-wave-motion p)
-    (wave-physics it))
-  (offset-motion-physics (missile-projectile-offset p)))
+    (setf (missile-projectile-wave-motion p) (wave-physics it)))
+  (setf (missile-projectile-offset p) (offset-motion-physics  (missile-projectile-offset p))))
 
 (defun missile-projectile-collision-rect (p)
   (let ((short-sides '(10 10 10)))
@@ -135,7 +135,7 @@
 
 ;; Polar Star
 
-(defstruct polar-star-projectile
+(defstructure polar-star-projectile
   sprite-rect
   origin
   offset
@@ -207,7 +207,7 @@
 						      (polar-star-projectile-dir p)))
     (tf (polar-star-projectile-dead? p)))
 
-  (offset-motion-physics (polar-star-projectile-offset p)))
+  (setf (polar-star-projectile-offset p) (offset-motion-physics (polar-star-projectile-offset p))))
 
 (defun polar-star-projectile-collision-rect (p)
   ;; TODO: Challenge: Don't use gimp to figure out the collision rectangles.

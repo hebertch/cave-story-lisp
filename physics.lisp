@@ -64,7 +64,7 @@
 (defun offset-in-dir-pos (origin dist dir)
   (+v origin (offset-in-dir dist dir)))
 
-(defstruct offset-motion
+(defstructure offset-motion
   dir
   (dist 0)
   speed
@@ -73,7 +73,7 @@
   max-speed
   acc)
 
-(defstruct wave-motion
+(defstructure wave-motion
   dir
   amp
   speed
@@ -93,15 +93,19 @@
       (awhen (offset-motion-max-speed om)
 	(setf vel (clamp-zero vel it)))
 
-      (setf (offset-motion-dist om) pos
-	    (offset-motion-speed om) vel))))
+      (let ((om (copy-offset-motion om)))
+	(setf (offset-motion-dist om) pos
+	      (offset-motion-speed om) vel)
+	om))))
 
 (defun offset-motion-offset (o)
   (offset-in-dir (offset-motion-dist o)
 		 (offset-motion-dir o)))
 
 (defun wave-physics (w)
-  (incf (wave-motion-rads w) (* frame-time (wave-motion-speed w))))
+  (let ((w (copy-wave-motion w)))
+    (incf (wave-motion-rads w) (* frame-time (wave-motion-speed w)))
+    w))
 
 (defun wave-offset (w)
   (offset-in-dir (* (wave-motion-amp w) (sin (wave-motion-rads w)))

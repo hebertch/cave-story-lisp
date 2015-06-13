@@ -1,20 +1,22 @@
 (in-package :cave-story)
 
-(defstruct sprite-drawing
+(defstructure sprite-drawing
   layer
   sheet-key
   src-rect
   pos)
 
-(defstruct rect-drawing
+(defstructure rect-drawing
   (layer :debug)
   color
   rect
   filled?)
 
-(defstruct line-drawing
+(defstructure line-drawing
   (layer :debug)
   color a b)
+
+(defstructure text-line-drawing pos text layer)
 
 (defparameter red #(255 0 0 255))
 (defparameter green #(0 255 0 255))
@@ -31,6 +33,8 @@
   (rect-drawing-layer d))
 (defmethod drawing-layer ((d line-drawing))
   (line-drawing-layer d))
+(defmethod drawing-layer ((d text-line-drawing))
+  (text-line-drawing-layer d))
 
 (defvar render-debug? t
   "Whether to render the DEBUG-RENDER-LIST")
@@ -108,7 +112,9 @@ These are drawn relative to the SCREEN and not relative to the camera position."
 
 (defparameter debug-layers
   (list :debug :debug-damage-collision :debug-stage-collision :debug-pickup :debug-damageable :debug-dynamic-collision))
-(defparameter game-layers (list :gun :enemy :pickup :player :projectile :foreground :particle :hud-bg :hud :hud-fg))
+(defparameter game-layers (list :npc :gun :enemy :pickup :player :projectile :foreground :particle
+				:hud-bg :hud :hud-fg
+				:text-box :text))
 (defparameter layers (append game-layers debug-layers))
 (defparameter visible-layers game-layers)
 
@@ -168,7 +174,35 @@ These are drawn relative to the SCREEN and not relative to the camera position."
 
 (defparameter parallax-scale 1/8)
 
-(defun render (renderer render-list camera-pos)
+(defun get-text-size (font text)
+  (destructuring-bind (w h) (sdl.ttf:get-text-size font text)
+    (make-v w h)))
+
+(defun create-text-texture (renderer font text color)
+  ;; TODO: This should be a part of SDL.ttf at this point.
+  (let ((surf (sdl.ttf:render-text-solid font text color)))
+    (mvprog1
+     (values (sdl:create-texture-from-surface renderer surf) (get-text-size font text))
+     (sdl:free-surface surf))))
+
+(defun color->hex (color)
+  (let ((byte 0))
+    (loop for i to 3
+       do
+	 (setf (ldb (byte 8 (* 8 i)) byte) (aref color i)))
+    byte))
+
+(defparameter character-textures (make-hash-table))
+(defun get-character-texture (char)
+  (aif (gethash char character-textures)
+       it
+       (setf (gethash char character-textures)
+	     (mvlist (create-text-texture renderer font (string char) (color->hex white))))))
+
+(defun draw-text-line (pos text)
+  (push-screen-render (make-text-line-drawing :pos pos :text text :layer :text)))
+
+(defun render (renderer font render-list camera-pos)
   (sdl:set-render-draw-color renderer 128 128 128 255)
   (sdl:render-clear renderer)
 
@@ -185,6 +219,7 @@ These are drawn relative to the SCREEN and not relative to the camera position."
 					      (+ (* (1- y) len) (mod (* parallax-scale (y camera-pos)) len))))
 		       (zero-v)))))
 
+
   (dolist (r render-list)
     (cond
       ((sprite-drawing-p r) (render-sprite renderer r camera-pos))
@@ -197,6 +232,16 @@ These are drawn relative to the SCREEN and not relative to the camera position."
     (cond
       ((sprite-drawing-p r) (render-sprite renderer r (zero-v)))
       ((rect-drawing-p r) (render-rect renderer r (zero-v)))
-      ((line-drawing-p r) (render-line renderer r (zero-v)))))
+      ((line-drawing-p r) (render-line renderer r (zero-v)))
+      ((text-line-drawing-p r)
+       (let ((start-pos (text-line-drawing-pos r))
+	     (text (text-line-drawing-text r)))
+	 (loop for c across text
+	    for i from 0
+	    do
+	      (dbind (texture dims) (get-character-texture c)
+		(sdl:render-texture renderer texture
+				    (rect->sdl-rect (create-rect (zero-v) dims))
+				    (rect->sdl-rect (create-rect (+v start-pos (zero-v :x (* i (x dims)))) dims)))))))))
 
   (sdl:render-present renderer))

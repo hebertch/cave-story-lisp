@@ -9,7 +9,7 @@
 	  (nilf joystick))
 	joystick))))
 
-(defstruct (transient-input
+(defstructure (transient-input
 	     (:conc-name ti-))
   "Input that occurs in a single frame"
   pressed-keys
@@ -20,7 +20,7 @@
   released-joy-buttons
   mouse-wheel-dt)
 
-(defstruct input
+(defstructure input
   "Input that is persistent through updates."
   (mouse-coords (zero-v))
   held-buttons
@@ -115,6 +115,16 @@
   (find key (ti-released-keys (input-transient-input input))))
 (defun key-held? (input key)
   (find key (input-held-keys input)))
+
+(defun joy-key->num (keysym)
+  (position keysym '(:a :b :x :y :l :r :select :start)))
+
+(defun joy-pressed? (input keysym)
+  (let ((num (joy-key->num keysym)))
+    (find num (ti-pressed-joy-buttons (input-transient-input input)))))
+(defun joy-held? (input keysym)
+  (let ((num (joy-key->num keysym)))
+    (find num (input-held-joy-buttons input))))
 
 ;; Return lists:
 (defun pressed-keys (input &rest keys)

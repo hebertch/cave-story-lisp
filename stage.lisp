@@ -35,7 +35,9 @@
       (setf (aref stage 6 x) wall)
       (setf (aref stage 7 (incf x)) wall))
 
-    (register-drawable :draw-fn (curry #'draw-stage stage))
+    (let ((dead?-fn nil))
+      (def-entity-drawable
+	  (() (draw-stage stage))))
     stage))
 
 (defun stage-dims (stage)

@@ -1,7 +1,8 @@
 (in-package :cave-story)
 
 (defvar camera)
-(defstruct camera
+
+(defstructure camera
   focus
   vel
   target-fn
@@ -26,8 +27,9 @@
 			  (player-vel player))
 			:target-fn
 			(lambda ()
-			  (camera-target-from-player player)))))
-    (register-physics :physics-fn (curry #'camera-physics c))
+			  (camera-target-from-player player))))
+	(dead?-fn))
+    (def-entity-physics (() (camera-physics c)))
     c))
 
 (defparameter camera-speed-scale-factor 1/20)

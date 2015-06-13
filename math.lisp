@@ -118,7 +118,7 @@
 
 ;; Cycle (Animation Utilities?)
 
-(defstruct cycle seq (idx 0) len)
+(defstructure cycle seq (idx 0) len)
 (defun create-cycle (seq)
   (make-cycle :seq seq :len (length seq)))
 
@@ -126,34 +126,43 @@
   (elt (cycle-seq c) (cycle-idx c)))
 
 (defun cycle-next (c)
-  (incf (cycle-idx c))
-  (when (= (cycle-idx c) (cycle-len c))
-    (setf (cycle-idx c) 0))
-  (cycle-current c))
+  (let ((c (copy-cycle c)))
+    (incf (cycle-idx c))
+    (when (= (cycle-idx c) (cycle-len c))
+      (setf (cycle-idx c) 0))
+    c))
 
 (defun cycle-previous (c)
-  (if (= (cycle-idx c) 0)
-      (setf (cycle-idx c) (1- (cycle-len c)))
-      (decf (cycle-idx c)))
-  (cycle-current c))
+  (let ((c (copy-cycle c)))
+    (if (= (cycle-idx c) 0)
+	(setf (cycle-idx c) (1- (cycle-len c)))
+	(decf (cycle-idx c)))
+    c))
 
 (defun cycle-reset (c)
-  (setf (cycle-idx c) 0))
+  (let ((c (copy-cycle c)))
+    (setf (cycle-idx c) 0)))
 
-(defstruct anim-cycle cycle timer paused?)
+(defstructure anim-cycle
+    ;; State-vars
+    cycle
+  timer
+  paused?)
 
 (defun create-anim-cycle (&key fps seq callback dead?-fn start-paused?)
-  (let* ((cycle (create-cycle seq))
-	 (ac (make-anim-cycle :cycle cycle
+  ;; FPS, SEQ, start-paused? are all state.
+  ;; Callback is ref
+  (let* (;; State-vars
+	 (ac (make-anim-cycle :cycle (create-cycle seq)
 			      :paused? start-paused?)))
     (setf (anim-cycle-timer ac)
 	  (create-looping-timer
 	   fps
 	   (lambda ()
 	     (unless (anim-cycle-paused? ac)
-	       (cycle-next cycle)
+	       (setf (anim-cycle-cycle ac) (cycle-next (anim-cycle-cycle ac)))
 	       (awhen callback
-		 (funcall callback cycle))))
+		 (funcall callback (anim-cycle-cycle ac)))))
 	   dead?-fn))
     ac))
 
@@ -169,18 +178,18 @@
 (defun anim-cycle-current (c)
   (cycle-current (anim-cycle-cycle c)))
 
-(defun create-once-through-cycle (fps seq expire-fn)
+(defun create-once-through-cycler (fps seq expire-fn)
   (let* (dead?
 	 (cycle (create-cycle seq)))
     (create-looping-timer
      fps
      (lambda ()
-       (cycle-next cycle)
+       (setf cycle (cycle-next cycle))
        (when (zerop (cycle-idx cycle))
 	 (tf dead?)
 	 (funcall expire-fn)))
      (lambda () dead?))
-    cycle))
+    (lambda () (cycle-current cycle))))
 
 ;; Clamps
 

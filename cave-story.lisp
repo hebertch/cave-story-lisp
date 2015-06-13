@@ -23,6 +23,8 @@
 (defparameter update-period 1
   "Number of frames per update. 1 for real-time.")
 
+(defvar font)
+
 (defun main ()
   "Entry point to the game."
   (catch 'exit
@@ -35,12 +37,13 @@
 		(swank-tools:update)
 		(swank-tools:continuable
 		  (handle-input input renderer stage player)
-		  (when (key-pressed? input :r)
+		  (when (or (key-pressed? input :r) (joy-pressed? input :select))
 		    (reset))
 		  (when (>= frame-timer (* update-period frame-time))
 		    (unless paused?
 		      (update-and-render renderer stage player))
 		    (render renderer
+			    font
 			    render-list
 			    (camera-focus->camera-pos
 			     (clamp-pos (camera-focus camera) (stage-dims->camera-bounds (stage-dims stage)))))
@@ -81,20 +84,38 @@ This can be abused with the machine gun in TAS."
 	     (tf debug-toggle-off?)
 	     (toggle-visible-layer layer))))
 
-    (player-input player input)
-    (when (or (member 1 (ti-pressed-joy-buttons (input-transient-input input)))
-	      (key-pressed? input :x))
-      ;; Fire Gun
-      (player-fire-gun player gun-exps))
+    (ecase active-input-system
+      (:game
+       (player-input player input)
+       (when (or (joy-pressed? input :b) (key-pressed? input :x))
+	 ;; Fire Gun
+	 (player-fire-gun player gun-exps))
 
-    (when (or (key-pressed? input :a) (member 3 (ti-pressed-joy-buttons (input-transient-input input))))
-      (cycle-previous (player-gun-name-cycle player)))
+       (when (or (key-pressed? input :a) (joy-pressed? input :y))
+	 (setf (player-gun-name-cycle player) (cycle-previous (player-gun-name-cycle player))))
 
-    (when (or (key-pressed? input :s) (member 2 (ti-pressed-joy-buttons (input-transient-input input))))
-      (cycle-next (player-gun-name-cycle player)))
+       (when (or (key-pressed? input :s) (joy-pressed? input :x))
+	 (setf (player-gun-name-cycle player) (cycle-next (player-gun-name-cycle player)))))
+
+      (:dialog
+       (cond
+	 ((or (joy-pressed? input :b) (key-pressed? input :x))
+	  (dialog-ok-pressed))
+	 ((or (joy-held? input :a) (key-pressed? input :z)
+	      (joy-held? input :b) (key-pressed? input :x))
+	  (dialog-button-held))
+	 (t
+	  (dialog-buttons-released)))))
 
     (when (and paused? (key-pressed? input :n))
       (update-and-render renderer stage player))))
+
+(defun dialog-ok-pressed ()
+  )
+(defun dialog-button-held ()
+  (fast-text-speed))
+(defun dialog-buttons-released ()
+  (slow-text-speed))
 
 (defun collision-rects (pos size buffer-size)
   "Creates :TOP :LEFT :RIGHT :BOTTOM rects."
@@ -119,8 +140,8 @@ This can be abused with the machine gun in TAS."
 (defparameter dorito-friction-acc 0.00002)
 (defparameter dorito-bounce-speed 0.225)
 
-(defstruct dorito
-  cycle
+(defstructure dorito
+    cycle
   pos
   vel
   size
@@ -128,7 +149,7 @@ This can be abused with the machine gun in TAS."
 		(create-timer :length time :ms-remaining time)))
   dead?)
 
-(defstruct pickup type amt)
+(defstructure pickup type amt)
 
 (defun create-dorito (pos vel size)
   (let* ((d (make-dorito :pos pos
@@ -138,6 +159,10 @@ This can be abused with the machine gun in TAS."
     (setf (dorito-cycle d) (create-anim-cycle :fps 14 :seq (alexandria:iota 6)
 					      :dead?-fn dead?-fn))
 
+    (def-entity-ai
+	(()
+	 (unless (timer-active? (dorito-life-timer d))
+	   (tf (dorito-dead? d)))))
     (def-entity-physics
 	(()
 	 (physics-2d
@@ -171,10 +196,8 @@ This can be abused with the machine gun in TAS."
 
 (defun dorito-draw (d)
   (let ((life-tr (dorito-life-timer d)))
-    (unless (timer-active? (dorito-life-timer d))
-      (tf (dorito-dead? d)))
     (unless (and (< (timer-ms-remaining life-tr) (s->ms 1))
-		 (zerop (chunk-time-period life-tr 50)))
+		 (zerop (chunk-timer-period life-tr 50)))
       (draw-sprite
        :pickup :npc-sym
 
@@ -208,25 +231,26 @@ This can be abused with the machine gun in TAS."
       (collision-lambda
 	(maxf (y (dorito-vel dorito)) 0)))))
 
-(defstruct particle
-  cycle
+(defstructure particle
+    cycler
   sheet-key
   tile-y
   pos
   dead?)
 
 (defun create-particle (&key seq fps sheet-key tile-y pos)
-  (let ((p (make-particle :sheet-key sheet-key
-			  :tile-y tile-y
-			  :pos pos)))
-    (setf (particle-cycle p)
-	  (create-once-through-cycle 14 seq (lambda () (tf (particle-dead? p)))))
-    (register-drawable :draw-fn (curry #'particle-draw p) :dead?-fn (curry #'particle-dead? p))
+  (let* ((p (make-particle :sheet-key sheet-key
+			   :tile-y tile-y
+			   :pos pos))
+	 (dead?-fn (curry #'particle-dead? p)))
+    (setf (particle-cycler p)
+	  (create-once-through-cycler 14 seq (lambda () (tf (particle-dead? p)))))
+    (def-entity-drawable (() (particle-draw p)))
     p))
 
 (defun particle-draw (particle)
   (draw-sprite :particle (particle-sheet-key particle)
-	       (tile-rect (tile-v (cycle-current (particle-cycle particle))
+	       (tile-rect (tile-v (funcall (particle-cycler particle))
 				  (particle-tile-y particle)))
 	       (particle-pos particle)))
 
@@ -281,12 +305,12 @@ This can be abused with the machine gun in TAS."
 	    (cons :negative digits)
 	    (cons :positive digits)))))
 
-(defstruct floating-number
-  (offset (make-offset-motion
-	   :dir :up
-	   :speed
-	   (/ (tiles 1/30) frame-time)
-	   :max-dist (tiles 1)))
+(defstructure floating-number
+    (offset (make-offset-motion
+	     :dir :up
+	     :speed
+	     (/ (tiles 1/30) frame-time)
+	     :max-dist (tiles 1)))
 
   (life-timer (let ((time (s->ms 2)))
 		(create-timer :length time :ms-remaining time)))
@@ -305,20 +329,21 @@ This can be abused with the machine gun in TAS."
        (progn
 	 (reset-timer (floating-number-life-timer it))
 	 (decf (floating-number-amt it) amt))
-       (let ((dn (make-floating-number :origin-fn origin-fn
-				       :amt (- amt))))
+       (let* ((dn (make-floating-number :origin-fn origin-fn
+					:amt (- amt)))
+	      (dead?-fn (curry #'floating-number-dead? dn)))
 	 (setf (gethash e damage-numbers) dn)
-	 (register-drawable :draw-fn (curry #'draw-floating-number dn)
-			    :dead?-fn (curry #'floating-number-dead? dn))
-	 (register-physics :physics-fn (curry #'floating-number-physics dn)
-			   :dead?-fn (curry #'floating-number-dead? dn)))))
+	 (def-entity-drawable
+	     (() (draw-floating-number dn)))
+
+	 (def-entity-physics
+	     (() (floating-number-physics dn))))))
 
 (defun floating-number-physics (fn)
-  (offset-motion-physics (floating-number-offset fn)))
+  (fnf (floating-number-offset fn) #'offset-motion-physics))
 
 (defun bat-physics (bat)
-  (wave-physics (bat-wave-motion bat)))
-
+  (fnf (bat-wave-motion bat) #'wave-physics))
 
 (defun floating-number-dead? (fn)
   (not (timer-active? (floating-number-life-timer fn))))
@@ -358,11 +383,110 @@ This can be abused with the machine gun in TAS."
     (setf lvl 2))
   (elt (cdr (assoc gun-name gun-level-exps)) lvl))
 
-(defun create-hud (player current-gun-experience)
-  (let* ((dead?-fn (lambda () (player-dead? player)))
+(comment-code
+  ("If there are no more red flowers we can, hopefully, avoid the war."
+   :wait
+   :clear-text
+   "Well, that's a pretty heavy responsibility, you think?"
+   :wait
+   :close)
+  ("Do you want to save?"
+   (:yes-or-no
+    yes-fn
+    no-fn))
+  ("Aaaaahhh!"
+   :wait
+   :close
+   :empty-text
+   (:open :curly)
+   "Hey!!"
+   :wait
+   :close
+   (:pause 50)
+   :open
+   "Look, a visitor after such a long time!!"
+   :wait
+   "I know what you want to do!"
+   :wait
+   "But you better wake up!" ;; Appends text.
+   :wait
+   "The Mimiga aren't the enemy!"
+   :wait
+   "They're totally harmless!"
+   :wait
+   :clear-text
+   "I feel sorry for you..."
+   :wait
+   :close
+   ;; Other stuff...
+   :open
+   "I'm on the Mimiga side and anot gonna lose to you!!"
+   :wait))
+
+(defun slow-text-speed ()
+  (setf text-speed 100))
+(defun fast-text-speed ()
+  (setf text-speed 25))
+(defparameter text-speed 100)
+(defparameter cursor-blink-time 100)
+
+(defun create-text-display (pos text)
+  (let* ((entity-system-type :dialog)
+	 (dead?)
+	 (dead?-fn (lambda () dead?))
+	 (num-chars 0)
+	 (timer (create-expiring-timer text-speed dead?-fn t))
+	 (wait-for-input? t)
+	 (wait-time 0))
+
+    (def-entity-ai
+	(()
+	 (cond
+	   ((= num-chars (length text))
+	    (incf wait-time frame-time)
+	    (when (and wait-for-input?
+		       (> 2 (chunk-time-period wait-time cursor-blink-time 5)))
+	      (let ((char-dims (get-text-size font " "))
+		    (w (x (get-text-size font text))))
+		(push-screen-render
+		 (make-rect-drawing :rect (create-rect (+v pos (make-v w 0)) char-dims)
+				    :color white
+				    :layer :text
+				    :filled? t)))))
+	   ((not (timer-active? timer))
+	    (incf num-chars)
+	    (push-sound :text-click)
+	    (setf (timer-length timer) text-speed)
+	    (reset-timer timer)))))
+
+    (def-entity-drawable
+	(()
+	 (draw-textbox 5 21 30 8)
+	 (draw-text-line pos (subseq text 0 num-chars))))))
+
+(defun create-jenka (player)
+  (let* ((dead?)
+	 facing
+	 (pos (tile-v 24 9))
+	 (dead?-fn (lambda () dead?))
+	 (cycle (create-anim-cycle :fps 3/2
+				   :seq #(0 1)
+				   :dead?-fn dead?-fn)))
+    (def-entity-ai
+	(()
+	 (setf facing (face-player pos player))))
+    (def-entity-drawable
+	(()
+	 (draw-sprite :npc :npc-regu (tile-rect (tile-v (+ 11 (anim-cycle-current cycle)) (if (eq facing :left) 2 3))) pos)))))
+
+(defun create-hud (player current-gun-exp-fn)
+  ;; Player and current-gun-exp-fn are references to outside entities.
+  (let* (;; State-vars
+	 last-health-amt
+	 (dead?-fn (lambda () (player-dead? player)))
 	 (timer (create-expiring-timer (s->ms 1) dead?-fn))
-	 (health-change-timer (create-expiring-timer (s->ms 1/2) dead?-fn))
-	 last-health-amt)
+	 (health-change-timer (create-expiring-timer (s->ms 1/2) dead?-fn)))
+
     (def-entity-drawable
 	(()
 	 (let ((bar-tile/2-w 5)
@@ -399,14 +523,14 @@ This can be abused with the machine gun in TAS."
 	      exp-pos)
 
 	     (when (and (timer-active? timer)
-			(zerop (chunk-time-period timer 50)))
+			(zerop (chunk-timer-period timer 50)))
 	       (draw-hud-sprite :hud-fg
 				:text-box
 				(create-rect (tiles/2-v 5 10)
 					     (tiles/2-v bar-tile/2-w 1))
 				exp-pos))
 
-	     (mvbind (exp gun-name) (funcall current-gun-experience)
+	     (mvbind (exp gun-name) (funcall current-gun-exp-fn)
 	       (let* ((current-level (gun-level exp (cdr (assoc gun-name gun-level-exps))))
 		      (next-lvl-exp (exp-for-gun-level gun-name current-level))
 		      (current-lvl-exp (if (zerop current-level) 0 (exp-for-gun-level gun-name (1- current-level)))))
@@ -433,26 +557,66 @@ This can be abused with the machine gun in TAS."
 
 		 (draw-hud-number 3 (1+ current-level))))))))
 
+    ;; My interface.
     (values (lambda () (reset-timer timer))
 	    (lambda ()
 	      (setf last-health-amt (player-health-amt player))
 	      (reset-timer health-change-timer)))))
+
+(defun draw-textbox-tile (src-pos pos)
+  (let ((size (both-v (tiles/2 1))))
+    (draw-hud-sprite :text-box :text-box
+		     (create-rect src-pos size)
+		     pos)))
+
+(defun draw-textbox (text-x text-y text-width text-height)
+  (let ((right 30)
+	(left 0)
+	(top 0)
+	(mid 1)
+	(bottom 2)
+	(top-y text-y)
+	(bottom-y (+ text-y text-height -1)))
+
+    (draw-textbox-tile (tiles/2-v left top) (tiles/2-v text-x top-y))
+    (draw-textbox-tile (tiles/2-v left bottom) (tiles/2-v text-x bottom-y))
+
+    (dotimes (i (- text-height 2))
+      (draw-textbox-tile (tiles/2-v left mid) (tiles/2-v text-x (+ i text-y 1))))
+
+    (dotimes (i (- text-width 2))
+      (let ((x (+ 1 i text-x)))
+	(dotimes (j (- text-height 2))
+	  (draw-textbox-tile (tiles/2-v mid mid) (tiles/2-v x (+ j text-y 1))))
+	(draw-textbox-tile (tiles/2-v mid top) (tiles/2-v x top-y))
+	(draw-textbox-tile (tiles/2-v mid bottom) (tiles/2-v x bottom-y))))
+
+    (let ((x (+ -1 text-width text-x)))
+      (draw-textbox-tile (tiles/2-v right top) (tiles/2-v x top-y))
+      (dotimes (i (- text-height 2))
+	(draw-textbox-tile (tiles/2-v right mid) (tiles/2-v x (+ 1 text-y i))))
+      (draw-textbox-tile (tiles/2-v right bottom) (tiles/2-v x bottom-y)))))
+
+(defvar active-update-systems (list :game))
+(defvar active-input-system :game)
+(defvar active-draw-systems (list :game))
 
 (defun update-and-render (renderer stage player)
   "The Main Loop, called once per FRAME-TIME."
 
   (nilf render-list screen-render-list)
 
-  (update-timer-subsystem)
-  (update-ai-subsystem)
-  (update-physics-subsystem)
-  (update-bullet-subsystem)
-  (update-stage-collision-subsystem stage)
-  (update-pickup-subsystem player)
+  (update-timer-subsystem active-update-systems)
+  (update-ai-subsystem active-update-systems)
+  (update-physics-subsystem active-update-systems)
+  (update-bullet-subsystem active-update-systems)
+  (update-stage-collision-subsystem active-update-systems stage)
+  (update-pickup-subsystem active-update-systems player)
 
-  (update-damage-collision-subsystem player)
-  (update-dynamic-collision-subsystem player)
-  (update-drawable-subsystem)
+  (update-damage-collision-subsystem active-update-systems player)
+  (update-dynamic-collision-subsystem active-update-systems player)
+
+  (update-drawable-subsystem active-draw-systems)
 
   (remove-all-dead)
 
@@ -470,17 +634,46 @@ This can be abused with the machine gun in TAS."
   (play-sounds sfx-play-list)
   (nilf sfx-play-list))
 
+(defparameter dialog-text-pos (tiles/2-v 7 24))
+
+(defvar reset-vars (make-hash-table))
+(defmacro def-reset-var (name init-form)
+  `(progn
+     (defvar ,name)
+     (setf (gethash ',name reset-vars) (lambda () ,init-form))))
+
+(def-reset-var paused? nil)
+(def-reset-var player nil)
+(def-reset-var active-update-systems (list :game))
+(def-reset-var active-draw-systems (list :game))
+(def-reset-var active-input-system :game)
+(def-reset-var projectile-groups nil)
+(def-reset-var input (make-input))
+(def-reset-var gun-exps (loop for g across gun-names collecting (cons g 0)))
+(def-reset-var damage-numbers (make-hash-table :test 'eq))
+
 (defun reset ()
-  (nilf paused?)
+  (dohash (k v) reset-vars
+    (setf (symbol-value k) (funcall v)))
+
   (switch-to-new-song :weed)
   (set-music-volume 20)
 
+  (comment-code
+    (nilf paused?)
+    (setf active-update-systems (list :game))
+    (setf active-draw-systems (list :game))
+    (setf active-input-system :game)
+    (nilf player)
+    (nilf projectile-groups)
+    (setf input (make-input))
+    (setf gun-exps (loop for g across gun-names collecting (cons g 0)))
+    (setf stage (basic-stage))
+    (setf damage-numbers (make-hash-table :test 'eq)))
+
   (dolist (s subsystems)
     (funcall (cdr s)))
-  (nilf player)
-  (nilf projectile-groups)
-  (setf input (make-input))
-  (setf gun-exps (loop for g across gun-names collecting (cons g 0)))
+  (setf stage (basic-stage))
 
   (mvbind (hud-exp-flash-fn hud-player-take-damage-fn)
       (create-hud player (lambda ()
@@ -490,7 +683,7 @@ This can be abused with the machine gun in TAS."
 			      exp
 			      gun-name))))
 
-    (setf player (create-player
+    (setf player (create-default-player
 		  hud-player-take-damage-fn
 		  (lambda (gun-name amt)
 		    (incf (alexandria:assoc-value gun-exps gun-name) amt)
@@ -499,11 +692,8 @@ This can be abused with the machine gun in TAS."
 		      (funcall hud-exp-flash-fn))
 		    (minf (alexandria:assoc-value gun-exps gun-name)
 			  (exp-for-gun-level gun-name :max))))))
-
-  (setf stage (basic-stage))
-
   (setf camera (create-player-camera (v/2 window-dims) (zero-v) player))
-  (setf damage-numbers (make-hash-table :test 'eq))
+  (create-jenka player)
 
   (create-critter (make-v (+ (tiles 14) (tiles 1/4)) (tiles 6)) player)
   (dolist (x '(1 3 6 7))
@@ -514,6 +704,7 @@ This can be abused with the machine gun in TAS."
   "Called at application startup."
   (sdl:init '(:audio :video :joystick))
   (sdl.ttf:init)
+  (setf font (sdl.ttf:open-font "./content/VeraMoBd.ttf" 19))
   (sdl.mixer:open-audio sdl.mixer:+default-frequency+
 			sdl.mixer:+default-format+
 			2
@@ -536,6 +727,7 @@ This can be abused with the machine gun in TAS."
   "Called at application closing to cleanup all subsystems."
   (cleanup-input input)
   (cleanup-all-resources)
+  (clrhash character-textures)
 
   (sdl.mixer:close-audio)
   (sdl:destroy-renderer renderer)
@@ -548,14 +740,15 @@ This can be abused with the machine gun in TAS."
   "Quits the application."
   (throw 'exit nil))
 
-(defstruct bat
-  cycle
+(defstructure bat
+    ;; State-vars
+    cycle
   origin
   facing
+  dead?
   (wave-motion (make-wave-motion :dir :up
 				 :amp (tiles 2)
-				 :speed (/ 0.0325 frame-time)))
-  dead?)
+				 :speed (/ 0.0325 frame-time))))
 
 (defun face-player (pos player)
   (if (< (x pos) (x (player-pos player))) :right :left))
@@ -609,14 +802,20 @@ This can be abused with the machine gun in TAS."
   (make-rect :pos (tile-v 0 1/4) :size (tile-v 1 3/4)))
 
 (defun create-critter (pos player)
-  (let* (dead?
+  ;; Pos: State-var
+  ;; Player: referenced-entity
+  (let* ((collision-rects (rect->collision-rects (centered-rect (tile-dims/2) (both-v (tiles 3/4))) 6))
+	 ;; State-vars
+	 dead?
 	 (id (gensym))
 	 (vel (make-v 0 0))
-	 (dead?-fn (lambda () dead?))
-	 (collision-rects (rect->collision-rects (centered-rect (tile-dims/2) (both-v (tiles 3/4))) 6))
-	 (sleep-timer (create-expiring-timer 300 dead?-fn))
 	 ground-tile
-	 facing)
+	 facing
+
+	 ;; My-interface
+	 (dead?-fn (lambda () dead?))
+	 ;; Referenced entities
+	 (sleep-timer (create-expiring-timer 300 dead?-fn)))
 
     (def-entity-ai
 	(()
