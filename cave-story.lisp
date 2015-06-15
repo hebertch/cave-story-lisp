@@ -16,6 +16,16 @@
 (defparameter update-period 1
   "Number of frames per update. 1 for real-time.")
 
+(defstructure game
+    player
+  camera
+  stage
+  projectile-groups
+  damage-numbers
+  active-systems
+
+  (input (make-input)))
+
 (defun main ()
   "Entry point to the game."
   (catch 'exit
@@ -501,25 +511,6 @@ This can be abused with the machine gun in TAS."
 	   (draw-textbox 5 21 30 8)
 	   (draw-text-line pos (subseq text 0 num-chars)))))))
 
-(defun create-jenka (player)
-  (let* ((dead?)
-	 facing
-	 (pos (tile-v 24 9))
-	 (dead?-fn (lambda () dead?))
-	 (tc (create-timed-cycle 3/2 #(0 1))))
-
-    (def-entity-timer (() (fnf tc #'update-timed-cycle)))
-    (def-entity-ai
-	(()
-	 (setf facing (face-player pos player))))
-    (def-entity-drawable
-	(()
-	 (draw-sprite :npc
-		      :npc-regu
-		      (tile-rect (tile-v (+ 11 (timed-cycle-current tc))
-					 (if (eq facing :left) 2 3)))
-		      pos)))))
-
 (defstructure hud
     player
   gun-exps
@@ -697,15 +688,6 @@ This can be abused with the machine gun in TAS."
 
 (defvar global-paused?)
 
-(defstructure game
-    player
-  camera
-  stage
-  projectile-groups
-  damage-numbers
-  active-systems
-
-  (input (make-input)))
 
 (defparameter entity-systems '(:game :dialog))
 
@@ -793,8 +775,6 @@ This can be abused with the machine gun in TAS."
     (let* ((player (create-default-player hud projectile-groups damage-numbers gun-exps active-systems))
 	   (camera (create-player-camera (v/2 window-dims) (zero-v) player)))
       (create-hud player gun-exps :id hud)
-
-      (create-jenka player)
 
       (create-critter (make-v (+ (tiles 14) (tiles 1/4)) (tiles 6)) player damage-numbers)
       (dolist (x '(1 3 6 7))
