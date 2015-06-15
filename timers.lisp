@@ -2,46 +2,46 @@
 
 (defstructure timer length (ms-remaining 0))
 
-(defun create-timer (&key length (ms-remaining 0))
-  (let* ((tr (make-timer :length length :ms-remaining ms-remaining))
-	 (dead?-fn (curry (compose #'not #'timer-active?) tr)))
-    (def-entity-timer
-	(() (update-timer tr)))
-    tr))
+(defun create-expiring-timer (length &optional (begin-active? nil))
+  (make-timer :length length :ms-remaining (if begin-active?
+					       length
+					       0)))
+
+(defun fps-make-timer (fps &key (begin-active? t))
+  (let ((len (fps->ms-per-frame fps)))
+    (make-timer :length len :ms-remaining (if begin-active? len 0))))
 
 (defun create-callback-timer (length callback-fn &optional (begin-active? t))
-  (let* ((tr (make-timer :length length :ms-remaining (if begin-active?
-							  length
-							  0)))
-	 (dead?-fn (lambda () (not (timer-active? tr)))))
-    (def-entity-timer (()
-		       (update-timer tr)
-		       (unless (timer-active? tr)
-			 (funcall callback-fn))))))
+  (let* ((dead?)
+	 (dead?-fn (lambda () dead?))
+	 (tr (create-expiring-timer length begin-active?)))
 
-(defun create-expiring-timer (length dead?-fn &optional (begin-active? nil))
-  (let ((tr (make-timer :length length :ms-remaining (if begin-active?
-							 length
-							 0))))
-    (def-entity-timer (() (update-timer tr)))
-    tr))
+    (def-entity-timer
+	(()
+	 (mvbind (ntr ticked?) (update-timer tr)
+	   (when ticked?
+	     (tf dead?)
+	     (funcall callback-fn))
+	   (setf tr ntr))))))
 
-(defun create-looping-timer (fps tick-fn dead?-fn)
-  (let ((length (fps->ms-per-frame fps)))
-    (let ((tr (make-timer :length length :ms-remaining length)))
-      (def-entity-timer (()
-			 (update-timer tr)
-			 (unless (timer-active? tr)
-			   (incf (timer-ms-remaining tr) (timer-length tr))
-			   (funcall tick-fn))))
-      tr)))
+
+(defun update-loop-timer (tr)
+  (mvbind (tr ticked?) (update-timer tr)
+    (unless (timer-active? tr)
+      (incf (timer-ms-remaining tr) (timer-length tr)))
+    (values tr ticked?)))
 
 (defun timer-active? (tr)
   (plusp (timer-ms-remaining tr)))
 
 (defun update-timer (tr)
-  (when (timer-active? tr)
-    (decf (timer-ms-remaining tr) frame-time)))
+  (let ((tr (copy-timer tr))
+	ticked?)
+    (when (timer-active? tr)
+      (decf (timer-ms-remaining tr) frame-time)
+      (unless (timer-active? tr)
+	(tf ticked?)))
+    (values tr ticked?)))
 
 (defun chunk-time-period (tm length-ms &optional (chunks-per-period 2))
   "Chunks the time remaining into chunks of LENGTH-MS. Returns the idx of the chunk in the period."
@@ -52,4 +52,6 @@
   (chunk-time-period (timer-ms-remaining tr) length-ms chunks-per-period))
 
 (defun reset-timer (tr)
-  (setf (timer-ms-remaining tr) (timer-length tr)))
+  (let ((tr (copy-timer tr)))
+    (setf (timer-ms-remaining tr) (timer-length tr))
+    tr))

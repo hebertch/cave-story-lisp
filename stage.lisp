@@ -131,5 +131,5 @@ Returns the TILE-TYPE of the colliding tile."
     (dotimes (col (array-dimension stage 1))
       (when (aref stage row col)
 	(draw-sprite :foreground :prt-cave
-		     (funcall #'tile-rect (tile-pos (cdr (aref stage row col))))
+		     (tile-rect (tile-pos (cdr (aref stage row col))))
 		     (tile-v col row))))))

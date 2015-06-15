@@ -10,43 +10,39 @@
 
 (defvar window)
 (defvar renderer)
-(defvar input)
-
-(defvar stage)
-(defvar player)
-(defvar projectile-groups)
-
-(defvar gun-exps)
+(defvar font)
 
 ;; Debug params.
-(defparameter paused? nil)
 (defparameter update-period 1
   "Number of frames per update. 1 for real-time.")
-
-(defvar font)
 
 (defun main ()
   "Entry point to the game."
   (catch 'exit
     (unwind-protect
 	 (let ((frame-timer 0)
-	       last-update-time)
-	   (init)
+	       last-update-time
+	       game)
+	   (setq game (init))
 	   (setf last-update-time (sdl:get-ticks))
 	   (loop do
 		(swank-tools:update)
 		(swank-tools:continuable
-		  (handle-input input renderer stage player)
-		  (when (or (key-pressed? input :r) (joy-pressed? input :select))
-		    (reset))
+		  (setf game (handle-input game))
+		  (let ((input (game-input game)))
+		    (when (and global-paused? (key-pressed? input :n))
+		      (update-and-render renderer game))
+		    (when (or (key-pressed? input :r) (joy-pressed? input :select))
+		      (setq game (reset))))
 		  (when (>= frame-timer (* update-period frame-time))
-		    (unless paused?
-		      (update-and-render renderer stage player))
+		    (unless global-paused?
+		      (update-and-render renderer game))
 		    (render renderer
 			    font
 			    render-list
 			    (camera-focus->camera-pos
-			     (clamp-pos (camera-focus camera) (stage-dims->camera-bounds (stage-dims stage)))))
+			     (clamp-pos (ecall (game-camera game) :focus)
+					(stage-dims->camera-bounds (stage-dims (game-stage game))))))
 		    (decf frame-timer (* update-period frame-time)))
 
 		  (let ((dt (- (sdl:get-ticks) last-update-time)))
@@ -57,15 +53,28 @@
 		  (sdl:delay 1))))
       (cleanup))))
 
+(defun copy-hash-table (hash-table)
+  (let ((ht (make-hash-table
+	     :test (hash-table-test hash-table)
+	     :rehash-size (hash-table-rehash-size hash-table)
+	     :rehash-threshold (hash-table-rehash-threshold hash-table)
+	     :size (hash-table-size hash-table))))
+    (loop for key being each hash-key of hash-table
+       using (hash-value value)
+       do (setf (gethash key ht) value)
+       finally (return ht))))
+
 (let (debug-toggle-off?)
-  (defun handle-input (input renderer stage player)
+  (defun handle-input (game &aux input)
     "Handles input. Often called many times between updates.
 This can be abused with the machine gun in TAS."
-    (gather-input input)
-    (when (any? (held-keys input :capslock :escape))
+    (modify-game (game)
+      (fnf input #'gather-input))
+    (setf input (game-input game))
+    (when (any? (intersection (input-held-keys input) '(:capslock :escape) :test #'eq))
       (quit))
     (when (or (key-pressed? input :p) (member 7 (ti-pressed-joy-buttons (input-transient-input input))))
-      (togglef paused?))
+      (togglef global-paused?))
 
     (when (key-pressed? input :f1)
       (mapc (if debug-toggle-off?
@@ -84,18 +93,13 @@ This can be abused with the machine gun in TAS."
 	     (tf debug-toggle-off?)
 	     (toggle-visible-layer layer))))
 
-    (ecase active-input-system
+
+    (update-input-subsystem (ecall (game-active-systems game) :input) input)
+    (ecase (first (ecall (game-active-systems game) :input))
       (:game
-       (player-input player input)
        (when (or (joy-pressed? input :b) (key-pressed? input :x))
 	 ;; Fire Gun
-	 (player-fire-gun player gun-exps))
-
-       (when (or (key-pressed? input :a) (joy-pressed? input :y))
-	 (setf (player-gun-name-cycle player) (cycle-previous (player-gun-name-cycle player))))
-
-       (when (or (key-pressed? input :s) (joy-pressed? input :x))
-	 (setf (player-gun-name-cycle player) (cycle-next (player-gun-name-cycle player)))))
+	 (player-fire-gun (game-player game))))
 
       (:dialog
        (cond
@@ -106,9 +110,7 @@ This can be abused with the machine gun in TAS."
 	  (dialog-button-held))
 	 (t
 	  (dialog-buttons-released)))))
-
-    (when (and paused? (key-pressed? input :n))
-      (update-and-render renderer stage player))))
+    game))
 
 (defun dialog-ok-pressed ()
   )
@@ -140,88 +142,101 @@ This can be abused with the machine gun in TAS."
 (defparameter dorito-friction-acc 0.00002)
 (defparameter dorito-bounce-speed 0.225)
 
+(defstructure pickup type amt)
 (defstructure dorito
-    cycle
+    (life-timer (create-expiring-timer (s->ms 8) t))
+  (anim-cycle (create-timed-cycle 14 (alexandria:iota 6)))
+  dead?
   pos
   vel
-  size
-  (life-timer (let ((time (s->ms 8)))
-		(create-timer :length time :ms-remaining time)))
-  dead?)
-
-(defstructure pickup type amt)
+  size)
 
 (defun create-dorito (pos vel size)
   (let* ((d (make-dorito :pos pos
-			 :size size
-			 :vel vel))
-	 (dead?-fn (curry #'dorito-dead? d)))
-    (setf (dorito-cycle d) (create-anim-cycle :fps 14 :seq (alexandria:iota 6)
-					      :dead?-fn dead?-fn))
+			 :vel vel
+			 :size size))
+	 (dead?-fn (lambda () (dorito-dead? d))))
+
+    (def-entity-timer
+	(() (setf d (with-dorito-copy-slots (d)
+		      (fnf anim-cycle #'update-timed-cycle)
+		      d))))
 
     (def-entity-ai
 	(()
-	 (unless (timer-active? (dorito-life-timer d))
-	   (tf (dorito-dead? d)))))
+	 (setf d (with-dorito-copy-slots (d)
+		   (fnf life-timer #'update-timer)
+		   (unless (timer-active? life-timer)
+		     (tf dead?))
+		   d))))
+
     (def-entity-physics
 	(()
-	 (physics-2d
-	  (dorito-pos d)
-	  (dorito-vel d)
-	  (friction-accelerator dorito-friction-acc)
-	  (const-accelerator gravity-acc)
-	  :clamper-vy
-	  (clamper+- terminal-speed))))
+	 (setf d (with-dorito-copy-slots (d)
+		   (physics-2d
+		    pos
+		    vel
+		    (friction-accelerator dorito-friction-acc)
+		    (const-accelerator gravity-acc)
+		    :clamper-vy
+		    (clamper+- terminal-speed))
+		   d))))
 
     (def-entity-stage-collision
 	((stage)
-	 (dorito-stage-collisions d stage)))
+	 (setf d (with-dorito-copy-slots (d)
+		   (mvsetq (pos vel)
+			   (dorito-stage-collisions pos vel size stage))
+		   d))))
 
     (def-entity-drawable
 	(()
-	 (dorito-draw d)))
+	 (with-dorito-slots (d)
+	   (dorito-draw life-timer (timed-cycle-current anim-cycle) (dorito-size d) (dorito-pos d)))))
 
     (def-entity-pickup
 	(()
-	 (rect-offset (dorito-collision-rect d) (dorito-pos d)))
+	 (rect-offset (dorito-collision-rect size) (dorito-pos d)))
 	(()
-	 (push-sound :pickup)
-	 (tf (dorito-dead? d)))
+	 (setf d
+	       (with-dorito-copy-slots (d)
+		 (push-sound :pickup)
+		 (tf dead?)
+		 d)))
       (()
-       (make-pickup :type :dorito :amt (ecase size
+       (make-pickup :type :dorito :amt (ecase (dorito-size d)
 					 (:small 1)
 					 (:medium 10)
-					 (:large 20)))))
-    d))
+					 (:large 20)))))))
 
-(defun dorito-draw (d)
-  (let ((life-tr (dorito-life-timer d)))
-    (unless (and (< (timer-ms-remaining life-tr) (s->ms 1))
-		 (zerop (chunk-timer-period life-tr 50)))
-      (draw-sprite
-       :pickup :npc-sym
+(defun dorito-draw (life-tr anim-cycle-current size pos)
+  (unless (and (< (timer-ms-remaining life-tr) (s->ms 1))
+	       (zerop (chunk-timer-period life-tr 50)))
+    (draw-sprite
+     :pickup :npc-sym
 
-       (create-rect
-	(tile-v (anim-cycle-current (dorito-cycle d))
-		(1+ (position (dorito-size d) '(:small :medium :large))))
-	(make-v (tiles 1) (1- (tiles 1))))
+     (create-rect
+      (tile-v anim-cycle-current
+	      (1+ (position size '(:small :medium :large))))
+      (make-v (tiles 1) (1- (tiles 1))))
 
-       (dorito-pos d)))))
+     pos)))
 
-(defun dorito-collision-rect (d)
+(defun dorito-collision-rect (size)
   (centered-rect (tile-dims/2)
-		 (ecase (dorito-size d)
+		 (ecase size
 		   (:small (both-v (tiles 3/5)))
 		   (:medium (both-v (tiles 3/4)))
 		   (:large (both-v (tiles 1))))))
 
-(defun dorito-stage-collisions (dorito stage)
-  (let ((reverse-x (collision-lambda
-		     (setf (x (dorito-vel dorito)) (- (x (dorito-vel dorito)))))))
-    (stage-collisions ((dorito-pos dorito) (rect->collision-rects (dorito-collision-rect dorito)) stage)
+(defun dorito-stage-collisions (pos vel size stage)
+  (let ((vel (copy-v2 vel))
+	(reverse-x (collision-lambda
+		     (setf (x vel) (- (x vel))))))
+    (stage-collisions (pos (rect->collision-rects (dorito-collision-rect size)) stage)
       :bottom
       (collision-lambda
-	(setf (y (dorito-vel dorito)) (- dorito-bounce-speed))
+	(setf (y vel) (- dorito-bounce-speed))
 	(push-sound :dorito-bounce))
 
       :right reverse-x
@@ -229,30 +244,45 @@ This can be abused with the machine gun in TAS."
 
       :top
       (collision-lambda
-	(maxf (y (dorito-vel dorito)) 0)))))
+	(maxf (y vel) 0)))
+    (values pos vel)))
 
 (defstructure particle
-    cycler
+    dead?
+  timed-cycle
   sheet-key
   tile-y
-  pos
-  dead?)
+  pos)
 
-(defun create-particle (&key seq fps sheet-key tile-y pos)
-  (let* ((p (make-particle :sheet-key sheet-key
+(defun create-particle (&key seq fps sheet-key tile-y pos (id (gen-entity-id)))
+  (let* ((p (make-particle :timed-cycle (make-timed-cycle :timer (fps-make-timer fps)
+							  :cycle (create-cycle seq))
+			   :sheet-key sheet-key
 			   :tile-y tile-y
 			   :pos pos))
-	 (dead?-fn (curry #'particle-dead? p)))
-    (setf (particle-cycler p)
-	  (create-once-through-cycler 14 seq (lambda () (tf (particle-dead? p)))))
-    (def-entity-drawable (() (particle-draw p)))
-    p))
+	 (dead?-fn (lambda () (particle-dead? p))))
 
-(defun particle-draw (particle)
-  (draw-sprite :particle (particle-sheet-key particle)
-	       (tile-rect (tile-v (funcall (particle-cycler particle))
-				  (particle-tile-y particle)))
-	       (particle-pos particle)))
+    (def-entity-timer
+	(()
+	 (modify-particle (p)
+	   (mvbind (tc ticked?) (update-timed-cycle timed-cycle)
+	     (setf timed-cycle tc)
+	     (when (and ticked?
+			(zerop (cycle-idx (timed-cycle-cycle timed-cycle))))
+	       (tf dead?))))))
+
+    (def-entity-drawable
+	(()
+	 (with-particle-slots (p)
+	   (particle-draw sheet-key (timed-cycle-cycle timed-cycle) tile-y pos)))))
+  (register-entity-interface
+   id
+   (dlambda)))
+
+(defun particle-draw (sheet-key cycle tile-y pos)
+  (draw-sprite :particle sheet-key
+	       (tile-rect (tile-v (cycle-current cycle) tile-y))
+	       pos))
 
 (defun make-projectile-star-particle (center-pos)
   (create-particle :seq (alexandria:iota 4)
@@ -313,62 +343,55 @@ This can be abused with the machine gun in TAS."
 	     :max-dist (tiles 1)))
 
   (life-timer (let ((time (s->ms 2)))
-		(create-timer :length time :ms-remaining time)))
-  origin-fn
+		(create-expiring-timer time t)))
+  entity
   amt)
 
 (defun draw-floating-number (fn)
-  (draw-number (+v (funcall (floating-number-origin-fn fn))
+  (draw-number (+v (ecall (floating-number-entity fn) :origin)
 		   (offset-motion-offset (floating-number-offset fn)))
 	       (floating-number-amt fn)))
 
-(defvar damage-numbers)
+(defun create-floating-number (entity amt &key (id (gen-entity-id)))
+  (let* ((dn (make-floating-number :entity entity :amt amt))
+	 (dead?-fn (lambda () (floating-number-dead? dn))))
 
-(defun update-damage-number-amt (e origin-fn amt)
-  (aif (gethash e damage-numbers)
-       (progn
-	 (reset-timer (floating-number-life-timer it))
-	 (decf (floating-number-amt it) amt))
-       (let* ((dn (make-floating-number :origin-fn origin-fn
-					:amt (- amt)))
-	      (dead?-fn (curry #'floating-number-dead? dn)))
-	 (setf (gethash e damage-numbers) dn)
-	 (def-entity-drawable
-	     (() (draw-floating-number dn)))
+    (def-entity-timer
+	(()
+	 (modify-floating-number (dn)
+	   (fnf life-timer #'update-timer))))
 
-	 (def-entity-physics
-	     (() (floating-number-physics dn))))))
+    (def-entity-drawable
+	(() (draw-floating-number dn)))
+
+    (def-entity-physics
+	(()
+	 (fnf dn #'floating-number-physics)))
+
+    (register-entity-interface
+     id
+     (dlambda
+      (:dead? () (funcall dead?-fn))
+      (:add-amt (amount) (modify-floating-number (dn)
+			   (fnf life-timer #'reset-timer)
+			   (incf amt amount)))))))
 
 (defun floating-number-physics (fn)
-  (fnf (floating-number-offset fn) #'offset-motion-physics))
-
-(defun bat-physics (bat)
-  (fnf (bat-wave-motion bat) #'wave-physics))
+  (modify-floating-number (fn)
+    (fnf offset #'offset-motion-physics)))
 
 (defun floating-number-dead? (fn)
   (not (timer-active? (floating-number-life-timer fn))))
 
-(defun remove-all-dead ()
-  (setf projectile-groups
-	(remove-if #'null
-		   (loop for (name dead? . g) in projectile-groups
-		      collecting
-			(let ((new-g (remove-if dead? g)))
-			  (when new-g
-			    (list* name dead? new-g))))))
+(defun remove-all-dead (game)
+  (ecall (game-projectile-groups game) :remove-dead)
+  (ecall (game-damage-numbers game) :remove-dead))
 
-  (dohash (k fn) damage-numbers
-    (when (floating-number-dead? fn)
-      (remhash k damage-numbers))))
-
-(defun draw-bat (bat)
-  (let* ((pos (bat-pos bat))
-	 (facing (bat-facing bat))
-	 (bat-cycle (bat-cycle bat)))
-    (draw-sprite :enemy :npc-cemet
-		 (tile-rect (tile-v (+ 2 (anim-cycle-current bat-cycle))
-				    (if (eq facing :left) 2 3)))
-		 pos)))
+(defun draw-bat (pos facing cycle-idx)
+  (draw-sprite :enemy :npc-cemet
+	       (tile-rect (tile-v (+ 2 cycle-idx)
+				  (if (eq facing :left) 2 3)))
+	       pos))
 
 (defun draw-hud-number (tile/2-y number)
   (draw-number (tiles/2-v (+ (if (< number 10) 1 0) 3)
@@ -420,7 +443,7 @@ This can be abused with the machine gun in TAS."
    :close
    ;; Other stuff...
    :open
-   "I'm on the Mimiga side and anot gonna lose to you!!"
+   "I'm on the Mimiga side and not gonna lose to you!!"
    :wait))
 
 (defun slow-text-speed ()
@@ -430,138 +453,176 @@ This can be abused with the machine gun in TAS."
 (defparameter text-speed 100)
 (defparameter cursor-blink-time 100)
 
+(defstructure text-display
+    pos
+  text
+  (num-chars 0)
+  (timer (create-expiring-timer text-speed t))
+  (wait-for-input? t)
+  (blink-time 0)
+  dead?)
+
 (defun create-text-display (pos text)
   (let* ((entity-system-type :dialog)
-	 (dead?)
-	 (dead?-fn (lambda () dead?))
-	 (num-chars 0)
-	 (timer (create-expiring-timer text-speed dead?-fn t))
-	 (wait-for-input? t)
-	 (wait-time 0))
+	 (td (make-text-display :pos pos :text text))
+	 (dead?-fn (lambda () (text-display-dead? td))))
+
+    (def-entity-timer
+	(()
+	 (setf td (with-text-display-copy-slots (td)
+		    (fnf timer #'update-timer)
+		    td))))
 
     (def-entity-ai
 	(()
-	 (cond
-	   ((= num-chars (length text))
-	    (incf wait-time frame-time)
-	    (when (and wait-for-input?
-		       (> 2 (chunk-time-period wait-time cursor-blink-time 5)))
-	      (let ((char-dims (get-text-size font " "))
-		    (w (x (get-text-size font text))))
-		(push-screen-render
-		 (make-rect-drawing :rect (create-rect (+v pos (make-v w 0)) char-dims)
-				    :color white
-				    :layer :text
-				    :filled? t)))))
-	   ((not (timer-active? timer))
-	    (incf num-chars)
-	    (push-sound :text-click)
-	    (setf (timer-length timer) text-speed)
-	    (reset-timer timer)))))
+	 (setf td (with-text-display-copy-slots (td)
+		    (cond
+		      ((= num-chars (length text))
+		       (incf blink-time frame-time)
+		       (when (and wait-for-input?
+				  (> 2 (chunk-time-period blink-time cursor-blink-time 5)))
+			 (let ((char-dims (get-text-size font " "))
+			       (w (x (get-text-size font text))))
+			   (push-screen-render
+			    (make-rect-drawing :rect (create-rect (+v pos (make-v w 0)) char-dims)
+					       :color white
+					       :layer :text
+					       :filled? t)))))
+		      ((not (timer-active? timer))
+		       (incf num-chars)
+		       (push-sound :text-click)
+		       (setf (timer-length timer) text-speed)
+		       (fnf timer #'reset-timer)))
+		    td))))
 
     (def-entity-drawable
 	(()
-	 (draw-textbox 5 21 30 8)
-	 (draw-text-line pos (subseq text 0 num-chars))))))
+	 (with-text-display-slots (td)
+	   (draw-textbox 5 21 30 8)
+	   (draw-text-line pos (subseq text 0 num-chars)))))))
 
 (defun create-jenka (player)
   (let* ((dead?)
 	 facing
 	 (pos (tile-v 24 9))
 	 (dead?-fn (lambda () dead?))
-	 (cycle (create-anim-cycle :fps 3/2
-				   :seq #(0 1)
-				   :dead?-fn dead?-fn)))
+	 (tc (create-timed-cycle 3/2 #(0 1))))
+
+    (def-entity-timer (() (fnf tc #'update-timed-cycle)))
     (def-entity-ai
 	(()
 	 (setf facing (face-player pos player))))
     (def-entity-drawable
 	(()
-	 (draw-sprite :npc :npc-regu (tile-rect (tile-v (+ 11 (anim-cycle-current cycle)) (if (eq facing :left) 2 3))) pos)))))
+	 (draw-sprite :npc
+		      :npc-regu
+		      (tile-rect (tile-v (+ 11 (timed-cycle-current tc))
+					 (if (eq facing :left) 2 3)))
+		      pos)))))
 
-(defun create-hud (player current-gun-exp-fn)
+(defstructure hud
+    player
+  gun-exps
+
+  last-health-amt
+  (timer (create-expiring-timer (s->ms 1)))
+  (health-change-timer (create-expiring-timer (s->ms 1/2))))
+
+(defun create-hud (player gun-exps &key (id (gen-entity-id)))
   ;; Player and current-gun-exp-fn are references to outside entities.
   (let* (;; State-vars
-	 last-health-amt
-	 (dead?-fn (lambda () (player-dead? player)))
-	 (timer (create-expiring-timer (s->ms 1) dead?-fn))
-	 (health-change-timer (create-expiring-timer (s->ms 1/2) dead?-fn)))
+	 (h (make-hud :player player :gun-exps gun-exps))
+	 (dead?-fn (lambda () (player-dead? player))))
+
+    (def-entity-timer
+	(()
+	 (setf h (with-hud-copy-slots (h)
+		   (fnf timer #'update-timer)
+		   (fnf health-change-timer #'update-timer)
+		   h))))
 
     (def-entity-drawable
 	(()
-	 (let ((bar-tile/2-w 5)
-	       (bar-tile/2-x 5))
-	   (draw-hud-sprite
-	    :hud-bg :text-box
-	    (create-rect-cmpts 0 (tiles/2 5) (tiles/2 8) (tiles/2 1))
-	    (tile-v 1 2))
-
-	   (let ((health (player-health-amt player)))
-	     (when (timer-active? health-change-timer)
-	       (draw-hud-sprite
-		:hud :text-box
-		(create-rect-cmpts 0 (tiles/2 4)
-				   (floor (* (tiles/2 bar-tile/2-w)
-					     (/ last-health-amt
-						(player-max-health-amt player))))
-				   (tiles/2 1))
-		(tiles/2-v bar-tile/2-x 4)))
-	     (draw-hud-sprite
-	      :hud-fg :text-box
-	      (create-rect-cmpts 0 (tiles/2 3)
-				 (floor (* (tiles/2 bar-tile/2-w)
-					   (/ health
-					      (player-max-health-amt player))))
-				 (tiles/2 1))
-	      (tiles/2-v bar-tile/2-x 4))
-	     (draw-hud-number 4 health))
-
-	   (let ((exp-pos (tiles/2-v bar-tile/2-x 3)))
+	 (with-hud-slots (h)
+	   (let ((bar-tile/2-w 5)
+		 (bar-tile/2-x 5))
 	     (draw-hud-sprite
 	      :hud-bg :text-box
-	      (create-rect-cmpts 0 (tiles/2 9) (tiles/2 5) (tiles/2 1))
-	      exp-pos)
+	      (create-rect-cmpts 0 (tiles/2 5) (tiles/2 8) (tiles/2 1))
+	      (tile-v 1 2))
 
-	     (when (and (timer-active? timer)
-			(zerop (chunk-timer-period timer 50)))
-	       (draw-hud-sprite :hud-fg
-				:text-box
-				(create-rect (tiles/2-v 5 10)
-					     (tiles/2-v bar-tile/2-w 1))
-				exp-pos))
-
-	     (mvbind (exp gun-name) (funcall current-gun-exp-fn)
-	       (let* ((current-level (gun-level exp (cdr (assoc gun-name gun-level-exps))))
-		      (next-lvl-exp (exp-for-gun-level gun-name current-level))
-		      (current-lvl-exp (if (zerop current-level) 0 (exp-for-gun-level gun-name (1- current-level)))))
-		 (if (= exp (exp-for-gun-level gun-name :max))
-		     (draw-hud-sprite :hud-fg :text-box
-				      (create-rect (tiles/2-v 5 9)
-						   (tiles/2-v bar-tile/2-w 1))
-				      exp-pos)
-
-		     (draw-hud-sprite
-		      :hud :text-box
-		      (create-rect-cmpts 0 (tiles/2 10)
-					 (floor (* (tiles/2 bar-tile/2-w)
-						   (/ (- exp current-lvl-exp)
-						      (- next-lvl-exp current-lvl-exp))))
-					 (tiles/2 1))
-		      exp-pos))
-
+	     (let ((health (player-health-amt (player-state player))))
+	       (when (timer-active? health-change-timer)
 		 (draw-hud-sprite
 		  :hud :text-box
-		  (create-rect-cmpts (tiles/2 10) (tiles/2 10)
-				     (tiles/2 2) (tiles/2 1))
-		  (make-v (tiles/2 2) (y exp-pos)))
+		  (create-rect-cmpts 0 (tiles/2 4)
+				     (floor (* (tiles/2 bar-tile/2-w)
+					       (/ last-health-amt
+						  (player-max-health-amt (player-state player)))))
+				     (tiles/2 1))
+		  (tiles/2-v bar-tile/2-x 4)))
+	       (draw-hud-sprite
+		:hud-fg :text-box
+		(create-rect-cmpts 0 (tiles/2 3)
+				   (floor (* (tiles/2 bar-tile/2-w)
+					     (/ health
+						(player-max-health-amt (player-state player)))))
+				   (tiles/2 1))
+		(tiles/2-v bar-tile/2-x 4))
+	       (draw-hud-number 4 health))
 
-		 (draw-hud-number 3 (1+ current-level))))))))
+	     (let ((exp-pos (tiles/2-v bar-tile/2-x 3)))
+	       (draw-hud-sprite
+		:hud-bg :text-box
+		(create-rect-cmpts 0 (tiles/2 9) (tiles/2 5) (tiles/2 1))
+		exp-pos)
 
-    ;; My interface.
-    (values (lambda () (reset-timer timer))
-	    (lambda ()
-	      (setf last-health-amt (player-health-amt player))
-	      (reset-timer health-change-timer)))))
+	       (when (and (timer-active? timer)
+			  (zerop (chunk-timer-period timer 50)))
+		 (draw-hud-sprite :hud-fg
+				  :text-box
+				  (create-rect (tiles/2-v 5 10)
+					       (tiles/2-v bar-tile/2-w 1))
+				  exp-pos))
+
+	       (mvbind (exp gun-name) (current-gun-exp player gun-exps)
+		 (let* ((current-level (gun-level exp (cdr (assoc gun-name gun-level-exps))))
+			(next-lvl-exp (exp-for-gun-level gun-name current-level))
+			(current-lvl-exp (if (zerop current-level) 0 (exp-for-gun-level gun-name (1- current-level)))))
+		   (if (= exp (exp-for-gun-level gun-name :max))
+		       (draw-hud-sprite :hud-fg :text-box
+					(create-rect (tiles/2-v 5 9)
+						     (tiles/2-v bar-tile/2-w 1))
+					exp-pos)
+
+		       (draw-hud-sprite
+			:hud :text-box
+			(create-rect-cmpts 0 (tiles/2 10)
+					   (floor (* (tiles/2 bar-tile/2-w)
+						     (/ (- exp current-lvl-exp)
+							(- next-lvl-exp current-lvl-exp))))
+					   (tiles/2 1))
+			exp-pos))
+
+		   (draw-hud-sprite
+		    :hud :text-box
+		    (create-rect-cmpts (tiles/2 10) (tiles/2 10)
+				       (tiles/2 2) (tiles/2 1))
+		    (make-v (tiles/2 2) (y exp-pos)))
+
+		   (draw-hud-number 3 (1+ current-level)))))))))
+
+    (register-entity-interface
+     id
+     (dlambda
+      (:exp-changed () (setf h (with-hud-copy-slots (h)
+				 (fnf timer #'reset-timer)
+				 h)))
+      (:health-changed ()
+		       (setf h (with-hud-copy-slots (h)
+				 (setf last-health-amt (player-health-amt (player-state player)))
+				 (fnf health-change-timer #'reset-timer)
+				 h)))))))
 
 (defun draw-textbox-tile (src-pos pos)
   (let ((size (both-v (tiles/2 1))))
@@ -597,38 +658,36 @@ This can be abused with the machine gun in TAS."
 	(draw-textbox-tile (tiles/2-v right mid) (tiles/2-v x (+ 1 text-y i))))
       (draw-textbox-tile (tiles/2-v right bottom) (tiles/2-v x bottom-y)))))
 
-(defvar active-update-systems (list :game))
-(defvar active-input-system :game)
-(defvar active-draw-systems (list :game))
-
-(defun update-and-render (renderer stage player)
+(defun update-and-render (renderer game)
   "The Main Loop, called once per FRAME-TIME."
-
   (nilf render-list screen-render-list)
 
-  (update-timer-subsystem active-update-systems)
-  (update-ai-subsystem active-update-systems)
-  (update-physics-subsystem active-update-systems)
-  (update-bullet-subsystem active-update-systems)
-  (update-stage-collision-subsystem active-update-systems stage)
-  (update-pickup-subsystem active-update-systems player)
+  (let ((active-update-systems (ecall (game-active-systems game) :update))
+	(stage (game-stage game))
+	(player (game-player game)))
+    (update-ai-subsystem active-update-systems)
+    (update-physics-subsystem active-update-systems)
+    (update-bullet-subsystem active-update-systems)
+    (update-stage-collision-subsystem active-update-systems stage)
+    (update-pickup-subsystem active-update-systems player)
 
-  (update-damage-collision-subsystem active-update-systems player)
-  (update-dynamic-collision-subsystem active-update-systems player)
+    (update-damage-collision-subsystem active-update-systems player)
+    (update-dynamic-collision-subsystem active-update-systems player))
 
-  (update-drawable-subsystem active-draw-systems)
+  (let ((active-draw-systems (ecall (game-active-systems game) :draw)))
+    (update-drawable-subsystem active-draw-systems))
 
-  (remove-all-dead)
+  (remove-all-dead game)
 
   ;; Debug Drawings Below.
 
-  (draw-point (player-nozzle-pos player) red)
-  (draw-point (camera-focus camera) cyan)
-  (let ((camera-bounds (stage-dims->camera-bounds (stage-dims stage))))
-    (draw-point (clamp-pos (camera-focus camera) camera-bounds) red)
+  ;; (draw-point (player-nozzle-pos player) red)
+  (let ((focus (ecall (game-camera game) :focus))
+	(camera-bounds (stage-dims->camera-bounds (stage-dims (game-stage game)))))
+    (draw-point focus cyan)
+    (draw-point (clamp-pos focus camera-bounds) red)
     (draw-rect camera-bounds cyan))
-  (draw-point (camera-target-from-player player) white)
-
+  (draw-point (camera-target-from-player (player-state (game-player game))) white)
   ;; End Debug Drawings.
 
   (play-sounds sfx-play-list)
@@ -636,69 +695,129 @@ This can be abused with the machine gun in TAS."
 
 (defparameter dialog-text-pos (tiles/2-v 7 24))
 
-(defvar reset-vars (make-hash-table))
-(defmacro def-reset-var (name init-form)
-  `(progn
-     (defvar ,name)
-     (setf (gethash ',name reset-vars) (lambda () ,init-form))))
+(defvar global-paused?)
 
-(def-reset-var paused? nil)
-(def-reset-var player nil)
-(def-reset-var active-update-systems (list :game))
-(def-reset-var active-draw-systems (list :game))
-(def-reset-var active-input-system :game)
-(def-reset-var projectile-groups nil)
-(def-reset-var input (make-input))
-(def-reset-var gun-exps (loop for g across gun-names collecting (cons g 0)))
-(def-reset-var damage-numbers (make-hash-table :test 'eq))
+(defstructure game
+    player
+  camera
+  stage
+  projectile-groups
+  damage-numbers
+  active-systems
+
+  (input (make-input)))
+
+(defparameter entity-systems '(:game :dialog))
+
+(defstructure active-systems
+    (update (list :game))
+  (draw (list :game))
+  (input (list :game)))
+
+(defun create-active-systems (&key (id (gen-entity-id)))
+  (let ((a (make-active-systems)))
+    (register-entity-interface
+     id
+     (dlambda
+      (:input () (active-systems-input a))
+      (:update () (active-systems-update a))
+      (:draw () (active-systems-draw a))
+      (:switch-to-dialog ()
+			 (modify-active-systems (a)
+			   (setf update (list :dialog))
+			   (setf draw (list :game :dialog))
+			   (setf input (list :dialog))))))))
+
+(defun create-damage-numbers (&key (id (gen-entity-id)))
+  (let ((d nil))
+    (register-entity-interface
+     id
+     (dlambda
+      (:remove-dead ()
+		    (setf d (remove-if (lambda (pair) (ecall (cdr pair) :dead?)) d)))
+      (:update-damage-amt (e amt)
+			  (aif (assoc e d)
+			       (ecall (cdr it) :add-amt (- amt))
+			       (push (cons e (create-floating-number e (- amt))) d)))))))
+
+(defun create-gun-exps (&key (id (gen-entity-id)))
+  (let ((g (loop for g across gun-names collecting (cons g 0))))
+    (register-entity-interface
+     id
+     (dlambda
+      (:exp-for (gun-name)
+		(cdr (assoc gun-name g)))
+      (:incr (gun-name amt)
+	     (setf g (copy-alist g))
+	     (let ((pair (assoc gun-name g)))
+	       (setf (cdr pair) (min (max (+ (cdr pair) amt) 0)
+				     (exp-for-gun-level gun-name :max)))))
+
+      (t () (error "Bad Call."))))))
+
+(defun create-projectile-groups (&key (id (gen-entity-id)))
+  (let ((g nil))
+    (register-entity-interface
+     id
+     (dlambda
+      (:remove-dead ()
+		    (setf g
+			  (remove-if #'null
+				     (loop for (name . g) in g
+					collecting
+					  (let ((new-g (remove-if (lambda (x) (ecall x :dead?)) g)))
+					    (when new-g
+					      (list* name new-g)))))))
+      (:count (gun-name)
+	      (count gun-name g :key #'car))
+      (:add (pg)
+	    (push pg g))))))
+
+(defun update-damage-number-amt (damage-numbers e amt)
+  (ecall damage-numbers :update-damage-amt e amt))
+
+(defun current-gun-exp (player gun-exps)
+  (let* ((gun-name (player-current-gun-name (player-gun-name-cycle (player-state player))))
+	 (exp (ecall gun-exps :exp-for gun-name)))
+    (values
+     exp
+     gun-name)))
+
+(defun create-game ()
+  (let ((damage-numbers (create-damage-numbers))
+	(projectile-groups (create-projectile-groups))
+	(stage (basic-stage))
+	(hud (gen-entity-id))
+	(gun-exps (create-gun-exps))
+	(active-systems (create-active-systems)))
+    (let* ((player (create-default-player hud projectile-groups damage-numbers gun-exps active-systems))
+	   (camera (create-player-camera (v/2 window-dims) (zero-v) player)))
+      (create-hud player gun-exps :id hud)
+
+      (create-jenka player)
+
+      (create-critter (make-v (+ (tiles 14) (tiles 1/4)) (tiles 6)) player damage-numbers)
+      (dolist (x '(1 3 6 7))
+	(create-bat x 7 player))
+      (create-dorito (make-v (+ (tiles 14) (tiles 1/4)) (tiles 6)) (make-v 0 0) :medium)
+      (make-game :player player
+		 :camera camera
+		 :stage stage
+		 :projectile-groups projectile-groups
+		 :active-systems active-systems
+		 :damage-numbers damage-numbers))))
 
 (defun reset ()
-  (dohash (k v) reset-vars
-    (setf (symbol-value k) (funcall v)))
-
-  (switch-to-new-song :weed)
+  (switch-to-new-song :lastcave)
   (set-music-volume 20)
 
-  (comment-code
-    (nilf paused?)
-    (setf active-update-systems (list :game))
-    (setf active-draw-systems (list :game))
-    (setf active-input-system :game)
-    (nilf player)
-    (nilf projectile-groups)
-    (setf input (make-input))
-    (setf gun-exps (loop for g across gun-names collecting (cons g 0)))
-    (setf stage (basic-stage))
-    (setf damage-numbers (make-hash-table :test 'eq)))
+  (init-entity-interface-registry)
+  (dolist (s registry-syms)
+    (nilf (symbol-value s)))
 
-  (dolist (s subsystems)
-    (funcall (cdr s)))
-  (setf stage (basic-stage))
+  (nilf global-paused?)
 
-  (mvbind (hud-exp-flash-fn hud-player-take-damage-fn)
-      (create-hud player (lambda ()
-			   (let* ((gun-name (player-current-gun-name player))
-				  (exp (cdr (assoc gun-name gun-exps))))
-			     (values
-			      exp
-			      gun-name))))
-
-    (setf player (create-default-player
-		  hud-player-take-damage-fn
-		  (lambda (gun-name amt)
-		    (incf (alexandria:assoc-value gun-exps gun-name) amt)
-		    (maxf (alexandria:assoc-value gun-exps gun-name) 0)
-		    (when (plusp amt)
-		      (funcall hud-exp-flash-fn))
-		    (minf (alexandria:assoc-value gun-exps gun-name)
-			  (exp-for-gun-level gun-name :max))))))
-  (setf camera (create-player-camera (v/2 window-dims) (zero-v) player))
-  (create-jenka player)
-
-  (create-critter (make-v (+ (tiles 14) (tiles 1/4)) (tiles 6)) player)
-  (dolist (x '(1 3 6 7))
-    (create-bat x 7 player))
-  (create-dorito (make-v (+ (tiles 14) (tiles 1/4)) (tiles 6)) (make-v 0 0) :medium))
+  (create-game))
 
 (defun init ()
   "Called at application startup."
@@ -710,6 +829,7 @@ This can be abused with the machine gun in TAS."
 			2
 			4096)
 
+  (init-input)
   (sdl:show-cursor :disable)
 
   (put-all-resources)
@@ -725,7 +845,7 @@ This can be abused with the machine gun in TAS."
 
 (defun cleanup ()
   "Called at application closing to cleanup all subsystems."
-  (cleanup-input input)
+  (cleanup-input)
   (cleanup-all-resources)
   (clrhash character-textures)
 
@@ -740,158 +860,186 @@ This can be abused with the machine gun in TAS."
   "Quits the application."
   (throw 'exit nil))
 
-(defstructure bat
-    ;; State-vars
-    cycle
-  origin
-  facing
-  dead?
-  (wave-motion (make-wave-motion :dir :up
-				 :amp (tiles 2)
-				 :speed (/ 0.0325 frame-time))))
-
 (defun face-player (pos player)
-  (if (< (x pos) (x (player-pos player))) :right :left))
+  (if (< (x pos) (x (player-pos (player-state player)))) :right :left))
+
+(defstructure bat
+    origin
+  facing
+  wave-motion
+  anim-cycle
+  dead?)
 
 (defun create-bat (tile-x tile-y player)
-  (let* ((bat (make-bat :origin (tile-v tile-x tile-y)))
-	 (dead?-fn (curry #'bat-dead? bat)))
+  (let* ((b (make-bat :origin (tile-v tile-x tile-y)
+		      :wave-motion (make-wave-motion :dir :up
+						     :amp (tiles 2)
+						     :speed (/ 0.0325 frame-time))
+		      :anim-cycle (create-timed-cycle 14 #(0 2 1 2))))
+	 (dead?-fn (lambda () (bat-dead? b))))
 
-    (setf (bat-cycle bat)
-	  (create-anim-cycle :fps 14 :seq #(0 2 1 2)
-			     :dead?-fn dead?-fn))
-
+    (def-entity-timer
+	(()
+	 (modify-bat (b)
+	   (fnf anim-cycle #'update-timed-cycle))))
     (def-entity-ai
 	(()
-	 (setf (bat-facing bat) (face-player (bat-pos bat) player))))
+	 (modify-bat (b)
+	   (setf facing (face-player (bat-pos wave-motion origin) player)))))
     (def-entity-damage-collision
 	(()
-	 (bat-damage-collision-rect bat))
+	 (with-bat-slots (b)
+	   (bat-damage-collision-rect (bat-pos wave-motion origin))))
 	(() 1))
 
     (def-entity-damageable
 	(()
-	 (bat-collision-rect bat))
+	 (with-bat-slots (b)
+	   (bat-collision-rect (bat-pos wave-motion origin))))
 	((bullet-hit-amt)
 	 (declare (ignore bullet-hit-amt))
-	 (push-sound :enemy-explode)
-	 (create-dorito (bat-pos bat) (zero-v) :large)
-	 (tf (bat-dead? bat))))
+	 (modify-bat (b)
+	   (push-sound :enemy-explode)
+	   (create-dorito (bat-pos wave-motion origin) (zero-v) :large)
+	   (tf dead?))))
 
     (def-entity-drawable
 	(()
-	 (draw-bat bat)))
+	 (with-bat-slots (b)
+	   (draw-bat (bat-pos wave-motion origin) facing (timed-cycle-current anim-cycle)))))
 
     (def-entity-physics
 	(()
-	 (bat-physics bat)))
+	 (modify-bat (b)
+	   (fnf wave-motion #'wave-physics))))))
 
-    bat))
+(defun bat-pos (wave-motion origin)
+  (+v (wave-offset wave-motion) origin))
 
-(defun bat-pos (b)
-  (+v (wave-offset (bat-wave-motion b)) (bat-origin b)))
-
-(defun bat-damage-collision-rect (b)
-  (create-rect (+v (bat-pos b) (tile-dims/2))
+(defun bat-damage-collision-rect (pos)
+  (create-rect (+v pos (tile-dims/2))
 	       (both-v 1)))
 
-(defun bat-collision-rect (b)
-  (create-rect (bat-pos b) (tile-dims)))
+(defun bat-collision-rect (pos)
+  (create-rect pos (tile-dims)))
 
 (defparameter critter-dynamic-collision-rect
   (make-rect :pos (tile-v 0 1/4) :size (tile-v 1 3/4)))
 
-(defun create-critter (pos player)
-  ;; Pos: State-var
-  ;; Player: referenced-entity
-  (let* ((collision-rects (rect->collision-rects (centered-rect (tile-dims/2) (both-v (tiles 3/4))) 6))
-	 ;; State-vars
-	 dead?
-	 (id (gensym))
-	 (vel (make-v 0 0))
-	 ground-tile
-	 facing
+(defstructure critter
+    pos
+  dead?
+  vel
+  ground-tile
+  facing
+  sleep-timer
 
-	 ;; My-interface
-	 (dead?-fn (lambda () dead?))
-	 ;; Referenced entities
-	 (sleep-timer (create-expiring-timer 300 dead?-fn)))
+  player
+  damage-numbers)
 
-    (def-entity-ai
-	(()
-	 (setf facing (face-player pos player))
-	 (let ((disp (- (x pos) (x (player-pos player)))))
-	   (when (and ground-tile
-		      (not (timer-active? sleep-timer))
-		      (< (abs disp) (tiles 2)))
-	     (setf (x vel) (* 0.04 (- (signum disp))))
-	     (setf (y vel) -0.35)))))
+(let ((collision-rects (rect->collision-rects (centered-rect (tile-dims/2) (both-v (tiles 3/4))) 6)))
+  (defun create-critter (pos player damage-numbers &key (id (gen-entity-id)))
+    ;; Pos: State-var
+    ;; Player: referenced-entity
+    (let* ((c (make-critter :pos pos :player player :damage-numbers damage-numbers :vel (zero-v) :sleep-timer (create-expiring-timer 300)))
+	   ;; My-interface
+	   (dead?-fn (lambda () (critter-dead? c))))
 
-    (def-entity-drawable
-	(()
-	 (let ((sprite-tile-x (if (< (abs (- (x pos) (x (player-pos player)))) (tiles 4))
-				  1
-				  0)))
-	   (draw-sprite :enemy :npc-cemet (tile-rect (tile-v sprite-tile-x (if (eq facing :left) 0 1))) pos))))
+      (def-entity-timer
+	  (()
+	   (setf c (with-critter-copy-slots (c)
+		     (fnf sleep-timer #'update-timer)
+		     c))))
 
-    (def-entity-physics
-	(()
-	 (physics-2d pos vel
-		     (const-accelerator 0)
-		     (const-accelerator gravity-acc)
-		     :clamper-vy
-		     (clamper+- terminal-speed))))
+      (def-entity-ai
+	  (()
+	   (setf c (with-critter-copy-slots (c)
+		     (setf facing (face-player pos player))
+		     (let ((disp (- (x pos) (x (player-pos (player-state player))))))
+		       (when (and ground-tile
+				  (not (timer-active? sleep-timer))
+				  (< (abs disp) (tiles 2)))
+			 (setf (x vel) (* 0.04 (- (signum disp))))
+			 (setf (y vel) -0.35)))
+		     c))))
 
-    (def-entity-damageable
-	(()
-	 (tile-rect pos))
-	((amt)
-	 (update-damage-number-amt id (lambda () (+v (tile-dims/2) pos)) amt)
-	 (push-sound :enemy-hurt)))
+      (def-entity-drawable
+	  (()
+	   (with-critter-slots (c)
+	     (let ((sprite-tile-x (if (< (abs (- (x pos) (x (player-pos (player-state player))))) (tiles 4))
+				      1
+				      0)))
+	       (draw-sprite :enemy :npc-cemet (tile-rect (tile-v sprite-tile-x (if (eq facing :left) 0 1))) pos)))))
 
-    (def-entity-damage-collision
-	(()
-	 (tile-rect pos))
-	(() 1))
+      (def-entity-physics
+	  (()
+	   (setf c (with-critter-copy-slots (c)
+		     (physics-2d pos vel
+				 (const-accelerator 0)
+				 (const-accelerator gravity-acc)
+				 :clamper-vy
+				 (clamper+- terminal-speed))
+		     c))))
 
-    (def-entity-dynamic-collision
-	(() (rect-offset critter-dynamic-collision-rect pos))
-	(() vel)
-      ((side player-collision-rect player)
-       (let ((player-rect (rect-offset player-collision-rect (player-pos player))))
-	 (case side
-	   (:bottom
-	    (when (and (not (player-on-ground? player))
-		       (<= (y pos) (bottom player-rect) (+ (y pos) (tiles 1/2))))
-	      (setf (player-ground-tile player) :dynamic)
-	      (setf (player-ground-inertia player) (lambda () vel))
-	      (setf (y (player-vel player)) 0)
+      (def-entity-damageable
+	  (() (tile-rect (critter-pos c)))
+	  ((amt)
+	   (update-damage-number-amt damage-numbers id amt)
+	   (push-sound :enemy-hurt)))
 
-	      (setf (player-pos player)
-		    (-v
-		     (flush-rect-pos player-rect (y (+v (rect-pos critter-dynamic-collision-rect) pos)) :up)
-		     (rect-pos player-collision-rect)))))
-	   ((:left :right)
-	    (let ((disp (- (x (player-pos player)) (x pos))))
-	      (when (> (abs disp) (tiles 1/4))
-		(setf (x (player-vel player))
-		      (* (/ terminal-speed 70) disp)))))))))
+      (def-entity-damage-collision
+	  (() (tile-rect (critter-pos c)))
+	  (() 1))
 
-    (def-entity-stage-collision
-	((stage)
-	 (let (new-tile)
-	   (stage-collisions (pos collision-rects stage)
-	     :bottom
-	     (collision-lambda
-	       (setf new-tile tile-type)
-	       (unless ground-tile
-		 (reset-timer sleep-timer))
-	       (allf 0 (y vel) (x vel)))
+      (def-entity-dynamic-collision
+	  (() (rect-offset critter-dynamic-collision-rect (critter-pos c)))
+	  (() (critter-vel c))
+	((side player-collision-rect player)
+	 (let ((new-p (player-state player)))
+	   (with-critter-slots (c)
+	     (with-player-slots (new-p p-)
+	       (let ((player-rect (rect-offset player-collision-rect p-pos)))
+		 (case side
+		   (:bottom
+		    (when (and (not (player-on-ground? p-ground-tile))
+			       (<= (y pos) (bottom player-rect) (+ (y pos) (tiles 1/2))))
+		      (setf p-ground-tile :dynamic)
+		      (setf p-ground-inertia-entity id)
+		      (setf p-vel (zero-v :x (x p-vel)))
 
-	     :right (collision-lambda)
-	     :left (collision-lambda)
+		      (setf p-pos
+			    (-v
+			     (flush-rect-pos player-rect (y (+v (rect-pos critter-dynamic-collision-rect) pos)) :up)
+			     (rect-pos player-collision-rect)))))
+		   ((:left :right)
+		    (let ((disp (- (x p-pos) (x pos))))
+		      (when (> (abs disp) (tiles 1/4))
+			(setf (x p-vel)
+			      (* (/ terminal-speed 70) disp)))))))
+	       new-p)))))
 
-	     :top
-	     (collision-lambda
-	       (maxf (y vel) 0)))
-	   (setf ground-tile new-tile))))))
+      (def-entity-stage-collision
+	  ((stage)
+	   (setf c (with-critter-copy-slots (c)
+		     (let (new-tile)
+		       (stage-collisions (pos collision-rects stage)
+			 :bottom
+			 (collision-lambda
+			   (setf new-tile tile-type)
+			   (unless ground-tile
+			     (fnf sleep-timer #'reset-timer))
+			   (allf 0 (y vel) (x vel)))
+
+			 :right (collision-lambda)
+			 :left (collision-lambda)
+
+			 :top
+			 (collision-lambda
+			   (maxf (y vel) 0)))
+		       (setf ground-tile new-tile))
+		     c))))
+      (register-entity-interface
+       id
+       (dlambda
+	(:origin () (+v (critter-pos c) (tile-dims/2)))
+	(:vel () (critter-vel c)))))))

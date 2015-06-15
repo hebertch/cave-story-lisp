@@ -1,8 +1,10 @@
 (in-package :cave-story)
 
-(defstruct (v2 (:conc-name nil)
-	       (:constructor make-v (x y)))
+(defstruct (v2 (:conc-name nil))
   x y)
+
+(defun make-v (x y)
+  (make-v2 :x x :y y))
 
 (defstruct rect
   pos
@@ -119,6 +121,7 @@
 ;; Cycle (Animation Utilities?)
 
 (defstructure cycle seq (idx 0) len)
+
 (defun create-cycle (seq)
   (make-cycle :seq seq :len (length seq)))
 
@@ -126,70 +129,57 @@
   (elt (cycle-seq c) (cycle-idx c)))
 
 (defun cycle-next (c)
-  (let ((c (copy-cycle c)))
-    (incf (cycle-idx c))
-    (when (= (cycle-idx c) (cycle-len c))
-      (setf (cycle-idx c) 0))
+  (with-cycle-copy-slots (c)
+    (incf idx)
+    (when (= idx len)
+      (setf idx 0))
     c))
 
 (defun cycle-previous (c)
-  (let ((c (copy-cycle c)))
-    (if (= (cycle-idx c) 0)
-	(setf (cycle-idx c) (1- (cycle-len c)))
-	(decf (cycle-idx c)))
+  (with-cycle-copy-slots (c)
+    (if (zerop idx)
+	(setf idx (1- len))
+	(decf idx))
     c))
 
 (defun cycle-reset (c)
-  (let ((c (copy-cycle c)))
-    (setf (cycle-idx c) 0)))
+  (with-cycle-copy-slots (c)
+    (setf idx 0)
+    c))
 
-(defstructure anim-cycle
-    ;; State-vars
-    cycle
-  timer
-  paused?)
+(defstructure timed-cycle timer cycle paused?)
+(defun create-timed-cycle (fps seq &optional start-paused?)
+  (make-timed-cycle :timer (fps-make-timer fps)
+		    :cycle (create-cycle seq)
+		    :paused? start-paused?))
 
-(defun create-anim-cycle (&key fps seq callback dead?-fn start-paused?)
-  ;; FPS, SEQ, start-paused? are all state.
-  ;; Callback is ref
-  (let* (;; State-vars
-	 (ac (make-anim-cycle :cycle (create-cycle seq)
-			      :paused? start-paused?)))
-    (setf (anim-cycle-timer ac)
-	  (create-looping-timer
-	   fps
-	   (lambda ()
-	     (unless (anim-cycle-paused? ac)
-	       (setf (anim-cycle-cycle ac) (cycle-next (anim-cycle-cycle ac)))
-	       (awhen callback
-		 (funcall callback (anim-cycle-cycle ac)))))
-	   dead?-fn))
-    ac))
+(defun update-timed-cycle (tc)
+  (let (ticked?)
+    (with-timed-cycle-copy-slots (tc)
+      (unless paused?
+	(mvbind (tr tick?) (update-loop-timer timer)
+	  (when tick?
+	    (fnf cycle #'cycle-next))
+	  (setf timer tr
+		ticked? tick?)))
+      (values tc ticked?))))
 
-(defun anim-cycle-pause (c)
-  (tf (anim-cycle-paused? c)))
-(defun anim-cycle-resume (c)
-  (nilf (anim-cycle-paused? c)))
+(defun timed-cycle-current (tc) (cycle-current (timed-cycle-cycle tc)))
+(defun timed-cycle-pause (tc)
+  (with-timed-cycle-copy-slots (tc)
+    (tf paused?)
+    tc))
 
-(defun anim-cycle-reset (c)
-  (reset-timer (anim-cycle-timer c))
-  (cycle-reset (anim-cycle-cycle c)))
+(defun timed-cycle-resume (tc)
+  (with-timed-cycle-copy-slots (tc)
+    (nilf paused?)
+    tc))
 
-(defun anim-cycle-current (c)
-  (cycle-current (anim-cycle-cycle c)))
-
-(defun create-once-through-cycler (fps seq expire-fn)
-  (let* (dead?
-	 (cycle (create-cycle seq)))
-    (create-looping-timer
-     fps
-     (lambda ()
-       (setf cycle (cycle-next cycle))
-       (when (zerop (cycle-idx cycle))
-	 (tf dead?)
-	 (funcall expire-fn)))
-     (lambda () dead?))
-    (lambda () (cycle-current cycle))))
+(defun timed-cycle-restart (tc)
+  (with-timed-cycle-copy-slots (tc)
+    (fnf timer #'reset-timer)
+    (fnf cycle #'cycle-reset)
+    tc))
 
 ;; Clamps
 

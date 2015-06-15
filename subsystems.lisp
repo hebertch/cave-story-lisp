@@ -1,7 +1,7 @@
 (in-package :cave-story)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defvar subsystems nil)
+  (defvar registry-syms nil)
 
   (defun interface-forms-name (interface)
     (symbolicate interface '-forms))
@@ -24,15 +24,17 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 	(update-name (symbolicate 'update- name '-subsystem))
 	(dead-interface (mapcar #'alexandria:ensure-list (cons 'dead?-fn interface)))
 	(interface (mapcar #'alexandria:ensure-list interface))
-	(def-entity-name (symbolicate 'def-entity- name)))
-    (with-gensyms (make-name conc-name entity-name system-type)
+	(def-entity-name (symbolicate 'def-entity- name))
+	(struct-name (symbolicate name '-interface))
+	(conc-name (symbolicate name '-interface-))
+	(make-name (symbolicate 'make- name '-interface))
+	(system-type 'system-type))
+    (with-gensyms (entity-name)
       `(progn
 	 (defvar ,registry nil)
 	 (eval-when (:compile-toplevel :load-toplevel :execute)
-	   (setf (alexandria:assoc-value subsystems (intern (string ',name) :keyword) :test #'eq)
-		 (lambda () (nilf ,registry))))
-	 ;; TODO: use of structures here ain't working.
-	 (defstruct (,(gensym)
+	   (pushnew ',registry registry-syms))
+	 (defstruct (,struct-name
 		      (:constructor ,make-name ,(cons system-type (mapcar #'car dead-interface)))
 		      (:conc-name ,(string conc-name))
 		      (:copier nil))
@@ -57,13 +59,14 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 					(awhen (,(symbolicate conc-name 'dead?-fn) p)
 					  (funcall it)))
 				      ,registry))
-	   (dolist (,entity-name ,registry)
-	     (when (member (,(symbolicate conc-name system-type) ,entity-name) active-entity-systems)
-	       (let ,(loop for i in dead-interface
-			collecting
-			  (list (car i) (list (symbolicate conc-name (car i)) entity-name)))
-		 (declare (ignorable ,@ (mapcar #'car dead-interface)))
-		 ,@update-forms))))
+	   (mapcar (lambda (,entity-name)
+		     (when (member (,(symbolicate conc-name system-type) ,entity-name) active-entity-systems)
+		       (let ,(loop for i in dead-interface
+				collecting
+				  (list (car i) (list (symbolicate conc-name (car i)) entity-name)))
+			 (declare (ignorable ,@ (mapcar #'car dead-interface)))
+			 ,@update-forms)))
+		   ,registry))
 
 	 (values ',registry ',register-name ',update-name)))))
 
@@ -71,26 +74,34 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
   `(def-subsystem ,name (,fn-name) ()
      (funcall ,fn-name)))
 
-(def-simple-subsystem timer update-fn)
 (def-simple-subsystem physics physics-fn)
 (def-simple-subsystem ai ai-fn)
 (def-simple-subsystem drawable draw-fn)
 
+(defmacro def-entity-timer ((() &body update-fn-forms))
+  `(register-ai entity-system-type :dead?-fn dead?-fn
+		:ai-fn
+		(lambda ()
+		  ,@update-fn-forms)))
+
 (def-subsystem stage-collision ((collision-fn stage)) (stage)
   (funcall collision-fn stage))
+
+(def-subsystem input ((input-fn input)) (input)
+  (funcall input-fn input))
 
 (def-subsystem dynamic-collision (rect-fn vel-fn (react-fn side player-collision-rect player)) (player)
   ;; TODO: Merge with stage collisions.
   (dolist (side collision-order)
     (let* ((rect (funcall rect-fn))
 	   (player-collision-rect (cdr (assoc side player-collision-rectangles-alist)))
-	   (player-rect (rect-offset player-collision-rect (player-pos player))))
+	   (player-rect (rect-offset player-collision-rect (player-pos (player-state player)))))
       (draw-rect rect blue :layer :debug-dynamic-collision)
       (draw-rect player-rect green :layer :debug-dynamic-collision)
       (when (rects-collide? rect player-rect)
 	(draw-rect player-rect green :layer :debug-dynamic-collision :filled? t)
 	(draw-rect rect yellow :layer :debug-dynamic-collision :filled? t)
-	(funcall react-fn side player-collision-rect player)))))
+	(ecall player :dynamic-collision (funcall react-fn side player-collision-rect player))))))
 
 (def-subsystem damageable (rect-fn (hit-fn bullet-hit-amt))
     ;; NOTE: UPDATE-DAMAGEABLE-SUBSYSTEM is designed to be called by UPDATE-BULLET-SUBSYSTEM
@@ -112,7 +123,7 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 (def-subsystem pickup (rect-fn kill-fn pickup-data-fn)
     (player)
   (let ((rect (funcall rect-fn))
-	(player-rect  (player-damage-collision-rect player)))
+	(player-rect  (player-damage-collision-rect (player-state player))))
     (draw-rect rect green :layer :debug-pickup)
     (draw-rect player-rect blue :layer :debug-pickup)
     (when (rects-collide? rect player-rect)
@@ -123,10 +134,25 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 
 (def-subsystem damage-collision (rect-fn dmg-amt-fn) (player)
   (let ((rect (funcall rect-fn))
-	(player-rect (player-damage-collision-rect player)))
+	(player-rect (player-damage-collision-rect (player-state player))))
     (draw-rect rect red :layer :debug-damage-collision)
     (draw-rect player-rect blue :layer :debug-damage-collision)
     (when (rects-collide? rect player-rect)
       (player-take-damage player (funcall dmg-amt-fn))
       (draw-rect rect magenta :layer :debug-damage-collision :filled? t)
       (draw-rect player-rect magenta :layer :debug-damage-collision :filled? t))))
+
+(let (entity-interface-registry id)
+  (defun init-id-system ()
+    (setf id 0))
+  (defun gen-entity-id ()
+    (incf id))
+
+  (defun init-entity-interface-registry ()
+    (setf id 0
+	  entity-interface-registry (make-hash-table)))
+  (defun register-entity-interface (id interface)
+    (setf (gethash id entity-interface-registry) interface)
+    id)
+  (defun ecall (id &rest args)
+    (apply (gethash id entity-interface-registry) args)))

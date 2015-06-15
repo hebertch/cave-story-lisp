@@ -3,23 +3,19 @@
 (defparameter gun-names #(:polar-star :missile-launcher :machine-gun :fireball :nemesis
 			  :super-missile-launcher :bubbler :spur :snake))
 
-(defun gun-pos (player)
-  (let ((gun-x-off (if (eq (player-h-facing player) :right)
+(defun gun-pos (pos h-facing actual-v-facing walking? walk-idx)
+  (let ((gun-x-off (if (eq h-facing :right)
 		       0
 		       (- (tiles 1/2))))
 
-	(gun-y-off (case (player-actual-v-facing player)
+	(gun-y-off (case actual-v-facing
 		     (:up   (tiles -1/4))
 		     (:down (tiles  1/4))
 		     (t     0)))
-	(gun-bob-y-off (if (and (player-walking? player)
-				(= (player-walk-idx player)
-				   0))
+	(gun-bob-y-off (if (and walking? (= walk-idx 0))
 			   -2
 			   0)))
-    (+v (player-pos player) (make-v gun-x-off (+ gun-y-off gun-bob-y-off)))))
-
-
+    (+v pos (make-v gun-x-off (+ gun-y-off gun-bob-y-off)))))
 
 (defparameter gun-x-idxs '(:spur :snake :polar-star :fireball :machine-gun :missile-launcher
 			   nil :nemesis nil nil :super-missile-launcher nil :bubbler))
@@ -112,11 +108,10 @@
 			nozzle-offsets))))
     nozzle-offsets))
 
-(defun player-draw-gun (player)
-  (let* ((gun-name (player-current-gun-name player)))
-    (draw-sprite :gun :arms
-		 (gun-sprite-rect gun-name (player-h-facing player) (player-actual-v-facing player))
-		 (gun-pos player))))
+(defun player-draw-gun (pos gun-name h-facing actual-v-facing walking? walk-idx)
+  (draw-sprite :gun :arms
+	       (gun-sprite-rect gun-name h-facing actual-v-facing)
+	       (gun-pos pos h-facing actual-v-facing walking? walk-idx)))
 
 (defparameter gun-nozzle-offsets
   (loop for gun-name across gun-names
@@ -132,11 +127,19 @@
 	      (:right (second x-offsets)))
 	    y-offset)))
 
-(defun player-nozzle-pos (player)
-  (+v (nozzle-offset (player-h-facing player)
-		     (player-actual-v-facing player)
-		     (player-current-gun-name player))
-      (gun-pos player)))
+(defun player-nozzle-pos (p)
+  (with-player-slots (p)
+    (let* ((on-ground? (player-on-ground? ground-tile))
+	   (actual-v-facing (player-actual-v-facing v-facing on-ground?)))
+      (+v (nozzle-offset h-facing
+			 actual-v-facing
+			 (player-current-gun-name gun-name-cycle))
+	  (gun-pos
+	   pos
+	   h-facing
+	   actual-v-facing
+	   (player-walking? acc-dir on-ground?)
+	   (player-walk-idx p))))))
 
 (defun gun-level (exp exp-list)
   (aif (position-if-not (lambda (lvl-exp)
@@ -163,4 +166,4 @@
 (defparameter gun-level-exps
   (append '((:polar-star . (10 30 40)))
 	  (loop for g across gun-names
-	       collecting (cons g (list 10 30 40)))))
+	     collecting (cons g (list 10 30 40)))))

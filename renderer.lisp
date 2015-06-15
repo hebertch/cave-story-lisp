@@ -215,7 +215,7 @@ These are drawn relative to the SCREEN and not relative to the camera position."
 				 :layer :foreground
 				 :sheet-key :bk-blue
 				 :src-rect (create-rect (zero-v) (both-v len))
-				 :pos (make-v (+ (* (1- x) len) (mod (* parallax-scale (x camera-pos)) len))
+				 :pos (make-v (+ (* (1- x) len) (mod (* parallax-scale (- (x camera-pos))) len))
 					      (+ (* (1- y) len) (mod (* parallax-scale (y camera-pos)) len))))
 		       (zero-v)))))
 
