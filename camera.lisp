@@ -17,19 +17,21 @@
   vel
   player)
 
+(defmethod physics ((c camera))
+  (modify-camera (c)
+    (let ((player (player-state player)))
+      (mvsetq (focus vel)
+	      (camera-physics (camera-target-from-player player)
+			      (player-vel player)
+			      focus
+			      vel)))))
+
 (defun create-player-camera (focus vel player &key (id (gen-entity-id)))
   (let ((c (make-camera :focus focus :vel vel :player player))
 	(dead?-fn))
 
     (def-entity-physics
-	(()
-	 (modify-camera (c)
-	   (let ((player (player-state player)))
-	     (mvsetq (focus vel)
-		     (camera-physics (camera-target-from-player player)
-				     (player-vel player)
-				     focus
-				     vel))))))
+	(() (setf c (physics c))))
     (register-entity-interface
      id
      (dlambda

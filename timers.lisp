@@ -11,19 +11,30 @@
   (let ((len (fps->ms-per-frame fps)))
     (make-timer :length len :ms-remaining (if begin-active? len 0))))
 
-(defun create-callback-timer (length callback-fn &optional (begin-active? t))
-  (let* ((dead?)
-	 (dead?-fn (lambda () dead?))
-	 (tr (create-expiring-timer length begin-active?)))
 
-    (def-entity-timer
-	(()
-	 (mvbind (ntr ticked?) (update-timer tr)
-	   (when ticked?
-	     (tf dead?)
-	     (funcall callback-fn))
-	   (setf tr ntr))))))
+(defstructure callback-timer
+    event-entity
+  dead?
+  timer)
 
+(defmethod ai ((c callback-timer))
+  (modify-callback-timer (c)
+    (mvbind (ntr ticked?) (update-timer timer)
+      (when ticked?
+	(tf dead?)
+	(ecall event-entity))
+      (setf timer ntr))))
+
+(defmethod dead? ((c callback-timer))
+  (callback-timer-dead? c))
+
+(defun create-callback-timer (length event-entity &optional (begin-active? t))
+  (let* ((c (make-callback-timer :event-entity event-entity
+				 :timer (create-expiring-timer length begin-active?)))
+	 (dead?-fn (lambda () (dead? c))))
+
+    (def-entity-ai
+	(() (setf c (ai c))))))
 
 (defun update-loop-timer (tr)
   (mvbind (tr ticked?) (update-timer tr)

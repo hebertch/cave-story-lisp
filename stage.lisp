@@ -1,5 +1,8 @@
 (in-package :cave-story)
 
+(defmethod draw ((s array))
+  (draw-stage s))
+
 (defun basic-stage ()
   "Just a toy stage for debugging."
   (let ((stage (make-array '(15 40) :initial-element nil))
@@ -37,7 +40,7 @@
 
     (let ((dead?-fn nil))
       (def-entity-drawable
-	  (() (draw-stage stage))))
+	  (() (draw stage))))
     stage))
 
 (defun stage-dims (stage)

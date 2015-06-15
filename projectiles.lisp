@@ -68,6 +68,44 @@
   sprite-rect
   dead?)
 
+(defmethod ai ((p missile-projectile))
+  (modify-missile-projectile (p)
+    (when (> (offset-motion-dist offset) (x window-dims))
+      (tf dead?))))
+
+(defmethod physics ((p missile-projectile))
+  (modify-missile-projectile (p)
+    (when wave-motion
+      (fnf wave-motion #'wave-physics))
+    (fnf offset #'offset-motion-physics)))
+
+(defmethod draw ((p missile-projectile))
+  (with-missile-projectile-slots (p)
+    (draw-sprite :projectile :bullet
+		 sprite-rect
+		 (missile-projectile-pos origin offset wave-motion))))
+
+(defmethod stage-collision ((p missile-projectile) stage)
+  (modify-missile-projectile (p)
+    (setf dead? (missile-projectile-collisions
+		 (missile-projectile-collision-rect lvl dir (missile-projectile-pos origin offset wave-motion))
+		 dir
+		 stage))))
+
+(defmethod bullet-rect ((p missile-projectile))
+  (with-missile-projectile-slots (p)
+    (missile-projectile-collision-rect lvl dir (missile-projectile-pos origin offset wave-motion))))
+
+(defmethod bullet-damage-amt ((p missile-projectile))
+  3)
+
+(defmethod bullet-hit-react ((p missile-projectile))
+  (modify-missile-projectile (p)
+    (tf dead?)))
+
+(defmethod dead? ((p missile-projectile))
+  (missile-projectile-dead? p))
+
 (defun create-missile-projectile (lvl dir pos perp-offset-amt speed acc &optional oscillate? (id (gen-entity-id)))
   (let* ((perp-dir (if (vertical? dir) :left :up))
 	 (p (make-missile-projectile :lvl lvl
@@ -83,45 +121,25 @@
 						       :speed missile-radial-speed)
 						      nil)
 				     :sprite-rect (tile-rect (tile-v (position dir '(:left :up :right :down)) lvl))))
-	 (dead?-fn (lambda () (missile-projectile-dead? p))))
+	 (dead?-fn (lambda () (dead? p))))
 
     (def-entity-ai
-	(()
-	 (modify-missile-projectile (p)
-	   (when (> (offset-motion-dist offset) (x window-dims))
-	     (tf dead?)))))
+	(() (setf p (ai p))))
 
     (def-entity-physics
-	(()
-	 (modify-missile-projectile (p)
-	   (when wave-motion
-	     (fnf wave-motion #'wave-physics))
-	   (fnf offset #'offset-motion-physics))))
+	(() (setf p (physics p))))
 
     (def-entity-drawable
-	(()
-	 (with-missile-projectile-slots (p)
-	   (draw-sprite :projectile :bullet
-			sprite-rect
-			(missile-projectile-pos origin offset wave-motion)))))
+	(() (draw p)))
 
     (def-entity-stage-collision
-	((stage)
-	 (modify-missile-projectile (p)
-	   (setf dead? (missile-projectile-collisions
-			(missile-projectile-collision-rect lvl dir (missile-projectile-pos origin offset wave-motion))
-			dir
-			stage)))))
+	((stage) (setf p (stage-collision p stage))))
 
     (def-entity-bullet
-	(()
-	 (with-missile-projectile-slots (p)
-	   (missile-projectile-collision-rect lvl dir (missile-projectile-pos origin offset wave-motion))))
-	(()
-	 (modify-missile-projectile (p)
-	   (tf dead?)))
-      (()
-       3))
+	(() (bullet-rect p))
+	(() (setf p (bullet-hit-react p)))
+      (() (bullet-damage-amt p)))
+
     (register-entity-interface
      id
      (dlambda
@@ -147,51 +165,66 @@
   (origin (sub-v nozzle-pos (tile-dims/2)))
   (sprite-rect (make-polar-star-projectile-sprite-rect lvl dir)))
 
+(defmethod ai ((p polar-star-projectile))
+  (modify-polar-star-projectile (p)
+    (setf dead? (polar-star-projectile-ai offset lvl (polar-star-projectile-pos origin offset) dir))))
+
+(defmethod physics ((p polar-star-projectile))
+  (modify-polar-star-projectile (p)
+    (fnf offset #'polar-star-projectile-physics)))
+
+(defmethod draw ((p polar-star-projectile))
+  (with-polar-star-projectile-slots (p)
+    (polar-star-projectile-draw (polar-star-projectile-pos origin offset) sprite-rect)))
+
+(defmethod bullet-rect ((p polar-star-projectile))
+  (with-polar-star-projectile-slots (p)
+    (polar-star-projectile-collision-rect lvl dir (polar-star-projectile-pos origin offset))))
+
+(defmethod bullet-hit-react ((p polar-star-projectile))
+  (modify-polar-star-projectile (p)
+    (tf dead?)))
+
+(defmethod bullet-damage-amt ((p polar-star-projectile))
+  (elt '(1 2 4) (polar-star-projectile-lvl p)))
+
+(defmethod stage-collision ((p polar-star-projectile) stage)
+  (modify-polar-star-projectile (p)
+    (let ((pos (polar-star-projectile-pos origin offset)))
+      (setf dead? (polar-star-projectile-collisions
+		   (polar-star-projectile-collision-rect lvl dir pos)
+		   dir
+		   pos
+		   stage)))))
+
+(defmethod dead? ((p polar-star-projectile))
+  (polar-star-projectile-dead? p))
+
 ;; Polar Star
 (defun create-polar-star-projectile (nozzle-pos dir lvl &key (id (gen-entity-id)))
   (let* ((p (make-polar-star-projectile :nozzle-pos nozzle-pos
 					:dir dir
 					:lvl lvl))
-	 (dead?-fn (lambda () (polar-star-projectile-dead? p))))
+	 (dead?-fn (lambda () (dead? p))))
 
     (def-entity-ai
-	(()
-	 (setf p (with-polar-star-projectile-copy-slots (p)
-		   (setf dead? (polar-star-projectile-ai offset lvl (polar-star-projectile-pos origin offset) dir))
-		   p))))
+	(() (setf p (ai p))))
 
     (def-entity-physics
 	(()
-	 (setf p (with-polar-star-projectile-copy-slots (p)
-		   (fnf offset #'polar-star-projectile-physics)
-		   p))))
+	 (setf p (physics p))))
 
     (def-entity-drawable
 	(()
-	 (with-polar-star-projectile-slots (p)
-	   (polar-star-projectile-draw (polar-star-projectile-pos origin offset) sprite-rect))))
+	 (draw p)))
 
     (def-entity-bullet
-	(()
-	 (with-polar-star-projectile-slots (p)
-	   (polar-star-projectile-collision-rect lvl dir (polar-star-projectile-pos origin offset))))
-	(()
-	 (setf p (with-polar-star-projectile-copy-slots (p)
-		   (tf dead?)
-		   p)))
-      (()
-       (elt '(1 2 4) lvl)))
+	(() (bullet-rect p))
+	(() (setf p (bullet-hit-react p)))
+      (() (bullet-damage-amt p)))
 
     (def-entity-stage-collision
-	((stage)
-	 (setf p (with-polar-star-projectile-copy-slots (p)
-		   (let ((pos (polar-star-projectile-pos origin offset)))
-		     (setf dead? (polar-star-projectile-collisions
-				  (polar-star-projectile-collision-rect lvl dir pos)
-				  dir
-				  pos
-				  stage)))
-		   p))))
+	((stage) (setf p (stage-collision p stage))))
 
     (register-entity-interface
      id

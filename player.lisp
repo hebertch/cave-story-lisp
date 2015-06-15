@@ -31,40 +31,46 @@
 (defun player-dead? (p)
   (ecall p :dead?))
 
+(defmethod ai ((p player))
+  (modify-player (p)
+    (fnf invincible-timer #'update-timer)
+    (mvbind (tc ticked?) (update-timed-cycle walk-cycle)
+      (when (and ticked? (/= 0 (timed-cycle-current walk-cycle)))
+	(push-sound :step))
+      (setf walk-cycle tc))))
+
+(defun create-game-over-event (&key (id (gen-entity-id)))
+  (register-entity-interface
+   id
+   (dlambda
+    (t ()
+       (switch-to-new-song :gameover)
+       (create-text-display (tiles/2-v 7 24) "You have died.")))))
+
+(defmethod dead? ((p player))
+  (<= (player-health-amt p) 0))
+
 (defun create-default-player (hud projectile-groups damage-numbers gun-exps active-systems &key (id (gen-entity-id)))
   (let* ((p (make-player :damage-numbers damage-numbers :gun-exps gun-exps :projectile-groups projectile-groups))
-	 (dead?-fn (lambda () (<= (player-health-amt p) 0))))
+	 (dead?-fn (lambda () (dead? p))))
 
-    (def-entity-timer
-	(()
-	 (setf p (with-player-copy-slots (p)
-		   (fnf invincible-timer #'update-timer)
-		   p))))
-
-    (def-entity-timer
-	(()
-	 (setf p
-	       (with-player-copy-slots (p)
-		 (mvbind (tc ticked?) (update-timed-cycle walk-cycle)
-		   (when (and ticked? (/= 0 (timed-cycle-current walk-cycle)))
-		     (push-sound :step))
-		   (setf walk-cycle tc))
-		 p))))
+    (def-entity-ai
+	(() (setf p (ai p))))
 
     (def-entity-input
 	((input)
-	 (fnf p (rcurry #'player-input input))))
+	 (setf p (input p input))))
     (def-entity-physics
 	(()
-	 (fnf p #'player-physics)))
+	 (fnf p #'physics)))
 
     (def-entity-stage-collision
 	((stage)
-	 (setf p (player-collisions p stage))))
+	 (setf p (stage-collision p stage))))
 
     (def-entity-drawable
 	(()
-	 (player-draw p)))
+	 (draw p)))
 
     (register-entity-interface
      id
@@ -90,9 +96,7 @@
 			    (let ((entity-system-type :dialog))
 			      (create-callback-timer
 			       (s->ms 1/2)
-			       (lambda ()
-				 (switch-to-new-song :gameover)
-				 (create-text-display (tiles/2-v 7 24) "You have died.")))))
+			       (create-game-over-event))))
 			   (t
 			    (fnf invincible-timer #'reset-timer)
 			    (nilf ground-tile)
@@ -214,7 +218,7 @@
 	(interacting? nil))
     (values acc-dir h-facing interacting? walk-cycle)))
 
-(defun player-input (p input)
+(defmethod input ((p player) input)
   (let ((left?  (or (key-held? input :left) (eq :negative (input-joy-axis-x input))))
 	(right? (or (key-held? input :right) (eq :positive (input-joy-axis-x input))))
 	(down?  (or (key-held? input :down) (eq :positive (input-joy-axis-y input))))
@@ -262,7 +266,7 @@
 	(fnf gun-name-cycle #'cycle-next))
       p)))
 
-(defun player-physics (p)
+(defmethod physics ((p player))
   (with-player-copy-slots (p)
     (let ((acc-y
 	   ;; Vertical motion
@@ -308,7 +312,7 @@
 	       magenta)
     p))
 
-(defun player-collisions (p stage)
+(defmethod stage-collision ((p player) stage)
   (with-player-copy-slots (p)
     (let (new-ground-tile
 	  (stop-x
@@ -339,7 +343,7 @@
 
       p)))
 
-(defun player-draw (p)
+(defmethod draw ((p player))
   (with-player-slots (p)
     (unless (and (timer-active? invincible-timer)
 		 (plusp (chunk-timer-period invincible-timer 50)))
@@ -375,20 +379,6 @@
 
 (defun player-fire-gun (p)
   (ecall p :fire-gun))
-
-(defun player-die (p)
-  (push-sound :player-die)
-  (stop-music)
-  (setf (player-health-amt p) 0)
-  (setf active-update-systems (list :dialog))
-  (setf active-input-system :dialog)
-  (push :dialog active-draw-systems)
-  (let ((entity-system-type :dialog))
-    (create-callback-timer
-     (s->ms 1/2)
-     (lambda ()
-       (switch-to-new-song :gameover)
-       (create-text-display (tiles/2-v 7 24) "You have died.")))))
 
 (defun player-take-damage (p dmg-amt)
   (ecall p :take-damage dmg-amt))

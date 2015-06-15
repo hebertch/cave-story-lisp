@@ -75,8 +75,13 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
      (funcall ,fn-name)))
 
 (def-simple-subsystem physics physics-fn)
+(defgeneric physics (obj))
 (def-simple-subsystem ai ai-fn)
+(defgeneric ai (obj))
 (def-simple-subsystem drawable draw-fn)
+(defgeneric draw (obj))
+
+
 
 (defmacro def-entity-timer ((() &body update-fn-forms))
   `(register-ai entity-system-type :dead?-fn dead?-fn
@@ -86,9 +91,11 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 
 (def-subsystem stage-collision ((collision-fn stage)) (stage)
   (funcall collision-fn stage))
+(defgeneric stage-collision (obj stage))
 
 (def-subsystem input ((input-fn input)) (input)
   (funcall input-fn input))
+(defgeneric input (obj input))
 
 (def-subsystem dynamic-collision (rect-fn vel-fn (react-fn side player-collision-rect player)) (player)
   ;; TODO: Merge with stage collisions.
@@ -103,6 +110,10 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 	(draw-rect rect yellow :layer :debug-dynamic-collision :filled? t)
 	(ecall player :dynamic-collision (funcall react-fn side player-collision-rect player))))))
 
+(defgeneric dynamic-collision-rect (obj))
+(defgeneric dynamic-collision-vel (obj))
+(defgeneric dynamic-collision-react (obj side player-collision-rect player))
+
 (def-subsystem damageable (rect-fn (hit-fn bullet-hit-amt))
     ;; NOTE: UPDATE-DAMAGEABLE-SUBSYSTEM is designed to be called by UPDATE-BULLET-SUBSYSTEM
     (bullet-rect bullet-hit-amt bullet-hit-fn bullet-dead?-fn)
@@ -116,9 +127,16 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 	(funcall bullet-hit-fn)
 	(funcall hit-fn bullet-hit-amt)))))
 
+(defgeneric damageable-rect (obj))
+(defgeneric damageable-hit-react (obj bullet-hit-amt))
+
 (def-subsystem bullet (rect-fn hit-fn damage-amt-fn) ()
   (update-damageable-subsystem
    active-entity-systems (funcall rect-fn) (funcall damage-amt-fn) hit-fn dead?-fn))
+
+(defgeneric bullet-rect (obj))
+(defgeneric bullet-hit-react (obj))
+(defgeneric bullet-damage-amt (obj))
 
 (def-subsystem pickup (rect-fn kill-fn pickup-data-fn)
     (player)
@@ -132,6 +150,10 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
       (player-pickup player (funcall pickup-data-fn))
       (funcall kill-fn))))
 
+(defgeneric pickup-rect (obj))
+(defgeneric pickup-kill (obj))
+(defgeneric pickup-data (obj))
+
 (def-subsystem damage-collision (rect-fn dmg-amt-fn) (player)
   (let ((rect (funcall rect-fn))
 	(player-rect (player-damage-collision-rect (player-state player))))
@@ -141,6 +163,9 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
       (player-take-damage player (funcall dmg-amt-fn))
       (draw-rect rect magenta :layer :debug-damage-collision :filled? t)
       (draw-rect player-rect magenta :layer :debug-damage-collision :filled? t))))
+
+(defgeneric damage-collision-rect (obj))
+(defgeneric damage-collision-amt (obj))
 
 (let (entity-interface-registry id)
   (defun init-id-system ()
@@ -156,3 +181,8 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
     id)
   (defun ecall (id &rest args)
     (apply (gethash id entity-interface-registry) args)))
+
+(defgeneric dead? (obj))
+(defmethod dead? (obj)
+  (declare (ignore obj))
+  nil)
