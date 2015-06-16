@@ -1,3 +1,5 @@
 content
 *.fasl
 /#cave-story.lisp#
+/temp.entities
+/temp.game

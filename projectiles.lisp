@@ -107,43 +107,23 @@
   (missile-projectile-dead? p))
 
 (defun create-missile-projectile (lvl dir pos perp-offset-amt speed acc &optional oscillate? (id (gen-entity-id)))
-  (let* ((perp-dir (if (vertical? dir) :left :up))
-	 (p (make-missile-projectile :lvl lvl
-				     :dir dir
-				     :origin (offset-in-dir-pos pos
-								perp-offset-amt
-								perp-dir)
-				     :offset (make-offset-motion :dir dir :speed speed :acc acc)
-				     :wave-motion (if oscillate?
-						      (make-wave-motion
-						       :dir perp-dir
-						       :amp missile-projectile-amplitude
-						       :speed missile-radial-speed)
-						      nil)
-				     :sprite-rect (tile-rect (tile-v (position dir '(:left :up :right :down)) lvl))))
-	 (dead?-fn (lambda () (dead? p))))
-
-    (def-entity-ai
-	(() (setf p (ai p))))
-
-    (def-entity-physics
-	(() (setf p (physics p))))
-
-    (def-entity-drawable
-	(() (draw p)))
-
-    (def-entity-stage-collision
-	((stage) (setf p (stage-collision p stage))))
-
-    (def-entity-bullet
-	(() (bullet-rect p))
-	(() (setf p (bullet-hit-react p)))
-      (() (bullet-damage-amt p)))
-
-    (register-entity-interface
-     id
-     (dlambda
-      (:dead? () (missile-projectile-dead? p))))))
+  (let ((perp-dir (if (vertical? dir) :left :up)))
+    (create-entity
+     (make-missile-projectile :lvl lvl
+			      :dir dir
+			      :origin (offset-in-dir-pos pos
+							 perp-offset-amt
+							 perp-dir)
+			      :offset (make-offset-motion :dir dir :speed speed :acc acc)
+			      :wave-motion (if oscillate?
+					       (make-wave-motion
+						:dir perp-dir
+						:amp missile-projectile-amplitude
+						:speed missile-radial-speed)
+					       nil)
+			      :sprite-rect (tile-rect (tile-v (position dir '(:left :up :right :down)) lvl)))
+     '(:ai :physics :drawable :stage-collision :bullet)
+     :id id)))
 
 (defun make-missile-projectile-group (lvl dir nozzle-pos)
   (let ((pos (sub-v nozzle-pos
@@ -202,34 +182,12 @@
 
 ;; Polar Star
 (defun create-polar-star-projectile (nozzle-pos dir lvl &key (id (gen-entity-id)))
-  (let* ((p (make-polar-star-projectile :nozzle-pos nozzle-pos
-					:dir dir
-					:lvl lvl))
-	 (dead?-fn (lambda () (dead? p))))
-
-    (def-entity-ai
-	(() (setf p (ai p))))
-
-    (def-entity-physics
-	(()
-	 (setf p (physics p))))
-
-    (def-entity-drawable
-	(()
-	 (draw p)))
-
-    (def-entity-bullet
-	(() (bullet-rect p))
-	(() (setf p (bullet-hit-react p)))
-      (() (bullet-damage-amt p)))
-
-    (def-entity-stage-collision
-	((stage) (setf p (stage-collision p stage))))
-
-    (register-entity-interface
-     id
-     (dlambda
-      (:dead? () (polar-star-projectile-dead? p))))))
+  (create-entity
+   (make-polar-star-projectile :nozzle-pos nozzle-pos
+			       :dir dir
+			       :lvl lvl)
+   '(:ai :physics :drawable :bullet :stage-collision)
+   :id id))
 
 (defun make-polar-star-projectile-group (lvl dir nozzle-pos)
   (push-sound :polar-star-shoot-3)

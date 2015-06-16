@@ -11,96 +11,67 @@
 	    ,(interface-forms-name (car interface)))))
 
 (defvar entity-system-type :game)
-(defmacro def-subsystem (name (&rest interface) update-args &body update-forms)
+
+(defmacro def-subsystem (name update-args &body update-forms)
   "Creates a subsytem of NAME.
-DEAD?-FN is automatically part of the interface, and is used to determine whether the entity
-should be removed from the REGISTRY.
 REGISTER-name is the interface to add to name-REGISTRY.
-DEF-ENTITY-name is the interface to be used with DEF-ENTITY. Expects DEAD?-FN to exist.
+DEF-ENTITY-name is the interface to be used with DEF-ENTITY.
 UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 
   (let ((registry (symbolicate name '-registry))
 	(register-name (symbolicate 'register- name))
-	(update-name (symbolicate 'update- name '-subsystem))
-	(dead-interface (mapcar #'alexandria:ensure-list (cons 'dead?-fn interface)))
-	(interface (mapcar #'alexandria:ensure-list interface))
-	(def-entity-name (symbolicate 'def-entity- name))
-	(struct-name (symbolicate name '-interface))
-	(conc-name (symbolicate name '-interface-))
-	(make-name (symbolicate 'make- name '-interface))
-	(system-type 'system-type))
-    (with-gensyms (entity-name)
+	(update-name (symbolicate 'update- name '-subsystem)))
+    (with-gensyms (entry-name)
       `(progn
 	 (defvar ,registry nil)
 	 (eval-when (:compile-toplevel :load-toplevel :execute)
 	   (pushnew ',registry registry-syms))
-	 (defstruct (,struct-name
-		      (:constructor ,make-name ,(cons system-type (mapcar #'car dead-interface)))
-		      (:conc-name ,(string conc-name))
-		      (:copier nil))
-	   ,@ (cons system-type (mapcar #'car dead-interface)))
 
-	 (defun ,register-name (system-type &key ,@ (mapcar #'car dead-interface))
-	   (push (,make-name system-type ,@(mapcar #'car dead-interface)) ,registry))
-
-	 (defmacro ,def-entity-name ,(loop for i in interface
-					appending `(,(list (cdr i)
-							   '&body
-							   (interface-forms-name (car i)))))
-	   (list ',register-name
-		 'entity-system-type
-		 :dead?-fn 'dead?-fn
-		 ,@(loop for i in interface
-		      appending `(,(alexandria:make-keyword (car i))
-				   ,(lambda-form i)))))
+	 (defun ,register-name (system-type id)
+	   (push (cons system-type id) ,registry))
 
 	 (defun ,update-name ,(cons 'active-entity-systems update-args)
 	   (setf ,registry (remove-if (lambda (p)
-					(awhen (,(symbolicate conc-name 'dead?-fn) p)
-					  (funcall it)))
+					(dead? (estate (cdr p))))
 				      ,registry))
-	   (mapcar (lambda (,entity-name)
-		     (when (member (,(symbolicate conc-name system-type) ,entity-name) active-entity-systems)
-		       (let ,(loop for i in dead-interface
-				collecting
-				  (list (car i) (list (symbolicate conc-name (car i)) entity-name)))
-			 (declare (ignorable ,@ (mapcar #'car dead-interface)))
-			 ,@update-forms)))
-		   ,registry))
+	   (dolist (,entry-name ,registry)
+	     (when (member (car ,entry-name) active-entity-systems)
+	       (let ((entity-id (cdr ,entry-name)))
+		 ,@update-forms))))
 
 	 (values ',registry ',register-name ',update-name)))))
 
-(defmacro def-simple-subsystem (name fn-name)
-  `(def-subsystem ,name (,fn-name) ()
-     (funcall ,fn-name)))
+(defun replace-entity-state (entity-id fn)
+  (estate-set entity-id (funcall fn (estate entity-id))))
 
-(def-simple-subsystem physics physics-fn)
 (defgeneric physics (obj))
-(def-simple-subsystem ai ai-fn)
+(def-subsystem physics ()
+  (replace-entity-state entity-id #'physics))
+
 (defgeneric ai (obj))
-(def-simple-subsystem drawable draw-fn)
+(def-subsystem ai ()
+  (replace-entity-state entity-id #'ai))
+
 (defgeneric draw (obj))
+(def-subsystem drawable ()
+  (draw (estate entity-id)))
 
-
-
-(defmacro def-entity-timer ((() &body update-fn-forms))
-  `(register-ai entity-system-type :dead?-fn dead?-fn
-		:ai-fn
-		(lambda ()
-		  ,@update-fn-forms)))
-
-(def-subsystem stage-collision ((collision-fn stage)) (stage)
-  (funcall collision-fn stage))
 (defgeneric stage-collision (obj stage))
+(def-subsystem stage-collision (stage)
+  (replace-entity-state entity-id (rcurry #'stage-collision stage)))
 
-(def-subsystem input ((input-fn input)) (input)
-  (funcall input-fn input))
 (defgeneric input (obj input))
+(def-subsystem input (input)
+  (replace-entity-state entity-id (rcurry #'input input)))
 
-(def-subsystem dynamic-collision (rect-fn vel-fn (react-fn side player-collision-rect player)) (player)
+(defgeneric dynamic-collision-vel (obj))
+(defgeneric dynamic-collision-react (obj side player-collision-rect player))
+
+(def-subsystem dynamic-collision (player)
   ;; TODO: Merge with stage collisions.
   (dolist (side collision-order)
-    (let* ((rect (funcall rect-fn))
+    (let* ((state (estate entity-id))
+	   (rect (dynamic-collision-rect state))
 	   (player-collision-rect (cdr (assoc side player-collision-rectangles-alist)))
 	   (player-rect (rect-offset player-collision-rect (player-pos (player-state player)))))
       (draw-rect rect blue :layer :debug-dynamic-collision)
@@ -108,81 +79,114 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
       (when (rects-collide? rect player-rect)
 	(draw-rect player-rect green :layer :debug-dynamic-collision :filled? t)
 	(draw-rect rect yellow :layer :debug-dynamic-collision :filled? t)
-	(ecall player :dynamic-collision (funcall react-fn side player-collision-rect player))))))
-
-(defgeneric dynamic-collision-rect (obj))
-(defgeneric dynamic-collision-vel (obj))
-(defgeneric dynamic-collision-react (obj side player-collision-rect player))
-
-(def-subsystem damageable (rect-fn (hit-fn bullet-hit-amt))
-    ;; NOTE: UPDATE-DAMAGEABLE-SUBSYSTEM is designed to be called by UPDATE-BULLET-SUBSYSTEM
-    (bullet-rect bullet-hit-amt bullet-hit-fn bullet-dead?-fn)
-  (unless (funcall bullet-dead?-fn)
-    (let ((rect (funcall rect-fn)))
-      (draw-rect bullet-rect green :layer :debug-damageable)
-      (draw-rect rect blue :layer :debug-damageable)
-      (when (rects-collide? rect bullet-rect)
-	(draw-rect bullet-rect yellow :layer :debug-damageable :filled? t)
-	(draw-rect rect yellow :layer :debug-damageable :filled? t)
-	(funcall bullet-hit-fn)
-	(funcall hit-fn bullet-hit-amt)))))
+	(estate-set player (dynamic-collision-react state side player-collision-rect player))))))
 
 (defgeneric damageable-rect (obj))
 (defgeneric damageable-hit-react (obj bullet-hit-amt))
-
-(def-subsystem bullet (rect-fn hit-fn damage-amt-fn) ()
-  (update-damageable-subsystem
-   active-entity-systems (funcall rect-fn) (funcall damage-amt-fn) hit-fn dead?-fn))
 
 (defgeneric bullet-rect (obj))
 (defgeneric bullet-hit-react (obj))
 (defgeneric bullet-damage-amt (obj))
 
-(def-subsystem pickup (rect-fn kill-fn pickup-data-fn)
-    (player)
-  (let ((rect (funcall rect-fn))
+(def-subsystem damageable (bullet-id)
+  ;; NOTE: UPDATE-DAMAGEABLE-SUBSYSTEM is designed to be called by UPDATE-BULLET-SUBSYSTEM
+  (unless (dead? (estate bullet-id))
+    (let ((bullet-rect (bullet-rect (estate bullet-id)))
+	  (bullet-hit-amt (bullet-damage-amt (estate bullet-id)))
+	  (rect (damageable-rect (estate entity-id))))
+      (draw-rect bullet-rect green :layer :debug-damageable)
+      (draw-rect rect blue :layer :debug-damageable)
+      (when (rects-collide? rect bullet-rect)
+	(draw-rect bullet-rect yellow :layer :debug-damageable :filled? t)
+	(draw-rect rect yellow :layer :debug-damageable :filled? t)
+	(replace-entity-state entity-id (rcurry #'damageable-hit-react bullet-hit-amt))
+	(replace-entity-state bullet-id #'bullet-hit-react)))))
+
+(def-subsystem bullet ()
+  (update-damageable-subsystem active-entity-systems entity-id))
+
+(defgeneric pickup-rect (obj))
+(defgeneric pickup-kill (obj))
+(defgeneric pickup-data (obj))
+
+(def-subsystem pickup (player)
+  (let ((rect (pickup-rect (estate entity-id)))
 	(player-rect  (player-damage-collision-rect (player-state player))))
     (draw-rect rect green :layer :debug-pickup)
     (draw-rect player-rect blue :layer :debug-pickup)
     (when (rects-collide? rect player-rect)
       (draw-rect rect yellow :layer :debug-pickup :filled? t)
       (draw-rect player-rect yellow :layer :debug-pickup :filled? t)
-      (player-pickup player (funcall pickup-data-fn))
-      (funcall kill-fn))))
-
-(defgeneric pickup-rect (obj))
-(defgeneric pickup-kill (obj))
-(defgeneric pickup-data (obj))
-
-(def-subsystem damage-collision (rect-fn dmg-amt-fn) (player)
-  (let ((rect (funcall rect-fn))
-	(player-rect (player-damage-collision-rect (player-state player))))
-    (draw-rect rect red :layer :debug-damage-collision)
-    (draw-rect player-rect blue :layer :debug-damage-collision)
-    (when (rects-collide? rect player-rect)
-      (player-take-damage player (funcall dmg-amt-fn))
-      (draw-rect rect magenta :layer :debug-damage-collision :filled? t)
-      (draw-rect player-rect magenta :layer :debug-damage-collision :filled? t))))
+      (replace-entity-state player (lambda (player) (player-pickup player (pickup-data (estate entity-id)))))
+      (replace-entity-state entity-id #'pickup-kill))))
 
 (defgeneric damage-collision-rect (obj))
 (defgeneric damage-collision-amt (obj))
 
-(let (entity-interface-registry id)
+(def-subsystem damage-collision (player)
+  (let ((rect (damage-collision-rect (estate entity-id)))
+	(player-rect (player-damage-collision-rect (player-state player))))
+    (draw-rect rect red :layer :debug-damage-collision)
+    (draw-rect player-rect blue :layer :debug-damage-collision)
+    (when (rects-collide? rect player-rect)
+      (replace-entity-state player (lambda (p) (player-take-damage p (damage-collision-amt (estate entity-id)))))
+      (draw-rect rect magenta :layer :debug-damage-collision :filled? t)
+      (draw-rect player-rect magenta :layer :debug-damage-collision :filled? t))))
+
+(defstructure entity
+    state
+  subsystems
+  system-type)
+
+(let (entity-registry id)
+  (defun current-entity-states ()
+    (list id entity-registry))
+
+  (defun restore-entity-states (id-and-registry)
+    (mvsetq (id entity-registry) (values-list id-and-registry))
+    (dohash (id e) entity-registry
+      (register-entity-subsystems id e)))
+
   (defun init-id-system ()
     (setf id 0))
   (defun gen-entity-id ()
     (incf id))
 
-  (defun init-entity-interface-registry ()
+  (defun init-entity-registry ()
     (setf id 0
-	  entity-interface-registry (make-hash-table)))
-  (defun register-entity-interface (id interface)
-    (setf (gethash id entity-interface-registry) interface)
+	  entity-registry (make-hash-table)))
+
+  (defun register-entity (id entity)
+    (setf (gethash id entity-registry) entity)
     id)
-  (defun ecall (id &rest args)
-    (apply (gethash id entity-interface-registry) args)))
+
+  (defun estate (id)
+    (entity-state (gethash id entity-registry)))
+
+  (defun estate-set (id obj)
+    (setf (entity-state (gethash id entity-registry)) obj)))
 
 (defgeneric dead? (obj))
 (defmethod dead? (obj)
   (declare (ignore obj))
   nil)
+
+(defun register-entity-subsystems (id entity)
+  (with-entity-slots (entity)
+    (dolist (s subsystems)
+      (ecase s
+	(:ai (register-ai system-type id))
+	(:bullet (register-bullet system-type id))
+	(:damageable (register-damageable system-type id))
+	(:damage-collision (register-damage-collision system-type id))
+	(:input (register-input system-type id))
+	(:physics (register-physics system-type id))
+	(:stage-collision (register-stage-collision system-type id))
+	(:dynamic-collision (register-dynamic-collision system-type id))
+	(:drawable (register-drawable system-type id))
+	(:pickup (register-pickup system-type id))))))
+
+(defun create-entity (initial-state subsystems &key (id (gen-entity-id)))
+  (let ((entity (make-entity :system-type entity-system-type :state initial-state :subsystems subsystems)))
+    (register-entity-subsystems id entity)
+    (register-entity id entity)))

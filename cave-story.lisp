@@ -31,28 +31,27 @@
   (catch 'exit
     (unwind-protect
 	 (let ((frame-timer 0)
-	       last-update-time
-	       game)
-	   (setq game (init))
+	       last-update-time)
+	   (setq global-game (init))
 	   (setf last-update-time (sdl:get-ticks))
 	   (loop do
 		(swank-tools:update)
 		(swank-tools:continuable
-		  (setf game (handle-input game))
-		  (let ((input (game-input game)))
+		  (fnf global-game #'handle-input)
+		  (let ((input (game-input global-game)))
 		    (when (and global-paused? (key-pressed? input :n))
-		      (update-and-render renderer game))
+		      (update-and-render renderer global-game))
 		    (when (or (key-pressed? input :r) (joy-pressed? input :select))
-		      (setq game (reset))))
+		      (setq global-game (reset))))
 		  (when (>= frame-timer (* update-period frame-time))
 		    (unless global-paused?
-		      (update-and-render renderer game))
+		      (update-and-render renderer global-game))
 		    (render renderer
 			    font
 			    render-list
 			    (camera-focus->camera-pos
-			     (clamp-pos (ecall (game-camera game) :focus)
-					(stage-dims->camera-bounds (stage-dims (game-stage game))))))
+			     (clamp-pos (camera-focus (estate (game-camera global-game)))
+					(stage-dims->camera-bounds (stage-dims (game-stage global-game))))))
 		    (decf frame-timer (* update-period frame-time)))
 
 		  (let ((dt (- (sdl:get-ticks) last-update-time)))
@@ -104,22 +103,23 @@ This can be abused with the machine gun in TAS."
 	     (toggle-visible-layer layer))))
 
 
-    (update-input-subsystem (ecall (game-active-systems game) :input) input)
-    (ecase (first (ecall (game-active-systems game) :input))
-      (:game
-       (when (or (joy-pressed? input :b) (key-pressed? input :x))
-	 ;; Fire Gun
-	 (player-fire-gun (game-player game))))
+    (let ((input-systems (active-systems-input (estate (game-active-systems game)))))
+      (update-input-subsystem input-systems input)
+      (ecase (first input-systems)
+	(:game
+	 (when (or (joy-pressed? input :b) (key-pressed? input :x))
+	   ;; Fire Gun
+	   (player-fire-gun (estate (game-player game)))))
 
-      (:dialog
-       (cond
-	 ((or (joy-pressed? input :b) (key-pressed? input :x))
-	  (dialog-ok-pressed))
-	 ((or (joy-held? input :a) (key-pressed? input :z)
-	      (joy-held? input :b) (key-pressed? input :x))
-	  (dialog-button-held))
-	 (t
-	  (dialog-buttons-released)))))
+	(:dialog
+	 (cond
+	   ((or (joy-pressed? input :b) (key-pressed? input :x))
+	    (dialog-ok-pressed))
+	   ((or (joy-held? input :a) (key-pressed? input :z)
+		(joy-held? input :b) (key-pressed? input :x))
+	    (dialog-button-held))
+	   (t
+	    (dialog-buttons-released))))))
     game))
 
 (defun dialog-ok-pressed ()
@@ -205,30 +205,11 @@ This can be abused with the machine gun in TAS."
   (dorito-dead? d))
 
 (defun create-dorito (pos vel size)
-  (let* ((d (make-dorito :pos pos
-			 :vel vel
-			 :size size))
-	 (dead?-fn (lambda () (dead? d))))
-
-    (def-entity-ai
-	(()
-	 (setf d (ai d))))
-
-    (def-entity-physics
-	(()
-	 (setf d (physics d))))
-
-    (def-entity-stage-collision
-	((stage)
-	 (setf d (stage-collision d stage))))
-
-    (def-entity-drawable
-	(() (draw d)))
-
-    (def-entity-pickup
-	(() (pickup-rect d))
-	(() (setf d (pickup-kill d)))
-      (() (pickup-data d)))))
+  (create-entity
+   (make-dorito :pos pos
+		:vel vel
+		:size size)
+   '(:ai :physics :stage-collision :drawable :pickup)))
 
 (defun dorito-draw (life-tr anim-cycle-current size pos)
   (unless (and (< (timer-ms-remaining life-tr) (s->ms 1))
@@ -291,21 +272,14 @@ This can be abused with the machine gun in TAS."
   (particle-dead? p))
 
 (defun create-particle (&key seq fps sheet-key tile-y pos (id (gen-entity-id)))
-  (let* ((p (make-particle :timed-cycle (make-timed-cycle :timer (fps-make-timer fps)
-							  :cycle (create-cycle seq))
-			   :sheet-key sheet-key
-			   :tile-y tile-y
-			   :pos pos))
-	 (dead?-fn (lambda () (dead? p))))
-    (def-entity-ai
-	(() (fnf p #'ai)))
-
-    (def-entity-drawable
-	(()
-	 (draw p))))
-  (register-entity-interface
-   id
-   (dlambda)))
+  (create-entity
+   (make-particle :timed-cycle (make-timed-cycle :timer (fps-make-timer fps)
+						 :cycle (create-cycle seq))
+		  :sheet-key sheet-key
+		  :tile-y tile-y
+		  :pos pos)
+   '(:ai :drawable)
+   :id id))
 
 (defun particle-draw (sheet-key cycle tile-y pos)
   (draw-sprite :particle sheet-key
@@ -376,7 +350,7 @@ This can be abused with the machine gun in TAS."
   amt)
 
 (defmethod draw ((fn floating-number))
-  (draw-number (+v (ecall (floating-number-entity fn) :origin)
+  (draw-number (+v (floating-number-origin (estate (floating-number-entity fn)))
 		   (offset-motion-offset (floating-number-offset fn)))
 	       (floating-number-amt fn)))
 
@@ -387,27 +361,16 @@ This can be abused with the machine gun in TAS."
 (defmethod dead? ((dn floating-number))
   (floating-number-dead? dn))
 
+(defun floating-number-add-amt (dn amount)
+  (modify-floating-number (dn)
+    (fnf life-timer #'reset-timer)
+    (incf amt amount)))
+
 (defun create-floating-number (entity amt &key (id (gen-entity-id)))
-  (let* ((dn (make-floating-number :entity entity :amt amt))
-	 (dead?-fn (lambda () (dead? dn))))
-
-    (def-entity-ai
-	(() (setf dn (ai dn))))
-
-    (def-entity-drawable
-	(() (draw dn)))
-
-    (def-entity-physics
-	(()
-	 (fnf dn #'physics)))
-
-    (register-entity-interface
-     id
-     (dlambda
-      (:dead? () (funcall dead?-fn))
-      (:add-amt (amount) (modify-floating-number (dn)
-			   (fnf life-timer #'reset-timer)
-			   (incf amt amount)))))))
+  (create-entity
+   (make-floating-number :entity entity :amt amt)
+   '(:ai :drawable :physics)
+   :id id))
 
 (defmethod physics ((fn floating-number))
   (modify-floating-number (fn)
@@ -417,8 +380,8 @@ This can be abused with the machine gun in TAS."
   (not (timer-active? (floating-number-life-timer fn))))
 
 (defun remove-all-dead (game)
-  (ecall (game-projectile-groups game) :remove-dead)
-  (ecall (game-damage-numbers game) :remove-dead))
+  (replace-entity-state (game-projectile-groups game) #'projectile-groups-remove-dead)
+  (replace-entity-state (game-damage-numbers game) #'damage-numbers-remove-dead))
 
 (defun draw-bat (pos facing cycle-idx)
   (draw-sprite :enemy :npc-cemet
@@ -525,15 +488,9 @@ This can be abused with the machine gun in TAS."
   (text-display-dead? td))
 
 (defun create-text-display (pos text)
-  (let* ((entity-system-type :dialog)
-	 (td (make-text-display :pos pos :text text))
-	 (dead?-fn (lambda () (dead? td))))
-
-    (def-entity-ai
-	(() (setf td (ai td))))
-
-    (def-entity-drawable
-	(() (draw td)))))
+  (let ((entity-system-type :dialog))
+    (create-entity (make-text-display :pos pos :text text)
+		   '(:ai :drawable))))
 
 (defstructure hud
     player
@@ -619,32 +576,21 @@ This can be abused with the machine gun in TAS."
     (fnf health-change-timer #'update-timer)))
 
 (defmethod dead? ((h hud))
-  (ecall (hud-player h) :dead?))
+  (dead? (estate (hud-player h))))
+
+(defun hud-exp-changed (h)
+  (modify-hud (h)
+    (fnf timer #'reset-timer)))
+(defun hud-health-changed (h)
+  (modify-hud (h)
+    (setf last-health-amt (player-health-amt (player-state player)))
+    (fnf health-change-timer #'reset-timer)))
 
 (defun create-hud (player gun-exps &key (id (gen-entity-id)))
-  ;; Player and current-gun-exp-fn are references to outside entities.
-  (let* (;; State-vars
-	 (h (make-hud :player player :gun-exps gun-exps))
-	 (dead?-fn (lambda () (dead? h))))
-
-    (def-entity-timer
-	(()
-	 (setf h (ai h))))
-
-    (def-entity-drawable
-	(() (draw h)))
-
-    (register-entity-interface
-     id
-     (dlambda
-      (:exp-changed () (setf h (with-hud-copy-slots (h)
-				 (fnf timer #'reset-timer)
-				 h)))
-      (:health-changed ()
-		       (setf h (with-hud-copy-slots (h)
-				 (setf last-health-amt (player-health-amt (player-state player)))
-				 (fnf health-change-timer #'reset-timer)
-				 h)))))))
+  (create-entity
+   (make-hud :player player :gun-exps gun-exps)
+   '(:ai :drawable)
+   :id id))
 
 (defun draw-textbox-tile (src-pos pos)
   (let ((size (both-v (tiles/2 1))))
@@ -684,7 +630,7 @@ This can be abused with the machine gun in TAS."
   "The Main Loop, called once per FRAME-TIME."
   (nilf render-list screen-render-list)
 
-  (let ((active-update-systems (ecall (game-active-systems game) :update))
+  (let ((active-update-systems (active-systems-update (estate (game-active-systems game))))
 	(stage (game-stage game))
 	(player (game-player game)))
     (update-ai-subsystem active-update-systems)
@@ -696,7 +642,7 @@ This can be abused with the machine gun in TAS."
     (update-damage-collision-subsystem active-update-systems player)
     (update-dynamic-collision-subsystem active-update-systems player))
 
-  (let ((active-draw-systems (ecall (game-active-systems game) :draw)))
+  (let ((active-draw-systems (active-systems-draw (estate (game-active-systems game)))))
     (update-drawable-subsystem active-draw-systems))
 
   (remove-all-dead game)
@@ -704,7 +650,7 @@ This can be abused with the machine gun in TAS."
   ;; Debug Drawings Below.
 
   ;; (draw-point (player-nozzle-pos player) red)
-  (let ((focus (ecall (game-camera game) :focus))
+  (let ((focus (camera-focus (estate (game-camera game))))
 	(camera-bounds (stage-dims->camera-bounds (stage-dims (game-stage game)))))
     (draw-point focus cyan)
     (draw-point (clamp-pos focus camera-bounds) red)
@@ -719,7 +665,6 @@ This can be abused with the machine gun in TAS."
 
 (defvar global-paused?)
 
-
 (defparameter entity-systems '(:game :dialog))
 
 (defstructure active-systems
@@ -727,74 +672,79 @@ This can be abused with the machine gun in TAS."
   (draw (list :game))
   (input (list :game)))
 
+(defun active-systems-switch-to-dialog (a)
+  (modify-active-systems (a)
+    (setf update (list :dialog))
+    (setf draw (list :game :dialog))
+    (setf input (list :dialog))))
+
 (defun create-active-systems (&key (id (gen-entity-id)))
-  (let ((a (make-active-systems)))
-    (register-entity-interface
-     id
-     (dlambda
-      (:input () (active-systems-input a))
-      (:update () (active-systems-update a))
-      (:draw () (active-systems-draw a))
-      (:switch-to-dialog ()
-			 (modify-active-systems (a)
-			   (setf update (list :dialog))
-			   (setf draw (list :game :dialog))
-			   (setf input (list :dialog))))))))
+  (create-entity (make-active-systems) () :id id))
+
+(defun damage-numbers-remove-dead (d)
+  (remove-if (lambda (pair) (dead? (estate (cdr pair)))) d))
+
+(defun damage-numbers-update-damage-amt (d e amt)
+  (aif (assoc e d)
+       (replace-entity-state (cdr it) (lambda (fn) (floating-number-add-amt fn (- amt))))
+       (push (cons e (create-floating-number e (- amt))) d))
+  d)
 
 (defun create-damage-numbers (&key (id (gen-entity-id)))
-  (let ((d nil))
-    (register-entity-interface
-     id
-     (dlambda
-      (:remove-dead ()
-		    (setf d (remove-if (lambda (pair) (ecall (cdr pair) :dead?)) d)))
-      (:update-damage-amt (e amt)
-			  (aif (assoc e d)
-			       (ecall (cdr it) :add-amt (- amt))
-			       (push (cons e (create-floating-number e (- amt))) d)))))))
+  (create-entity nil () :id id))
+
+(defun gun-exp-for (gun-exps gun-name)
+  (cdr (assoc gun-name gun-exps)))
+
+(defun incr-gun-exp (gun-exps gun-name amt)
+  (let ((g (copy-alist gun-exps)))
+    (let ((pair (assoc gun-name g)))
+      (setf (cdr pair) (min (max (+ (cdr pair) amt) 0)
+			    (exp-for-gun-level gun-name :max))))
+    g))
 
 (defun create-gun-exps (&key (id (gen-entity-id)))
-  (let ((g (loop for g across gun-names collecting (cons g 0))))
-    (register-entity-interface
-     id
-     (dlambda
-      (:exp-for (gun-name)
-		(cdr (assoc gun-name g)))
-      (:incr (gun-name amt)
-	     (setf g (copy-alist g))
-	     (let ((pair (assoc gun-name g)))
-	       (setf (cdr pair) (min (max (+ (cdr pair) amt) 0)
-				     (exp-for-gun-level gun-name :max)))))
+  (create-entity
+   (loop for g across gun-names collecting (cons g 0))
+   ()
+   :id id))
 
-      (t () (error "Bad Call."))))))
+(defun projectile-groups-remove-dead (g)
+  (remove-if #'null
+	     (loop for (name . g) in g
+		collecting
+		  (let ((new-g (remove-if (lambda (x) (dead? (estate x))) g)))
+		    (when new-g
+		      (list* name new-g))))))
+
+(defun projectile-groups-count (g gun-name)
+  (count gun-name g :key #'car))
+
+(defun projectile-groups-add (g pg)
+  (push pg g))
 
 (defun create-projectile-groups (&key (id (gen-entity-id)))
-  (let ((g nil))
-    (register-entity-interface
-     id
-     (dlambda
-      (:remove-dead ()
-		    (setf g
-			  (remove-if #'null
-				     (loop for (name . g) in g
-					collecting
-					  (let ((new-g (remove-if (lambda (x) (ecall x :dead?)) g)))
-					    (when new-g
-					      (list* name new-g)))))))
-      (:count (gun-name)
-	      (count gun-name g :key #'car))
-      (:add (pg)
-	    (push pg g))))))
+  (create-entity nil () :id id))
 
 (defun update-damage-number-amt (damage-numbers e amt)
-  (ecall damage-numbers :update-damage-amt e amt))
+  (replace-entity-state damage-numbers (lambda (dn) (damage-numbers-update-damage-amt dn e amt))))
 
 (defun current-gun-exp (player gun-exps)
   (let* ((gun-name (player-current-gun-name (player-gun-name-cycle (player-state player))))
-	 (exp (ecall gun-exps :exp-for gun-name)))
+	 (exp (gun-exp-for (estate gun-exps) gun-name)))
     (values
      exp
      gun-name)))
+
+(defun save-current-state ()
+  (cl-store:store (current-entity-states) "./temp.entities")
+  (cl-store:store global-game "./temp.game"))
+
+(defun restore-state ()
+  (dolist (s registry-syms)
+    (nilf (symbol-value s)))
+  (restore-entity-states (cl-store:restore "./temp.entities"))
+  (setf global-game (cl-store:restore "./temp.game")))
 
 (defun create-game ()
   (let ((damage-numbers (create-damage-numbers))
@@ -822,9 +772,9 @@ This can be abused with the machine gun in TAS."
   (switch-to-new-song :lastcave)
   (set-music-volume 20)
 
-  (init-entity-interface-registry)
   (dolist (s registry-syms)
     (nilf (symbol-value s)))
+  (init-entity-registry)
 
   (nilf global-paused?)
 
@@ -915,27 +865,14 @@ This can be abused with the machine gun in TAS."
 (defmethod dead? ((b bat)) (bat-dead? b))
 
 (defun create-bat (tile-x tile-y player)
-  (let* ((b (make-bat :origin (tile-v tile-x tile-y)
-		      :wave-motion (make-wave-motion :dir :up
-						     :amp (tiles 2)
-						     :speed (/ 0.0325 frame-time))
-		      :anim-cycle (create-timed-cycle 14 #(0 2 1 2))
-		      :player player))
-	 (dead?-fn (lambda () (dead? b))))
-    (def-entity-ai (() (fnf b #'ai)))
-    (def-entity-damage-collision
-	(() (damage-collision-rect b))
-	(() (damage-collision-amt b)))
-
-    (def-entity-damageable
-	(() (damageable-rect b))
-	((bullet-hit-amt) (setf b (damageable-hit-react b bullet-hit-amt))))
-
-    (def-entity-drawable
-	(() (draw b)))
-
-    (def-entity-physics
-	(() (fnf b #'physics)))))
+  (create-entity
+   (make-bat :origin (tile-v tile-x tile-y)
+	     :wave-motion (make-wave-motion :dir :up
+					    :amp (tiles 2)
+					    :speed (/ 0.0325 frame-time))
+	     :anim-cycle (create-timed-cycle 14 #(0 2 1 2))
+	     :player player)
+   '(:ai :damage-collision :damageable :drawable :physics)))
 
 (defun bat-pos (wave-motion origin)
   (+v (wave-offset wave-motion) origin))
@@ -993,7 +930,8 @@ This can be abused with the machine gun in TAS."
 
 (defmethod damageable-hit-react ((c critter) amt)
   (update-damage-number-amt (critter-damage-numbers c) (critter-id c) amt)
-  (push-sound :enemy-hurt))
+  (push-sound :enemy-hurt)
+  c)
 
 (defmethod damage-collision-rect ((c critter))
   (tile-rect (critter-pos c)))
@@ -1053,37 +991,21 @@ This can be abused with the machine gun in TAS."
 (defmethod dead? ((c critter))
   (critter-dead? c))
 
+(defgeneric floating-number-origin (obj))
+(defmethod floating-number-origin ((c critter))
+  (+v (critter-pos c) (tile-dims/2)))
+
+(defgeneric inertia-vel (obj))
+(defmethod inertia-vel ((c critter))
+  (critter-vel c))
+
 (defun create-critter (pos player damage-numbers &key (id (gen-entity-id)))
-  ;; Pos: State-var
-  ;; Player: referenced-entity
-  (let* ((c (make-critter :pos pos :player player :damage-numbers damage-numbers :vel (zero-v) :sleep-timer (create-expiring-timer 300)
-			  :id id))
-	 ;; My-interface
-	 (dead?-fn (lambda () (dead? c))))
-
-    (def-entity-ai (() (fnf c #'ai)))
-    (def-entity-drawable (() (draw c)))
-
-    (def-entity-physics (() (fnf c #'physics)))
-
-    (def-entity-damageable
-	(() (damageable-rect c))
-	((amt) (damageable-hit-react c amt)))
-
-    (def-entity-damage-collision
-	(() (damage-collision-rect c))
-	(() (damage-collision-amt c)))
-
-    (def-entity-dynamic-collision
-	(() (dynamic-collision-rect c))
-	(() (dynamic-collision-vel c))
-      ((side player-collision-rect player)
-       (dynamic-collision-react c side player-collision-rect player)))
-
-    (def-entity-stage-collision ((stage) (setf c (stage-collision c stage))))
-
-    (register-entity-interface
-     id
-     (dlambda
-      (:origin () (+v (critter-pos c) (tile-dims/2)))
-      (:vel () (critter-vel c))))))
+  (create-entity
+   (make-critter :pos pos
+		 :player player
+		 :damage-numbers damage-numbers
+		 :vel (zero-v)
+		 :sleep-timer (create-expiring-timer 300)
+		 :id id)
+   '(:ai :drawable :physics :damageable :damage-collision :dynamic-collision :stage-collision)
+   :id id))

@@ -27,15 +27,15 @@
 			      vel)))))
 
 (defun create-player-camera (focus vel player &key (id (gen-entity-id)))
-  (let ((c (make-camera :focus focus :vel vel :player player))
-	(dead?-fn))
-
-    (def-entity-physics
-	(() (setf c (physics c))))
+  (comment-code
     (register-entity-interface
      id
      (dlambda
-      (:focus () (with-camera-slots (c) focus))))))
+      (:focus () (with-camera-slots (c) focus)))))
+  (create-entity
+   (make-camera :focus focus :vel vel :player player)
+   '(:physics)
+   :id id))
 
 (defparameter camera-speed-scale-factor 1/20)
 (defparameter camera-acc 2e-4)

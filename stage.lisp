@@ -38,9 +38,9 @@
       (setf (aref stage 6 x) wall)
       (setf (aref stage 7 (incf x)) wall))
 
-    (let ((dead?-fn nil))
-      (def-entity-drawable
-	  (() (draw stage))))
+    (create-entity
+     stage
+     '(:drawable))
     stage))
 
 (defun stage-dims (stage)

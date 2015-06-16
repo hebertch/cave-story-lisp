@@ -15,6 +15,9 @@
   (health-amt 3)
   (max-health-amt 3)
 
+  id
+  hud
+  active-systems
   ground-inertia-entity
   damage-numbers
   gun-exps
@@ -23,13 +26,11 @@
 (defun player-pickup (p pickup)
   (ecase (pickup-type pickup)
     (:dorito
-     (ecall p :gun-exp (pickup-amt pickup)))))
+     (player-gun-exp p (pickup-amt pickup))))
+  p)
 
 (defun player-state (p)
-  (ecall p :state))
-
-(defun player-dead? (p)
-  (ecall p :dead?))
+  (estate p))
 
 (defmethod ai ((p player))
   (modify-player (p)
@@ -39,88 +40,77 @@
 	(push-sound :step))
       (setf walk-cycle tc))))
 
-(defun create-game-over-event (&key (id (gen-entity-id)))
-  (register-entity-interface
-   id
-   (dlambda
-    (t ()
-       (switch-to-new-song :gameover)
-       (create-text-display (tiles/2-v 7 24) "You have died.")))))
-
 (defmethod dead? ((p player))
   (<= (player-health-amt p) 0))
 
+(defun player-fire-gun (p)
+  (let ((gun-name (player-current-gun-name (player-gun-name-cycle p))))
+    (let ((num-projectile-groups (projectile-groups-count (estate (player-projectile-groups p)) gun-name))
+	  (nozzle-pos (player-nozzle-pos p))
+	  (dir (aif (player-actual-v-facing (player-v-facing p) (player-on-ground? (player-ground-tile p)))
+		    it
+		    (player-h-facing p)))
+	  ;; TODO: Determine the level of the gun.
+	  (lvl (gun-level (gun-exp-for (estate (player-gun-exps p)) gun-name) (cdr (assoc gun-name gun-level-exps))))
+	  (max-projectiles (cdr (assoc gun-name max-projectile-groups))))
+      (unless (null max-projectiles)
+	(when (< num-projectile-groups max-projectiles)
+	  (replace-entity-state (player-projectile-groups p)
+				(rcurry #'projectile-groups-add
+					(make-projectile-group gun-name lvl dir nozzle-pos))))))))
+
+(defun player-take-damage (p dmg-amt)
+  (modify-player (p)
+    (unless (timer-active? invincible-timer)
+      (cond
+	((>= (abs dmg-amt) health-amt)
+	 (push-sound :player-die)
+	 (stop-music)
+	 (setf health-amt 0)
+	 (replace-entity-state active-systems #'active-systems-switch-to-dialog)
+	 (let ((entity-system-type :dialog))
+	   (comment-code
+	     (create-callback-timer
+	      (s->ms 1/2)
+	      (create-game-over-event)))))
+	(t
+	 (fnf invincible-timer #'reset-timer)
+	 (nilf ground-tile)
+	 (push-sound :hurt)
+	 (replace-entity-state hud #'hud-health-changed)
+	 (decf health-amt dmg-amt)
+	 (replace-entity-state
+	  gun-exps
+	  (lambda (g)
+	    (incr-gun-exp
+	     g
+	     (player-current-gun-name gun-name-cycle)
+	     (- (* 2 dmg-amt)))))
+	 (update-damage-number-amt damage-numbers id dmg-amt)
+	 (setf vel (make-v (x vel) (min (y vel) (- player-hop-speed)))))))))
+
+(defmethod floating-number-origin ((p player))
+  (+v (player-pos p) (tile-dims/2)))
+
+(defun player-gun-exp (p amt)
+  (with-player-slots (p)
+    (replace-entity-state
+     gun-exps
+     (lambda (g)
+       (incr-gun-exp g (player-current-gun-name (player-gun-name-cycle p)) amt)))
+    (replace-entity-state hud #'hud-exp-changed))
+  p)
+
 (defun create-default-player (hud projectile-groups damage-numbers gun-exps active-systems &key (id (gen-entity-id)))
-  (let* ((p (make-player :damage-numbers damage-numbers :gun-exps gun-exps :projectile-groups projectile-groups))
-	 (dead?-fn (lambda () (dead? p))))
-
-    (def-entity-ai
-	(() (setf p (ai p))))
-
-    (def-entity-input
-	((input)
-	 (setf p (input p input))))
-    (def-entity-physics
-	(()
-	 (fnf p #'physics)))
-
-    (def-entity-stage-collision
-	((stage)
-	 (setf p (stage-collision p stage))))
-
-    (def-entity-drawable
-	(()
-	 (draw p)))
-
-    (register-entity-interface
-     id
-     (dlambda
-      (:state () (copy-player p))
-      (:dead? () (funcall dead?-fn))
-      (:origin () (+v (player-pos p) (tile-dims/2)))
-      (:dynamic-collision (new-p) (setf p new-p))
-      (:gun-exp (amt)
-		(ecall gun-exps :incr (player-current-gun-name (player-gun-name-cycle p)) amt)
-		(ecall hud :exp-changed))
-      (:take-damage (dmg-amt)
-		    (setf
-		     p
-		     (with-player-copy-slots (p)
-		       (unless (timer-active? invincible-timer)
-			 (cond
-			   ((>= (abs dmg-amt) health-amt)
-			    (push-sound :player-die)
-			    (stop-music)
-			    (setf health-amt 0)
-			    (ecall active-systems :switch-to-dialog)
-			    (let ((entity-system-type :dialog))
-			      (create-callback-timer
-			       (s->ms 1/2)
-			       (create-game-over-event))))
-			   (t
-			    (fnf invincible-timer #'reset-timer)
-			    (nilf ground-tile)
-			    (push-sound :hurt)
-			    (ecall hud :health-changed)
-			    (decf health-amt dmg-amt)
-			    (ecall gun-exps :incr (player-current-gun-name gun-name-cycle) (- (* 2 dmg-amt)))
-			    (update-damage-number-amt damage-numbers id dmg-amt)
-			    (setf vel (make-v (x vel) (min (y vel) (- player-hop-speed)))))))
-		       p)))
-
-      (:fire-gun ()
-		 (let ((gun-name (player-current-gun-name (player-gun-name-cycle p))))
-		   (let ((num-projectile-groups (ecall projectile-groups :count gun-name))
-			 (nozzle-pos (player-nozzle-pos p))
-			 (dir (aif (player-actual-v-facing (player-v-facing p) (player-on-ground? (player-ground-tile p)))
-				   it
-				   (player-h-facing p)))
-			 ;; TODO: Determine the level of the gun.
-			 (lvl (gun-level (ecall gun-exps :exp-for gun-name) (cdr (assoc gun-name gun-level-exps))))
-			 (max-projectiles (cdr (assoc gun-name max-projectile-groups))))
-		     (unless (null max-projectiles)
-		       (when (< num-projectile-groups max-projectiles)
-			 (ecall projectile-groups :add (make-projectile-group gun-name lvl dir nozzle-pos)))))))))))
+  (create-entity
+   (make-player :damage-numbers damage-numbers
+		:gun-exps gun-exps
+		:projectile-groups projectile-groups
+		:active-systems active-systems
+		:hud hud
+		:id id)
+   '(:ai :input :physics :stage-collision :drawable)
+   :id id))
 
 (defparameter player-walk-acc 0.00083007812)
 (defparameter player-max-speed-x 0.15859375)
@@ -304,8 +294,7 @@
 
     (when (eq ground-tile :dynamic)
       (awhen ground-inertia-entity
-	(incf (x pos) (accelerate (x (ecall it :vel)) 0))))
-
+	(incf (x pos) (accelerate (x (inertia-vel (estate it))) 0))))
     (draw-line pos
 	       (+v pos
 		   (*v vel debug-velocity-scale))
@@ -376,9 +365,3 @@
 
 (defun player-current-gun-name (cycle)
   (cycle-current cycle))
-
-(defun player-fire-gun (p)
-  (ecall p :fire-gun))
-
-(defun player-take-damage (p dmg-amt)
-  (ecall p :take-damage dmg-amt))
