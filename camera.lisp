@@ -12,73 +12,32 @@
 	 (zero-v))
      (offset-in-dir-pos pos (tiles 3) h-facing))))
 
-(defstructure camera
-    focus
-  vel
-  player)
+(def-entity camera
+    (player)
+  (create-player-camera (focus vel player)
+			(make-camera :physics (alist :target
+						     (make-target-kin-2d :pos focus :vel vel
+									 :target (camera-target-from-player (estate player))
+									 :target-vel (player-vel (estate player))))
+				     :player player))
+  :ai :physics)
 
-(defmethod physics ((c camera))
-  (modify-camera (c)
-    (let ((player (player-state player)))
-      (mvsetq (focus vel)
-	      (camera-physics (camera-target-from-player player)
-			      (player-vel player)
-			      focus
-			      vel)))))
+(camera-methodf ai (c ticks)
+  (aupdatef
+   physics
+   (lambda (m)
+     (target-kin-2d-update-target
+      m
+      (camera-target-from-player (estate player))
+      (player-vel (estate player))))
+   :keys '(:target)))
 
-(defun create-player-camera (focus vel player &key (id (gen-entity-id)))
-  (comment-code
-    (register-entity-interface
-     id
-     (dlambda
-      (:focus () (with-camera-slots (c) focus)))))
-  (create-entity
-   (make-camera :focus focus :vel vel :player player)
-   '(:physics)
-   :id id))
+(defun camera-focus (c)
+  (target-kin-2d-pos (aval :target (camera-physics c))))
 
 (defparameter camera-speed-scale-factor 1/20)
 (defparameter camera-acc 2e-4)
 (defparameter camera-max-speed 0.15859374)
-
-(defun camera-physics (target target-vel focus vel)
-  (let* ((disp (sub-v target focus))
-	 (disp-speeds (abs-v (scale-v disp (/ camera-speed-scale-factor frame-time))))
-	 (target-speeds (abs-v target-vel))
-
-	 ;; Camera velocity clamped by speed proportional to distance, and by a max speed
-	 (clamper-x
-	  (clamper-zero
-	   (* (signum (x disp))
-	      (min (x disp-speeds)
-		   (+ (x target-speeds) camera-max-speed)))))
-	 (clamper-y
-	  (clamper-zero
-	   (* (signum (y disp))
-	      (min (y disp-speeds)
-		   (+ (y target-speeds) camera-max-speed))))))
-
-    ;; When disp is less than 1 pixel distance, don't accelerate.
-    ;; This is to avoid shaking.
-
-    (setf vel (copy-v2 vel))
-    (when (< (abs (x disp)) 1)
-      (allf 0 (x disp) (x vel)))
-    (when (< (abs (y disp)) 1)
-      (allf 0 (y disp) (y vel)))
-
-    (physics-2d
-     focus vel
-     (const-accelerator (* (signum (x disp)) camera-acc))
-     (const-accelerator (* (signum (y disp)) camera-acc))
-     :clamper-vx clamper-x
-     :clamper-vy clamper-y)
-
-    (draw-line focus
-	       (+v focus
-		   (*v vel debug-velocity-scale))
-	       cyan)
-    (values focus vel)))
 
 (defun stage-dims->camera-bounds (stage-dims)
   (create-rect (scale-v window-dims 1/2)

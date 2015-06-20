@@ -1,27 +1,57 @@
 (in-package :cave-story)
 
-(defstructure player
-    (h-facing :left)
-  v-facing
-  interacting?
-  (pos (v/2 window-dims))
-  (vel (zero-v))
-  acc-dir
-  ground-tile
-  jumping?
-  (gun-name-cycle (create-cycle gun-names))
-  (invincible-timer (create-expiring-timer (s->ms 3)))
-  (walk-cycle (create-timed-cycle 12 #(0 1 0 2) t))
-  (health-amt 3)
-  (max-health-amt 3)
+(def-entity player
+    (h-facing
+     v-facing
+     interacting?
+     ground-tile
+     jumping?
+     gun-name-cycle
+     health-amt
+     max-health-amt
 
-  id
-  hud
-  active-systems
-  ground-inertia-entity
-  damage-numbers
-  gun-exps
-  projectile-groups)
+     id
+     hud
+     active-systems
+     ground-inertia-entity
+     damage-numbers
+     gun-exps
+     projectile-groups
+
+     acc-dir)
+
+  (create-default-player (hud projectile-groups damage-numbers gun-exps active-systems)
+			 (let ((id (gen-entity-id)))
+			   (values
+			    (make-player
+			     :h-facing :left
+			     :gun-name-cycle (create-cycle gun-names)
+			     :health-amt 3
+			     :max-health-amt 3
+			     :damage-numbers damage-numbers
+			     :gun-exps gun-exps
+			     :projectile-groups projectile-groups
+			     :active-systems active-systems
+			     :hud hud
+			     :id id
+			     :timers
+			     (alist
+			      :walk-cycle (create-timed-cycle 12 #(0 1 0 2) t)
+			      :invincible (create-expiring-timer (s->ms 3)))
+
+			     :physics
+			     (list
+			      (cons
+			       :stage
+			       (make-kin-2d :pos (scale-v window-dims 1/2)
+					    :vel (zero-v)
+					    :clamper-vx
+					    (clamper+- player-max-speed-x)
+					    :clamper-vy
+					    (clamper+- terminal-speed)))))
+			    id)))
+
+  :timers :input :physics :stage-collision :drawable)
 
 (defun player-pickup (p pickup)
   (ecase (pickup-type pickup)
@@ -32,16 +62,50 @@
 (defun player-state (p)
   (estate p))
 
-(defmethod ai ((p player))
-  (modify-player (p)
-    (fnf invincible-timer #'update-timer)
-    (mvbind (tc ticked?) (update-timed-cycle walk-cycle)
-      (when (and ticked? (/= 0 (timed-cycle-current walk-cycle)))
-	(push-sound :step))
-      (setf walk-cycle tc))))
+(player-methodf ai (p ticks)
+  (when (and (find :walk-cycle ticks)
+	     (/= 0 (timed-cycle-current (aval :walk-cycle timers))))
+    (push-sound :step))
 
-(defmethod dead? ((p player))
-  (<= (player-health-amt p) 0))
+  (aupdatef
+   physics
+   (lambda (kin-2d)
+     (modify-kin-2d (kin-2d)
+       (setf accelerator-x
+	     (cond
+	       ((and (player-on-ground? ground-tile)
+		     (null acc-dir))
+		;; Not accelerating, apply friction.
+		(friction-accelerator player-friction-acc))
+	       (t
+		;; Apply walking accelerations.
+		(const-accelerator
+		 (* (if (player-on-ground? ground-tile)
+			player-walk-acc
+			player-air-acc)
+		    (case acc-dir
+		      (:left -1)
+		      (:right 1)
+		      (t 0)))))))
+       (setf accelerator-y
+	     (const-accelerator
+	      (if (and (minusp (y vel))
+		       jumping?)
+		  player-jump-gravity-acc
+		  gravity-acc)))
+       (setf inertia-vel
+	     (if (eq ground-tile :dynamic)
+		 (inertia-vel (estate ground-inertia-entity))
+		 nil))
+
+       (draw-line pos
+		  (+v pos
+		      (*v vel debug-velocity-scale))
+		  magenta)))
+   :keys '(:stage)))
+
+(player-method dead? (p)
+  (<= health-amt 0))
 
 (defun player-fire-gun (p)
   (let ((gun-name (player-current-gun-name (player-gun-name-cycle p))))
@@ -50,7 +114,6 @@
 	  (dir (aif (player-actual-v-facing (player-v-facing p) (player-on-ground? (player-ground-tile p)))
 		    it
 		    (player-h-facing p)))
-	  ;; TODO: Determine the level of the gun.
 	  (lvl (gun-level (gun-exp-for (estate (player-gun-exps p)) gun-name) (cdr (assoc gun-name gun-level-exps))))
 	  (max-projectiles (cdr (assoc gun-name max-projectile-groups))))
       (unless (null max-projectiles)
@@ -61,7 +124,7 @@
 
 (defun player-take-damage (p dmg-amt)
   (modify-player (p)
-    (unless (timer-active? invincible-timer)
+    (unless (timer-active? (aval :invincible timers))
       (cond
 	((>= (abs dmg-amt) health-amt)
 	 (push-sound :player-die)
@@ -74,7 +137,7 @@
 	      (s->ms 1/2)
 	      (create-game-over-event)))))
 	(t
-	 (fnf invincible-timer #'reset-timer)
+	 (aupdatef timers #'reset-timer :keys '(:invincible))
 	 (nilf ground-tile)
 	 (push-sound :hurt)
 	 (replace-entity-state hud #'hud-health-changed)
@@ -87,30 +150,23 @@
 	     (player-current-gun-name gun-name-cycle)
 	     (- (* 2 dmg-amt)))))
 	 (update-damage-number-amt damage-numbers id dmg-amt)
-	 (setf vel (make-v (x vel) (min (y vel) (- player-hop-speed)))))))))
+	 (aupdatef
+	  physics
+	  (lambda (kin-2d)
+	    (modify-kin-2d (kin-2d)
+	      (setf vel (make-v (x vel) (min (y vel) (- player-hop-speed))))))
+	  :keys '(:stage)))))))
 
 (defmethod floating-number-origin ((p player))
   (+v (player-pos p) (tile-dims/2)))
 
 (defun player-gun-exp (p amt)
-  (with-player-slots (p)
+  (modify-player (p)
     (replace-entity-state
      gun-exps
      (lambda (g)
        (incr-gun-exp g (player-current-gun-name (player-gun-name-cycle p)) amt)))
-    (replace-entity-state hud #'hud-exp-changed))
-  p)
-
-(defun create-default-player (hud projectile-groups damage-numbers gun-exps active-systems &key (id (gen-entity-id)))
-  (create-entity
-   (make-player :damage-numbers damage-numbers
-		:gun-exps gun-exps
-		:projectile-groups projectile-groups
-		:active-systems active-systems
-		:hud hud
-		:id id)
-   '(:ai :input :physics :stage-collision :drawable)
-   :id id))
+    (replace-entity-state hud #'hud-exp-changed)))
 
 (defparameter player-walk-acc 0.00083007812)
 (defparameter player-max-speed-x 0.15859375)
@@ -167,7 +223,7 @@
       v-facing))
 
 (defun player-walk-idx (player)
-  (timed-cycle-current (player-walk-cycle player)))
+  (timed-cycle-current (aval :walk-cycle (player-timers player))))
 
 (defun player-walking? (acc-dir on-ground?)
   (and acc-dir on-ground?))
@@ -185,37 +241,42 @@
 		(t 0)))))
 
 
-(defun player-jump (jumping? on-ground? vel interacting? ground-tile walk-cycle)
-  (unless jumping?
-    (when on-ground?
-      (+vf vel (make-v 0 (- player-jump-speed)))
-      (push-sound :jump))
-    (nilf interacting? ground-tile)
-    (fnf walk-cycle #'timed-cycle-pause)
-    (tf jumping?))
-  (values interacting? ground-tile jumping? vel walk-cycle))
+(defun player-jump (p)
+  (modify-player (p)
+    (unless jumping?
+      (when (player-on-ground? ground-tile)
+	(aupdatef
+	 physics
+	 (lambda (kin-2d)
+	   (modify-kin-2d (kin-2d)
+	     (+vf vel (make-v 0 (- player-jump-speed)))))
+	 :keys '(:stage))
 
-(defun player-move (on-ground? walk-cycle acc-dir dir)
+	(push-sound :jump))
+      (nilf interacting? ground-tile)
+      (aupdatef timers #'timed-cycle-pause :keys '(:walk-cycle))
+      (tf jumping?))))
+
+(defun player-move (p dir)
   "Moves the player in a horizontal direction."
-  (when on-ground?
-    (fnf walk-cycle #'timed-cycle-resume)
-    (when (not acc-dir)
-      (fnf walk-cycle #'timed-cycle-restart)))
+  (modify-player (p)
+    (when (player-on-ground? ground-tile)
+      (aupdatef timers #'timed-cycle-resume :keys '(:walk-cycle))
+      (when (not acc-dir)
+	(aupdatef timers #'timed-cycle-restart :keys '(:walk-cycle))))
 
-  (setf acc-dir dir)
-  (let ((acc-dir dir)
-	(h-facing dir)
-	(interacting? nil))
-    (values acc-dir h-facing interacting? walk-cycle)))
+    (nilf interacting?)
+    (allf dir acc-dir h-facing)))
 
 (defmethod input ((p player) input)
   (let ((left?  (or (key-held? input :left) (eq :negative (input-joy-axis-x input))))
 	(right? (or (key-held? input :right) (eq :positive (input-joy-axis-x input))))
 	(down?  (or (key-held? input :down) (eq :positive (input-joy-axis-y input))))
 	(up?    (or (key-held? input :up) (eq :negative (input-joy-axis-y input)))))
-    (with-player-copy-slots (p)
-      (let* ((on-ground? (player-on-ground? ground-tile))
-	     (walking? (player-walking? acc-dir on-ground?)))
+
+    (let* ((on-ground? (player-on-ground? (player-ground-tile p)))
+	   (walking? (player-walking? (player-acc-dir p) on-ground?)))
+      (modify-player (p)
 	(cond
 	  ;; Look Up/Down or Interact
 	  ((and up? (not down?))
@@ -225,140 +286,100 @@
 	  ((and down? (not up?))
 	   (unless (eq v-facing :down)
 	     (setf v-facing :down)
-	     (fnf walk-cycle #'timed-cycle-pause)
+	     (aupdatef timers #'timed-cycle-pause :keys '(:walk-cycle))
 	     (setf interacting? on-ground?)))
 
-	  (t (nilf v-facing)))
+	  (t (nilf v-facing))))
 
-	(cond
-	  ;; Walk/Look based on horizontal direction
-	  ((and left? (not right?))
-	   (mvsetq (acc-dir h-facing interacting? walk-cycle) (player-move on-ground? walk-cycle acc-dir :left)))
+      (cond
+	;; Walk/Look based on horizontal direction
+	((and left? (not right?))
+	 (fnf p (rcurry #'player-move :left)))
 
-	  ((and right? (not left?))
-	   (mvsetq (acc-dir h-facing interacting? walk-cycle) (player-move on-ground? walk-cycle acc-dir :right)))
+	((and right? (not left?))
+	 (fnf p (rcurry #'player-move :right)))
 
-	  (t
+	(t
+	 (modify-player (p)
 	   (when walking?
-	     (fnf walk-cycle #'timed-cycle-pause)
+	     (aupdatef timers #'timed-cycle-pause :keys '(:walk-cycle))
 	     (push-sound :step))
-	   (nilf acc-dir)))
+	   (nilf acc-dir))))
 
-	(if (or (key-held? input :z) (joy-held? input :a))
-	    (mvsetq (interacting? ground-tile jumping? vel walk-cycle)
-		    (player-jump jumping? on-ground? vel interacting? ground-tile walk-cycle))
-	    (nilf jumping?)))
+      (if (or (key-held? input :z) (joy-held? input :a))
+	  (fnf p #'player-jump)
+	  (modify-player (p)
+	    (nilf jumping?))))
 
+    (modify-player (p)
       (when (or (key-pressed? input :a) (joy-pressed? input :y))
 	(fnf gun-name-cycle #'cycle-previous))
 
       (when (or (key-pressed? input :s) (joy-pressed? input :x))
-	(fnf gun-name-cycle #'cycle-next))
-      p)))
+	(fnf gun-name-cycle #'cycle-next)))))
 
-(defmethod physics ((p player))
-  (with-player-copy-slots (p)
-    (let ((acc-y
-	   ;; Vertical motion
-	   (const-accelerator
-	    (if (and (minusp (y vel))
-		     jumping?)
-		player-jump-gravity-acc
-		gravity-acc)))
-	  (acc-x
-	   ;; Horizontal motion
-	   (cond
-	     ((and (player-on-ground? ground-tile)
-		   (null acc-dir))
-	      ;; Not accelerating, apply friction.
-	      (friction-accelerator player-friction-acc))
-	     (t
-	      ;; Apply walking accelerations.
-	      (const-accelerator
-	       (* (if (player-on-ground? ground-tile)
-		      player-walk-acc
-		      player-air-acc)
-		  (case acc-dir
-		    (:left -1)
-		    (:right 1)
-		    (t 0))))))))
+(player-methodf stage-collision (p stage)
+  (let (new-ground-tile)
+    (stage-collisionsf
+     physics stage player-collision-rectangles-alist
+     (let ((stop-x
+	    (collision-lambda
+	      (setf vel (zero-v :y (y vel))))))
+       (alist :bottom
+	      (collision-lambda
+		(setf vel (zero-v :x (x vel)))
+		(unless ground-tile
+		  (push-sound :land))
+		(setf new-ground-tile tile-type))
 
-      (physics-2d
-       pos
-       vel
-       acc-x acc-y
-       :clamper-vx
-       (clamper+- player-max-speed-x)
-       :clamper-vy
-       (clamper+- terminal-speed)))
+	      :left stop-x
+	      :right stop-x
 
-    (when (eq ground-tile :dynamic)
-      (awhen ground-inertia-entity
-	(incf (x pos) (accelerate (x (inertia-vel (estate it))) 0))))
-    (draw-line pos
-	       (+v pos
-		   (*v vel debug-velocity-scale))
-	       magenta)
-    p))
+	      :top
+	      (collision-lambda
+		(when (minusp (y vel))
+		  (push-sound :head-bump))
+		(setf vel (make-v (x vel) (max (y vel) 0))))))
+     ground-tile)
 
-(defmethod stage-collision ((p player) stage)
-  (with-player-copy-slots (p)
-    (let (new-ground-tile
-	  (stop-x
-	   (collision-lambda
-	     (setf vel (zero-v :y (y vel))))))
+    (setf ground-tile new-ground-tile)
+    (unless ground-tile
+      (aupdatef timers #'timed-cycle-pause :keys '(:walk-cycle))
+      (nilf ground-tile))))
 
-      (stage-collisions (pos player-collision-rectangles-alist stage ground-tile)
-	:bottom
-	(collision-lambda
-	  (setf vel (zero-v :x (x vel)))
-	  (unless ground-tile
-	    (push-sound :land))
-	  (setf new-ground-tile tile-type))
+(player-method draw (p)
+  (let ((kin-2d (cdr (assoc :stage physics))))
+    (with-kin-2d-slots (kin-2d)
+      (unless (and (timer-active? (aval :invincible timers))
+		   (plusp (chunk-timer-period (aval :invincible timers) 50)))
+	(let* ((on-ground? (player-on-ground? ground-tile))
+	       (actual-v-facing (player-actual-v-facing v-facing on-ground?))
+	       (walking? (player-walking? acc-dir on-ground?))
+	       (walk-idx (player-walk-idx p)))
+	  (draw-sprite
+	   :player
+	   :my-char
+	   (player-sprite-rect
+	    h-facing
+	    actual-v-facing
+	    interacting?
+	    walking?
+	    walk-idx
+	    (y vel))
+	   (pixel-v pos))
 
-	:left stop-x
-	:right stop-x
+	  (player-draw-gun
+	   pos
+	   (player-current-gun-name gun-name-cycle)
+	   h-facing
+	   actual-v-facing
+	   walking?
+	   walk-idx))))))
 
-	:top
-	(collision-lambda
-	  (when (minusp (y vel))
-	    (push-sound :head-bump))
-	  (setf vel (make-v (x vel) (max (y vel) 0)))))
-
-      (setf ground-tile new-ground-tile)
-      (unless ground-tile
-	(fnf walk-cycle #'timed-cycle-pause)
-	(nilf ground-tile))
-
-      p)))
-
-(defmethod draw ((p player))
-  (with-player-slots (p)
-    (unless (and (timer-active? invincible-timer)
-		 (plusp (chunk-timer-period invincible-timer 50)))
-      (let* ((on-ground? (player-on-ground? ground-tile))
-	     (actual-v-facing (player-actual-v-facing v-facing on-ground?))
-	     (walking? (player-walking? acc-dir on-ground?))
-	     (walk-idx (player-walk-idx p)))
-	(draw-sprite
-	 :player
-	 :my-char
-	 (player-sprite-rect
-	  h-facing
-	  actual-v-facing
-	  interacting?
-	  walking?
-	  walk-idx
-	  (y vel))
-	 (pixel-v pos))
-
-	(player-draw-gun
-	 pos
-	 (player-current-gun-name gun-name-cycle)
-	 h-facing
-	 actual-v-facing
-	 walking?
-	 walk-idx)))))
+(defun player-pos (p)
+  (motion-pos (cdr (assoc :stage (player-physics p)))))
+(defun player-vel (p)
+  (kin-2d-vel (cdr (assoc :stage (player-physics p)))))
 
 (defun player-damage-collision-rect (p)
   (rect-offset player-damage-rect (player-pos p)))

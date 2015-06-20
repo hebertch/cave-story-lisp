@@ -97,32 +97,27 @@ Returns the TILE-TYPE of the colliding tile."
 		    (return (values (flush-rect-pos rect y offset-dir)
 				    tile-type)))))))))))
 
-(defmacro stage-collisions ((position collision-rects stage &optional ground-tile)
-			    &body collision-reactions-plist)
-  ;; TODO: This would be better as an interface to a function.
-  (once-only (collision-rects stage)
-    (with-gensyms (side
-		   collision-order
-		   collision-reactions
-		   rect
-		   new-pos
-		   tile-type
-		   fn
-		   collision-rect)
-      `(dolist (,side collision-order)
-	 (let* ((,collision-reactions (alexandria:plist-alist (list ,@collision-reactions-plist)))
-		(,fn (cdr (assoc ,side ,collision-reactions)))
-		(,collision-rect (cdr (assoc ,side ,collision-rects)))
-		(,rect (rect-offset ,collision-rect ,position)))
-	   (mvbind (,new-pos ,tile-type) (stage-check/resolve-collision ,stage
-									,rect
-									(opposite-dir ,side)
-									,@(when ground-tile
-										`(:ground-tile ,ground-tile)))
-	     (when ,new-pos
-	       (setf ,position (sub-v ,new-pos (rect-pos ,collision-rect)))
-	       (funcall ,fn ,tile-type))
-	     (draw-rect (rect-offset ,collision-rect ,position) blue :layer :debug-stage-collision)))))))
+(defun stage-collisions (position stage collision-rects collision-reactions &optional (ground-tile nil ground-tile-provided-p))
+  (dolist (side collision-order)
+    (let* ((fn (cdr (assoc side collision-reactions)))
+	   (collision-rect (cdr (assoc side collision-rects))))
+      (mvbind (new-pos tile-type)
+	  (let ((args (list stage (rect-offset collision-rect position) (opposite-dir side))))
+	    (when ground-tile-provided-p
+	      (appendf args (list :ground-tile ground-tile)))
+	    (apply #'stage-check/resolve-collision args))
+	(when new-pos
+	  (setf position (sub-v new-pos (rect-pos collision-rect)))
+	  (funcall fn tile-type))
+	(draw-rect (rect-offset collision-rect position) blue :layer :debug-stage-collision))))
+  position)
+
+(defmacro stage-collisionsf (physics &rest stage-collision-args)
+  `(aupdatef ,physics
+	     (lambda (kin-2d)
+	       (modify-kin-2d (kin-2d)
+		 (setf pos (stage-collisions pos ,@stage-collision-args))))
+	     :keys '(:stage)))
 
 (defmacro collision-lambda (&body body)
   `(lambda (tile-type)

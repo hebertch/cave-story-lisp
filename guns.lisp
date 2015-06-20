@@ -131,15 +131,16 @@
   (with-player-slots (p)
     (let* ((on-ground? (player-on-ground? ground-tile))
 	   (actual-v-facing (player-actual-v-facing v-facing on-ground?)))
-      (+v (nozzle-offset h-facing
-			 actual-v-facing
-			 (player-current-gun-name gun-name-cycle))
-	  (gun-pos
-	   pos
-	   h-facing
-	   actual-v-facing
-	   (player-walking? acc-dir on-ground?)
-	   (player-walk-idx p))))))
+      (with-kin-2d-slots ((cdr (assoc :stage physics)))
+	(+v (nozzle-offset h-facing
+			   actual-v-facing
+			   (player-current-gun-name gun-name-cycle))
+	    (gun-pos
+	     pos
+	     h-facing
+	     actual-v-facing
+	     (player-walking? acc-dir on-ground?)
+	     (player-walk-idx p)))))))
 
 (defun gun-level (exp exp-list)
   (aif (position-if-not (lambda (lvl-exp)

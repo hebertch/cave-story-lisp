@@ -129,35 +129,36 @@
   (elt (cycle-seq c) (cycle-idx c)))
 
 (defun cycle-next (c)
-  (with-cycle-copy-slots (c)
+  (modify-cycle (c)
     (incf idx)
     (when (= idx len)
-      (setf idx 0))
-    c))
+      (setf idx 0))))
 
 (defun cycle-previous (c)
-  (with-cycle-copy-slots (c)
+  (modify-cycle (c)
     (if (zerop idx)
 	(setf idx (1- len))
-	(decf idx))
-    c))
+	(decf idx))))
 
 (defun cycle-reset (c)
-  (with-cycle-copy-slots (c)
-    (setf idx 0)
-    c))
+  (modify-cycle (c)
+    (setf idx 0)))
 
-(defstructure timed-cycle timer cycle paused?)
+(defstructure timed-cycle
+    timer
+  cycle
+  paused?)
+
 (defun create-timed-cycle (fps seq &optional start-paused?)
   (make-timed-cycle :timer (fps-make-timer fps)
 		    :cycle (create-cycle seq)
 		    :paused? start-paused?))
 
-(defun update-timed-cycle (tc)
+(defmethod update-timer ((tc timed-cycle))
   (let (ticked?)
     (with-timed-cycle-copy-slots (tc)
       (unless paused?
-	(mvbind (tr tick?) (update-loop-timer timer)
+	(mvbind (tr tick?) (update-timer timer)
 	  (when tick?
 	    (fnf cycle #'cycle-next))
 	  (setf timer tr
@@ -186,8 +187,6 @@
 (defmacro clampf (number min max)
   (once-only (number)
     `(setf ,number (clamp ,number ,min ,max))))
-
-;; TODO: 2d clamping utilities. See CAMERA-CHASE-TARGET
 
 (defun clamp+- (val amt)
   "Clamp between +/- amt."

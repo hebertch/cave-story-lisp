@@ -26,6 +26,57 @@
 
   (input (make-input)))
 
+(defvar global-game)
+
+(defparameter *debug-input-keybindings*
+  `((((:key :capslock :escape)) .
+     ,(lambda () (quit)))
+    (((:key :p)
+      (:joy :start)) .
+     ,(lambda () (togglef global-paused?)))
+    (((:key :r)
+      (:joy :select)) .
+     ,(lambda () (setq global-game (reset))))
+    (((:joy :r)) .
+     ,(lambda ()
+	      (case *input-playback*
+		(:recording (begin-input-playback))
+		(:playback (nilf *input-playback*))
+		(t (begin-input-recording)))))
+    (((:key :n)) .
+     ,(lambda ()
+	      (when global-paused?
+		(fnf global-game (curry #'update-and-render renderer)))))))
+
+(let (debug-toggle-off?)
+  (defun handle-debug-input (transient-input)
+    (let ((pressed-keys (ti-pressed-keys transient-input))
+	  (pressed-joy (ti-pressed-joy-buttons transient-input)))
+      (loop for (bindings . action) in *debug-input-keybindings*
+	 do (loop for (type . b) in bindings
+	       do (when (ecase type
+			  (:key (any? (intersection pressed-keys b :test #'eq)))
+			  (:joy (any? (intersection pressed-joy (mapcar #'joy-key->num b) :test #'eq))))
+		    (funcall action)
+		    (return))))
+
+      (when (find :f1 pressed-keys)
+	(mapc (if debug-toggle-off?
+		  (progn
+		    (nilf debug-toggle-off?)
+		    #'remove-visible-layer)
+		  #'toggle-visible-layer)
+	      debug-layers))
+
+      (loop for key in '(:f2 :f3 :f4 :f5 :f6)
+	 for i from 0
+	 do
+	   (when (find key pressed-keys)
+	     (let ((layer (elt debug-layers (1+ i))))
+	       (print layer)
+	       (tf debug-toggle-off?)
+	       (toggle-visible-layer layer)))))))
+
 (defun main ()
   "Entry point to the game."
   (catch 'exit
@@ -37,15 +88,15 @@
 	   (loop do
 		(swank-tools:update)
 		(swank-tools:continuable
-		  (fnf global-game #'handle-input)
-		  (let ((input (game-input global-game)))
-		    (when (and global-paused? (key-pressed? input :n))
-		      (update-and-render renderer global-game))
-		    (when (or (key-pressed? input :r) (joy-pressed? input :select))
-		      (setq global-game (reset))))
+		  (let ((transient-input (gather-transient-input)))
+		    (handle-debug-input transient-input)
+		    (modify-game (global-game)
+		      (fnf input (rcurry #'gather-input transient-input))))
+
 		  (when (>= frame-timer (* update-period frame-time))
-		    (unless global-paused?
-		      (update-and-render renderer global-game))
+		    (if global-paused?
+			(draw-text-line (zero-v) "PAUSED")
+			(fnf global-game (curry #'update-and-render renderer)))
 		    (render renderer
 			    font
 			    render-list
@@ -73,54 +124,28 @@
        do (setf (gethash key ht) value)
        finally (return ht))))
 
-(let (debug-toggle-off?)
-  (defun handle-input (game &aux input)
-    "Handles input. Often called many times between updates.
+(defun handle-input (game &aux input)
+  "Handles input. Often called many times between updates.
 This can be abused with the machine gun in TAS."
-    (modify-game (game)
-      (fnf input #'gather-input))
-    (setf input (game-input game))
-    (when (any? (intersection (input-held-keys input) '(:capslock :escape) :test #'eq))
-      (quit))
-    (when (or (key-pressed? input :p) (member 7 (ti-pressed-joy-buttons (input-transient-input input))))
-      (togglef global-paused?))
 
-    (when (key-pressed? input :f1)
-      (mapc (if debug-toggle-off?
-		(progn
-		  (nilf debug-toggle-off?)
-		  #'remove-visible-layer)
-		#'toggle-visible-layer)
-	    debug-layers))
+  (setf input (game-input game))
+  (let ((input-systems (active-systems-input (estate (game-active-systems game)))))
+    (update-input-subsystem input-systems input)
+    (ecase (first input-systems)
+      (:game
+       (when (or (joy-pressed? input :b) (key-pressed? input :x))
+	 ;; Fire Gun
+	 (player-fire-gun (estate (game-player game)))))
 
-    (loop for key in '(:f2 :f3 :f4 :f5 :f6)
-       for i from 0
-       do
-	 (when (key-pressed? input key)
-	   (let ((layer (elt debug-layers (1+ i))))
-	     (print layer)
-	     (tf debug-toggle-off?)
-	     (toggle-visible-layer layer))))
-
-
-    (let ((input-systems (active-systems-input (estate (game-active-systems game)))))
-      (update-input-subsystem input-systems input)
-      (ecase (first input-systems)
-	(:game
-	 (when (or (joy-pressed? input :b) (key-pressed? input :x))
-	   ;; Fire Gun
-	   (player-fire-gun (estate (game-player game)))))
-
-	(:dialog
-	 (cond
-	   ((or (joy-pressed? input :b) (key-pressed? input :x))
-	    (dialog-ok-pressed))
-	   ((or (joy-held? input :a) (key-pressed? input :z)
-		(joy-held? input :b) (key-pressed? input :x))
-	    (dialog-button-held))
-	   (t
-	    (dialog-buttons-released))))))
-    game))
+      (:dialog
+       (cond
+	 ((or (joy-pressed? input :b) (key-pressed? input :x))
+	  (dialog-ok-pressed))
+	 ((or (joy-held? input :a) (key-pressed? input :z)
+	      (joy-held? input :b) (key-pressed? input :x))
+	  (dialog-button-held))
+	 (t
+	  (dialog-buttons-released)))))))
 
 (defun dialog-ok-pressed ()
   )
@@ -133,18 +158,18 @@ This can be abused with the machine gun in TAS."
   "Creates :TOP :LEFT :RIGHT :BOTTOM rects."
   (let* ((bs buffer-size)
 	 (dbs (* 2 bs)))
-    (list
-     (cons :top (create-rect (+v (make-v bs 0) pos)
-			     (-v size (make-v dbs bs))))
+    (alist
+     :top (create-rect (+v (make-v bs 0) pos)
+		       (-v size (make-v dbs bs)))
 
-     (cons :bottom (create-rect (+v (make-v bs bs) pos)
-				(-v size (make-v dbs bs))))
+     :bottom (create-rect (+v (make-v bs bs) pos)
+			  (-v size (make-v dbs bs)))
 
-     (cons :left (create-rect (+v (make-v 0 bs) pos)
-			      (-v size (make-v bs dbs))))
+     :left (create-rect (+v (make-v 0 bs) pos)
+			(-v size (make-v bs dbs)))
 
-     (cons :right (create-rect (+v (make-v bs bs) pos)
-			       (-v size (make-v bs dbs)))))))
+     :right (create-rect (+v (make-v bs bs) pos)
+			 (-v size (make-v bs dbs))))))
 
 (defun rect->collision-rects (rect &optional (buffer-size 6))
   (collision-rects (rect-pos rect) (rect-size rect) buffer-size))
@@ -153,63 +178,69 @@ This can be abused with the machine gun in TAS."
 (defparameter dorito-bounce-speed 0.225)
 
 (defstructure pickup type amt)
-(defstructure dorito
-    (life-timer (create-expiring-timer (s->ms 8) t))
-  (anim-cycle (create-timed-cycle 14 (alexandria:iota 6)))
-  dead?
-  pos
-  vel
-  size)
 
-(defmethod ai ((d dorito))
-  (modify-dorito (d)
-    (fnf anim-cycle #'update-timed-cycle)
-    (fnf life-timer #'update-timer)
-    (unless (timer-active? life-timer)
-      (tf dead?))))
+(def-entity dorito
+    (dead?
+     size)
+  (create-dorito (pos vel size)
+		 (make-dorito
+		  :timers
+		  (alist
+		   :life (create-expiring-timer (s->ms 8) t)
+		   :anim-cycle (create-timed-cycle 14 (alexandria:iota 6)))
+		  :physics
+		  (alist
+		   :stage
+		   (make-kin-2d :pos (-v pos (rect-pos (dorito-collision-rect size)))
+				:vel vel
+				:accelerator-x (friction-accelerator dorito-friction-acc)
+				:accelerator-y (const-accelerator gravity-acc)
+				:clamper-vy (clamper+- terminal-speed)))
+		  :size size))
+  :timers :physics :stage-collision :drawable :pickup)
 
-(defmethod physics ((d dorito))
-  (modify-dorito (d)
-    (physics-2d
-     pos
-     vel
-     (friction-accelerator dorito-friction-acc)
-     (const-accelerator gravity-acc)
-     :clamper-vy
-     (clamper+- terminal-speed))))
-
-(defmethod draw ((d dorito))
-  (with-dorito-slots (d)
-    (dorito-draw life-timer (timed-cycle-current anim-cycle) (dorito-size d) (dorito-pos d))))
-
-(defmethod stage-collision ((d dorito) stage)
-  (modify-dorito (d)
-    (mvsetq (pos vel)
-	    (dorito-stage-collisions pos vel size stage))))
-
-(defmethod pickup-rect ((d dorito))
-  (rect-offset (dorito-collision-rect (dorito-size d)) (dorito-pos d)))
-
-(defmethod pickup-kill ((d dorito))
-  (modify-dorito (d)
-    (push-sound :pickup)
+(dorito-methodf ai (d ticks)
+  (unless (timer-active? (aval :life timers))
     (tf dead?)))
 
-(defmethod pickup-data ((d dorito))
-  (make-pickup :type :dorito :amt (ecase (dorito-size d)
+(defun dorito-pos (d)
+  (motion-set-pos (dorito-physics d)))
+
+(dorito-method draw (d)
+  (dorito-draw (aval :life timers) (timed-cycle-current (aval :anim-cycle timers)) (dorito-size d) (dorito-pos d)))
+
+(dorito-methodf stage-collision (d stage)
+  (stage-collisionsf physics stage (rect->collision-rects (dorito-collision-rect size))
+		     (let ((reverse-x (collision-lambda
+					(setf vel (make-v (- (x vel)) (y vel))))))
+		       (alist
+			:bottom
+			(collision-lambda
+			  (setf vel (make-v (x vel) (- dorito-bounce-speed)))
+			  (push-sound :dorito-bounce))
+
+			:right reverse-x
+			:left reverse-x
+
+			:top
+			(collision-lambda
+			  (setf vel (make-v (x vel) (max (y vel) 0))))))))
+
+(dorito-method pickup-rect (d)
+  (rect-offset (dorito-collision-rect size) (dorito-pos d)))
+
+(dorito-methodf pickup-kill (d)
+  (push-sound :pickup)
+  (tf dead?))
+
+(dorito-method pickup-data (d)
+  (make-pickup :type :dorito :amt (ecase size
 				    (:small 1)
 				    (:medium 10)
 				    (:large 20))))
 
-(defmethod dead? ((d dorito))
-  (dorito-dead? d))
-
-(defun create-dorito (pos vel size)
-  (create-entity
-   (make-dorito :pos pos
-		:vel vel
-		:size size)
-   '(:ai :physics :stage-collision :drawable :pickup)))
+(dorito-method dead? (d)
+  dead?)
 
 (defun dorito-draw (life-tr anim-cycle-current size pos)
   (unless (and (< (timer-ms-remaining life-tr) (s->ms 1))
@@ -227,64 +258,55 @@ This can be abused with the machine gun in TAS."
 (defun dorito-collision-rect (size)
   (centered-rect (tile-dims/2)
 		 (ecase size
-		   (:small (both-v (tiles 3/5)))
+		   (:small (both-v (tiles 2/5)))
 		   (:medium (both-v (tiles 3/4)))
 		   (:large (both-v (tiles 1))))))
 
-(defun dorito-stage-collisions (pos vel size stage)
-  (let ((vel (copy-v2 vel))
-	(reverse-x (collision-lambda
-		     (setf (x vel) (- (x vel))))))
-    (stage-collisions (pos (rect->collision-rects (dorito-collision-rect size)) stage)
-      :bottom
-      (collision-lambda
-	(setf (y vel) (- dorito-bounce-speed))
-	(push-sound :dorito-bounce))
+(def-entity single-loop-sprite
+    (dead?
+     sheet-key
+     tile-y
+     layer)
+  (create-single-loop-sprite (fps seq sheet-key tile-y layer)
+			     (make-single-loop-sprite :timers (alist :cycle (create-timed-cycle fps seq))
+						      :sheet-key sheet-key
+						      :layer layer
+						      :tile-y tile-y))
+  :timers)
 
-      :right reverse-x
-      :left reverse-x
+(defun single-loop-sprite-draw (s pos)
+  (with-single-loop-sprite-slots (s)
+    (draw-sprite layer
+		 sheet-key
+		 (tile-rect (tile-v (cycle-current (timed-cycle-cycle (aval :cycle timers))) tile-y))
+		 pos)))
 
-      :top
-      (collision-lambda
-	(maxf (y vel) 0)))
-    (values pos vel)))
+(single-loop-sprite-methodf ai (p ticks)
+  (when (and (find :cycle ticks)
+	     (zerop (cycle-idx (timed-cycle-cycle (aval :cycle timers)))))
+    (tf dead?)))
 
-(defstructure particle
-    dead?
-  timed-cycle
-  sheet-key
-  tile-y
-  pos)
+(single-loop-sprite-method dead? (p) dead?)
 
-(defmethod ai ((p particle))
-  (modify-particle (p)
-    (mvbind (tc ticked?) (update-timed-cycle timed-cycle)
-      (setf timed-cycle tc)
-      (when (and ticked?
-		 (zerop (cycle-idx (timed-cycle-cycle timed-cycle))))
-	(tf dead?)))))
+(def-entity particle
+    (single-loop-sprite
+     pos)
+  (create-particle (&key seq fps sheet-key tile-y pos)
+		   (make-particle
+		    :single-loop-sprite (create-single-loop-sprite
+					 fps seq sheet-key tile-y :particle)
+		    :pos pos))
+  :drawable)
 
-(defmethod draw ((p particle))
-  (with-particle-slots (p)
-    (particle-draw sheet-key (timed-cycle-cycle timed-cycle) tile-y pos)))
+(particle-method draw (p)
+  (with-single-loop-sprite-slots ((estate single-loop-sprite))
+    (let ((cycle-current (cycle-current (timed-cycle-cycle (aval :cycle timers)))))
+      (draw-sprite :particle sheet-key
+		   (tile-rect (tile-v cycle-current tile-y))
+		   pos))))
 
-(defmethod dead? ((p particle))
-  (particle-dead? p))
-
-(defun create-particle (&key seq fps sheet-key tile-y pos (id (gen-entity-id)))
-  (create-entity
-   (make-particle :timed-cycle (make-timed-cycle :timer (fps-make-timer fps)
-						 :cycle (create-cycle seq))
-		  :sheet-key sheet-key
-		  :tile-y tile-y
-		  :pos pos)
-   '(:ai :drawable)
-   :id id))
-
-(defun particle-draw (sheet-key cycle tile-y pos)
-  (draw-sprite :particle sheet-key
-	       (tile-rect (tile-v (cycle-current cycle) tile-y))
-	       pos))
+(particle-method dead? (p)
+  (dead? (estate single-loop-sprite)))
 
 (defun make-projectile-star-particle (center-pos)
   (create-particle :seq (alexandria:iota 4)
@@ -337,54 +359,44 @@ This can be abused with the machine gun in TAS."
 	    (cons :negative digits)
 	    (cons :positive digits)))))
 
-(defstructure floating-number
-    (offset (make-offset-motion
-	     :dir :up
-	     :speed
-	     (/ (tiles 1/30) frame-time)
-	     :max-dist (tiles 1)))
+(def-entity floating-number
+    (entity
+     amt)
+  (create-floating-number (entity amt)
+			  (make-floating-number :entity entity :amt amt
+						:timers (alist :life
+							       (create-expiring-timer (s->ms 2) t))
+						:physics (alist :offset
+								(make-offset-motion
+								 (zero-v)
+								 :up
+								 (/ (tiles 1/30) frame-time)))))
+  :timers :drawable :physics)
 
-  (life-timer (let ((time (s->ms 2)))
-		(create-expiring-timer time t)))
-  entity
-  amt)
+(floating-number-method draw (fn)
+  (draw-number (+v (floating-number-origin (estate entity))
+		   (motion-set-pos physics))
+	       amt))
 
-(defmethod draw ((fn floating-number))
-  (draw-number (+v (floating-number-origin (estate (floating-number-entity fn)))
-		   (offset-motion-offset (floating-number-offset fn)))
-	       (floating-number-amt fn)))
+(floating-number-methodf ai (dn ticks)
+  (when (< (y (motion-pos (cdr (assoc :offset physics)))) (- (tiles 1)))
+    (asetf physics (alist :offset (make-offset-motion (zero-v :y (- (tiles 1))) :up 0)))))
 
-(defmethod ai ((dn floating-number))
-  (modify-floating-number (dn)
-    (fnf life-timer #'update-timer)))
-
-(defmethod dead? ((dn floating-number))
-  (floating-number-dead? dn))
+(floating-number-method dead? (dn)
+  (not (timer-active? (aval :life timers))))
 
 (defun floating-number-add-amt (dn amount)
   (modify-floating-number (dn)
-    (fnf life-timer #'reset-timer)
+    (aupdatef timers #'reset-timer :keys '(:life))
     (incf amt amount)))
-
-(defun create-floating-number (entity amt &key (id (gen-entity-id)))
-  (create-entity
-   (make-floating-number :entity entity :amt amt)
-   '(:ai :drawable :physics)
-   :id id))
-
-(defmethod physics ((fn floating-number))
-  (modify-floating-number (fn)
-    (fnf offset #'offset-motion-physics)))
-
-(defun floating-number-dead? (fn)
-  (not (timer-active? (floating-number-life-timer fn))))
 
 (defun remove-all-dead (game)
   (replace-entity-state (game-projectile-groups game) #'projectile-groups-remove-dead)
   (replace-entity-state (game-damage-numbers game) #'damage-numbers-remove-dead))
 
 (defun draw-bat (pos facing cycle-idx)
-  (draw-sprite :enemy :npc-cemet
+  (draw-sprite :enemy
+	       :npc-cemet
 	       (tile-rect (tile-v (+ 2 cycle-idx)
 				  (if (eq facing :left) 2 3)))
 	       pos))
@@ -449,148 +461,140 @@ This can be abused with the machine gun in TAS."
 (defparameter text-speed 100)
 (defparameter cursor-blink-time 100)
 
-(defstructure text-display
-    pos
-  text
-  (num-chars 0)
-  (timer (create-expiring-timer text-speed t))
-  (wait-for-input? t)
-  (blink-time 0)
-  dead?)
+(def-entity text-display
+    (pos
+     text
+     num-chars
+     wait-for-input?
+     blink-time
+     dead?)
+  (create-text-display (pos text)
+		       (make-text-display :pos pos
+					  :text text
+					  :num-chars 0
+					  :timers (alist :text (create-expiring-timer text-speed t))
+					  :wait-for-input? t
+					  :blink-time 0))
+  :timers :drawable)
 
-(defmethod ai ((td text-display))
-  (modify-text-display (td)
-    (fnf timer #'update-timer)
-    (cond
-      ((= num-chars (length text))
-       (incf blink-time frame-time)
-       (when (and wait-for-input?
-		  (> 2 (chunk-time-period blink-time cursor-blink-time 5)))
-	 (let ((char-dims (get-text-size font " "))
-	       (w (x (get-text-size font text))))
-	   (push-screen-render
-	    (make-rect-drawing :rect (create-rect (+v pos (make-v w 0)) char-dims)
-			       :color white
-			       :layer :text
-			       :filled? t)))))
-      ((not (timer-active? timer))
-       (incf num-chars)
-       (push-sound :text-click)
-       (setf (timer-length timer) text-speed)
-       (fnf timer #'reset-timer)))))
+(text-display-methodf ai (td ticks)
+  (cond
+    ((= num-chars (length text))
+     (incf blink-time frame-time)
+     (when (and wait-for-input?
+		(> 2 (chunk-time-period blink-time cursor-blink-time 5)))
+       (let ((char-dims (get-text-size font " "))
+	     (w (x (get-text-size font text))))
+	 (push-screen-render
+	  (make-rect-drawing :rect (create-rect (+v pos (make-v w 0)) char-dims)
+			     :color white
+			     :layer :text
+			     :filled? t)))))
+    ((not (timer-active? (aval :text timers)))
+     (incf num-chars)
+     (push-sound :text-click)
+     (asetf timers (alist :text (create-expiring-timer text-speed t))))))
 
-(defmethod draw ((td text-display))
-  (with-text-display-slots (td)
-    (draw-textbox 5 21 30 8)
-    (draw-text-line pos (subseq text 0 num-chars))))
+(text-display-method draw (td)
+  (draw-textbox 5 21 30 8)
+  (draw-text-line pos (subseq text 0 num-chars)))
 
-(defmethod dead? ((td text-display))
-  (text-display-dead? td))
+(text-display-method dead? (td) dead?)
 
-(defun create-text-display (pos text)
-  (let ((entity-system-type :dialog))
-    (create-entity (make-text-display :pos pos :text text)
-		   '(:ai :drawable))))
+(def-entity hud
+    (player
+     gun-exps
 
-(defstructure hud
-    player
-  gun-exps
+     last-health-amt)
+  (create-hud (player gun-exps id)
+	      (values (make-hud :player player :gun-exps gun-exps
+				:timers (alist
+					 :exp-change (create-expiring-timer (s->ms 1))
+					 :health-change (create-expiring-timer (s->ms 1/2))))
+		      id))
+  :timers :drawable)
 
-  last-health-amt
-  (timer (create-expiring-timer (s->ms 1)))
-  (health-change-timer (create-expiring-timer (s->ms 1/2))))
+(hud-method draw (h)
+  (let ((bar-tile/2-w 5)
+	(bar-tile/2-x 5))
+    (draw-hud-sprite
+     :hud-bg :text-box
+     (create-rect-cmpts 0 (tiles/2 5) (tiles/2 8) (tiles/2 1))
+     (tile-v 1 2))
 
-(defmethod draw ((h hud))
-  (with-hud-slots (h)
-    (let ((bar-tile/2-w 5)
-	  (bar-tile/2-x 5))
-      (draw-hud-sprite
-       :hud-bg :text-box
-       (create-rect-cmpts 0 (tiles/2 5) (tiles/2 8) (tiles/2 1))
-       (tile-v 1 2))
-
-      (let ((health (player-health-amt (player-state player))))
-	(when (timer-active? health-change-timer)
-	  (draw-hud-sprite
-	   :hud :text-box
-	   (create-rect-cmpts 0 (tiles/2 4)
-			      (floor (* (tiles/2 bar-tile/2-w)
-					(/ last-health-amt
-					   (player-max-health-amt (player-state player)))))
-			      (tiles/2 1))
-	   (tiles/2-v bar-tile/2-x 4)))
+    (let ((health (player-health-amt (player-state player))))
+      (when (timer-active? (aval :health-change timers))
 	(draw-hud-sprite
-	 :hud-fg :text-box
-	 (create-rect-cmpts 0 (tiles/2 3)
+	 :hud :text-box
+	 (create-rect-cmpts 0 (tiles/2 4)
 			    (floor (* (tiles/2 bar-tile/2-w)
-				      (/ health
+				      (/ last-health-amt
 					 (player-max-health-amt (player-state player)))))
 			    (tiles/2 1))
-	 (tiles/2-v bar-tile/2-x 4))
-	(draw-hud-number 4 health))
+	 (tiles/2-v bar-tile/2-x 4)))
+      (draw-hud-sprite
+       :hud-fg :text-box
+       (create-rect-cmpts 0 (tiles/2 3)
+			  (floor (* (tiles/2 bar-tile/2-w)
+				    (/ health
+				       (player-max-health-amt (player-state player)))))
+			  (tiles/2 1))
+       (tiles/2-v bar-tile/2-x 4))
+      (draw-hud-number 4 health))
 
-      (let ((exp-pos (tiles/2-v bar-tile/2-x 3)))
-	(draw-hud-sprite
-	 :hud-bg :text-box
-	 (create-rect-cmpts 0 (tiles/2 9) (tiles/2 5) (tiles/2 1))
-	 exp-pos)
+    (let ((exp-pos (tiles/2-v bar-tile/2-x 3)))
+      (draw-hud-sprite
+       :hud-bg :text-box
+       (create-rect-cmpts 0 (tiles/2 9) (tiles/2 5) (tiles/2 1))
+       exp-pos)
 
+      (let ((timer (aval :exp-change timers)))
 	(when (and (timer-active? timer)
 		   (zerop (chunk-timer-period timer 50)))
 	  (draw-hud-sprite :hud-fg
 			   :text-box
 			   (create-rect (tiles/2-v 5 10)
 					(tiles/2-v bar-tile/2-w 1))
-			   exp-pos))
+			   exp-pos)))
 
-	(mvbind (exp gun-name) (current-gun-exp player gun-exps)
-	  (let* ((current-level (gun-level exp (cdr (assoc gun-name gun-level-exps))))
-		 (next-lvl-exp (exp-for-gun-level gun-name current-level))
-		 (current-lvl-exp (if (zerop current-level) 0 (exp-for-gun-level gun-name (1- current-level)))))
-	    (if (= exp (exp-for-gun-level gun-name :max))
-		(draw-hud-sprite :hud-fg :text-box
-				 (create-rect (tiles/2-v 5 9)
-					      (tiles/2-v bar-tile/2-w 1))
-				 exp-pos)
+      (mvbind (exp gun-name) (current-gun-exp player gun-exps)
+	(let* ((current-level (gun-level exp (cdr (assoc gun-name gun-level-exps))))
+	       (next-lvl-exp (exp-for-gun-level gun-name current-level))
+	       (current-lvl-exp (if (zerop current-level) 0 (exp-for-gun-level gun-name (1- current-level)))))
+	  (if (= exp (exp-for-gun-level gun-name :max))
+	      (draw-hud-sprite :hud-fg :text-box
+			       (create-rect (tiles/2-v 5 9)
+					    (tiles/2-v bar-tile/2-w 1))
+			       exp-pos)
 
-		(draw-hud-sprite
-		 :hud :text-box
-		 (create-rect-cmpts 0 (tiles/2 10)
-				    (floor (* (tiles/2 bar-tile/2-w)
-					      (/ (- exp current-lvl-exp)
-						 (- next-lvl-exp current-lvl-exp))))
-				    (tiles/2 1))
-		 exp-pos))
+	      (draw-hud-sprite
+	       :hud :text-box
+	       (create-rect-cmpts 0 (tiles/2 10)
+				  (floor (* (tiles/2 bar-tile/2-w)
+					    (/ (- exp current-lvl-exp)
+					       (- next-lvl-exp current-lvl-exp))))
+				  (tiles/2 1))
+	       exp-pos))
 
-	    (draw-hud-sprite
-	     :hud :text-box
-	     (create-rect-cmpts (tiles/2 10) (tiles/2 10)
-				(tiles/2 2) (tiles/2 1))
-	     (make-v (tiles/2 2) (y exp-pos)))
+	  (draw-hud-sprite
+	   :hud :text-box
+	   (create-rect-cmpts (tiles/2 10) (tiles/2 10)
+			      (tiles/2 2) (tiles/2 1))
+	   (make-v (tiles/2 2) (y exp-pos)))
 
-	    (draw-hud-number 3 (1+ current-level))))))))
+	  (draw-hud-number 3 (1+ current-level)))))))
 
-(defmethod ai ((h hud))
-  (modify-hud (h)
-    (fnf timer #'update-timer)
-    (fnf health-change-timer #'update-timer)))
-
-(defmethod dead? ((h hud))
-  (dead? (estate (hud-player h))))
+(hud-method dead? (h)
+  (dead? (estate player)))
 
 (defun hud-exp-changed (h)
   (modify-hud (h)
-    (fnf timer #'reset-timer)))
+    (aupdatef timers #'reset-timer :keys '(:exp-change))))
+
 (defun hud-health-changed (h)
   (modify-hud (h)
     (setf last-health-amt (player-health-amt (player-state player)))
-    (fnf health-change-timer #'reset-timer)))
-
-(defun create-hud (player gun-exps &key (id (gen-entity-id)))
-  (create-entity
-   (make-hud :player player :gun-exps gun-exps)
-   '(:ai :drawable)
-   :id id))
+    (aupdatef timers #'reset-timer :keys '(:health-change))))
 
 (defun draw-textbox-tile (src-pos pos)
   (let ((size (both-v (tiles/2 1))))
@@ -628,12 +632,24 @@ This can be abused with the machine gun in TAS."
 
 (defun update-and-render (renderer game)
   "The Main Loop, called once per FRAME-TIME."
+  (when (eq *input-playback* :playback)
+    (modify-game (global-game)
+      (setf input (next-playback-input))))
+  (handle-input global-game)
+
   (nilf render-list screen-render-list)
+  (update-parameter-subsystem entity-systems)
+
+  (case *input-playback*
+    (:recording
+     (draw-text-line (zero-v) "RECORD"))
+    (:playback
+     (draw-text-line (zero-v) "PLAYBACK")))
 
   (let ((active-update-systems (active-systems-update (estate (game-active-systems game))))
 	(stage (game-stage game))
 	(player (game-player game)))
-    (update-ai-subsystem active-update-systems)
+    (update-timers-subsystem active-update-systems)
     (update-physics-subsystem active-update-systems)
     (update-bullet-subsystem active-update-systems)
     (update-stage-collision-subsystem active-update-systems stage)
@@ -659,7 +675,38 @@ This can be abused with the machine gun in TAS."
   ;; End Debug Drawings.
 
   (play-sounds sfx-play-list)
-  (nilf sfx-play-list))
+  (nilf sfx-play-list)
+  (modify-game (game)
+    (when (eq *input-playback* :recording)
+      (record-frame-input input))
+    (modify-input (input)
+      (fnf transient-input #'clear-transient-input))))
+
+(defparameter *input-playback* nil)
+
+(let (inputs playback-idx game-state)
+  (defun record-frame-input (input)
+    (push input inputs))
+
+  (defun next-playback-input ()
+    (prog1
+	(elt inputs (decf playback-idx))
+      (when (= 0 playback-idx)
+	(restore-state game-state)
+	(setf playback-idx (1- (length inputs))))))
+
+  (defun end-input-playback ()
+    (nilf *input-playback*))
+
+  (defun begin-input-playback ()
+    (restore-state game-state)
+    (setf playback-idx (1- (length inputs)))
+    (setf *input-playback* :playback))
+
+  (defun begin-input-recording ()
+    (setf *input-playback* :recording)
+    (nilf inputs)
+    (setf game-state (save-current-state))))
 
 (defparameter dialog-text-pos (tiles/2-v 7 24))
 
@@ -737,14 +784,13 @@ This can be abused with the machine gun in TAS."
      gun-name)))
 
 (defun save-current-state ()
-  (cl-store:store (current-entity-states) "./temp.entities")
-  (cl-store:store global-game "./temp.game"))
+  (list (current-entity-states) (copy-game global-game)))
 
-(defun restore-state ()
+(defun restore-state (state)
   (dolist (s registry-syms)
     (nilf (symbol-value s)))
-  (restore-entity-states (cl-store:restore "./temp.entities"))
-  (setf global-game (cl-store:restore "./temp.game")))
+  (restore-entity-states (first state))
+  (setf global-game (second state)))
 
 (defun create-game ()
   (let ((damage-numbers (create-damage-numbers))
@@ -755,7 +801,7 @@ This can be abused with the machine gun in TAS."
 	(active-systems (create-active-systems)))
     (let* ((player (create-default-player hud projectile-groups damage-numbers gun-exps active-systems))
 	   (camera (create-player-camera (v/2 window-dims) (zero-v) player)))
-      (create-hud player gun-exps :id hud)
+      (create-hud player gun-exps hud)
 
       (create-critter (make-v (+ (tiles 14) (tiles 1/4)) (tiles 6)) player damage-numbers)
       (dolist (x '(1 3 6 7))
@@ -810,6 +856,7 @@ This can be abused with the machine gun in TAS."
   (cleanup-all-resources)
   (clrhash character-textures)
 
+  (nilf *input-playback*)
   (sdl.mixer:close-audio)
   (sdl:destroy-renderer renderer)
   (sdl:destroy-window window)
@@ -824,188 +871,247 @@ This can be abused with the machine gun in TAS."
 (defun face-player (pos player)
   (if (< (x pos) (x (player-pos (player-state player)))) :right :left))
 
-(defstructure bat
-    player
+(def-entity bat
+    (player
+     facing
+     dead?)
+  (create-bat (tile-x tile-y player)
+	      (make-bat :physics
+			(alist :wave
+			       (make-wave-motion
+				:origin (tile-v tile-x tile-y)
+				:dir :up
+				:amp (tiles 2)
+				:speed (/ 0.0325 frame-time)))
+			:timers
+			(alist :anim-cycle (create-timed-cycle 14 #(0 2 1 2)))
+			:player player))
+  :timers :damage-collision :damageable :drawable :physics)
 
-  origin
-  facing
-  wave-motion
-  anim-cycle
-  dead?)
+(bat-methodf ai (b ticks)
+  (setf facing (face-player (motion-set-pos physics) player)))
+(bat-method draw (b)
+  (draw-bat (motion-set-pos physics) facing (timed-cycle-current (aval :anim-cycle timers))))
 
-(defmethod ai ((b bat))
-  (modify-bat (b)
-    (fnf anim-cycle #'update-timed-cycle)
-    (setf facing (face-player (bat-pos wave-motion origin) player))))
+(bat-method damage-collision-rect (b)
+  (create-rect (+v (motion-set-pos physics) (tile-dims/2)) (both-v 1)))
 
-(defmethod physics ((b bat))
-  (modify-bat (b)
-    (fnf wave-motion #'wave-physics)))
+(bat-methodf damageable-hit-react (b bullet-hit-amt)
+  (push-sound :enemy-explode)
+  (let ((pos (motion-set-pos physics)))
+    (create-dorito pos (polar-vec->v (rand-angle) 0.07) :small)
+    (create-dorito pos (polar-vec->v (rand-angle) 0.07) :small)
+    (create-death-cloud-particles 3 (+v (tile-dims/2) pos)))
+  (tf dead?))
 
-(defmethod draw ((b bat))
-  (with-bat-slots (b)
-    (draw-bat (bat-pos wave-motion origin) facing (timed-cycle-current anim-cycle))))
+(bat-method dead? (b) dead?)
 
-(defmethod damage-collision-rect ((b bat))
-  (with-bat-slots (b)
-    (bat-damage-collision-rect (bat-pos wave-motion origin))))
-(defmethod damage-collision-amt ((b bat))
-  1)
+(defmethod damage-collision-amt ((b bat)) 1)
+(bat-method damageable-rect (b)
+  (create-rect (motion-set-pos physics) (tile-dims)))
 
-(defmethod damageable-rect ((b bat))
-  (with-bat-slots (b)
-    (bat-collision-rect (bat-pos wave-motion origin))))
-(defmethod damageable-hit-react ((b bat) bullet-hit-amt)
-  (declare (ignore bullet-hit-amt))
-  (modify-bat (b)
-    (push-sound :enemy-explode)
-    (create-dorito (bat-pos wave-motion origin) (zero-v) :large)
-    (tf dead?)))
+(defun polar-vec->v (angle mag)
+  (make-v (* mag (cos angle))
+	  (* mag (sin angle))))
 
-(defmethod dead? ((b bat)) (bat-dead? b))
+(def-entity death-cloud-particle
+    (single-loop-sprite)
+  (create-death-cloud-particle (pos)
+			       (make-death-cloud-particle
+				:single-loop-sprite
+				(create-single-loop-sprite
+				 15 (mapcar #'1+ (alexandria:iota 7))
+				 :npc-sym 0 :particle)
+				:physics
+				(alist
+				 :stage
+				 (make-kin-2d :pos (-v pos (tile-dims/2))
+					      :vel (polar-vec->v (rand-angle) (rand-val-between 0.1 0.3))
+					      :clamper-vx (clamper+- terminal-speed)
+					      :clamper-vy (clamper+- terminal-speed)))))
+  :drawable :physics :stage-collision)
 
-(defun create-bat (tile-x tile-y player)
-  (create-entity
-   (make-bat :origin (tile-v tile-x tile-y)
-	     :wave-motion (make-wave-motion :dir :up
-					    :amp (tiles 2)
-					    :speed (/ 0.0325 frame-time))
-	     :anim-cycle (create-timed-cycle 14 #(0 2 1 2))
-	     :player player)
-   '(:ai :damage-collision :damageable :drawable :physics)))
+(death-cloud-particle-method draw (d)
+  (single-loop-sprite-draw (estate single-loop-sprite) (motion-set-pos physics)))
 
-(defun bat-pos (wave-motion origin)
-  (+v (wave-offset wave-motion) origin))
+(death-cloud-particle-method dead? (d)
+  (dead? (estate single-loop-sprite)))
 
-(defun bat-damage-collision-rect (pos)
-  (create-rect (+v pos (tile-dims/2))
-	       (both-v 1)))
+(let ((collision-rects (rect->collision-rects (centered-rect (tile-dims/2) (both-v (tiles 2/5))))))
+  (death-cloud-particle-methodf stage-collision (d stage)
+    (stage-collisionsf physics stage collision-rects
+		       (alist
+			:bottom (collision-lambda
+				  (setf vel (zero-v :x (x vel))))
+			:left (collision-lambda
+				(setf vel (zero-v :y (y vel))))
+			:right (collision-lambda
+				 (setf vel (zero-v :y (y vel))))
+			:top (collision-lambda
+			       (setf vel (zero-v :x (x vel))))))))
 
-(defun bat-collision-rect (pos)
-  (create-rect pos (tile-dims)))
+(defun create-death-cloud-particles (num pos)
+  (dotimes (i num)
+    (create-death-cloud-particle pos)))
 
 (defparameter critter-dynamic-collision-rect
   (make-rect :pos (tile-v 0 1/4) :size (tile-v 1 3/4)))
 
-(defstructure critter
-    id
-  pos
-  dead?
-  vel
-  ground-tile
-  facing
-  sleep-timer
+(def-entity critter
+    (dead?
+     health-amt
+     ground-tile
+     facing
 
-  player
-  damage-numbers)
+     id
+     player
+     damage-numbers)
+  (create-critter (pos player damage-numbers)
+		  (let ((id (gen-entity-id)))
+		    (values (make-critter :physics
+					  (alist :stage (make-kin-2d :pos pos
+								     :accelerator-y (const-accelerator gravity-acc)
+								     :clamper-vy (clamper+- terminal-speed)))
+					  :timers
+					  (alist
+					   :sleep (create-expiring-timer (s->ms 1/3))
+					   :shake (create-expiring-timer (s->ms 1/3)))
+					  :player player
+					  :health-amt 2
+					  :damage-numbers damage-numbers
+					  :id id)
+			    id)))
+  :timers :drawable :physics :damageable :damage-collision :dynamic-collision :stage-collision)
 
-(defmethod ai ((c critter))
-  (modify-critter (c)
-    (fnf sleep-timer #'update-timer)
-    (setf facing (face-player pos player))
-    (let ((disp (- (x pos) (x (player-pos (player-state player))))))
-      (when (and ground-tile
-		 (not (timer-active? sleep-timer))
-		 (< (abs disp) (tiles 2)))
-	(setf (x vel) (* 0.04 (- (signum disp))))
-	(setf (y vel) -0.35)))))
+(defgeneric physics-pos (p))
 
-(defmethod physics ((c critter))
-  (modify-critter (c)
-    (physics-2d pos vel
-		(const-accelerator 0)
-		(const-accelerator gravity-acc)
-		:clamper-vy
-		(clamper+- terminal-speed))))
+(critter-methodf ai (c ticks)
+  (unless (timer-active? (aval :shake timers))
+    (removef physics :shake :key #'car :test #'eq))
+  (setf facing (face-player (physics-pos c) player))
+  (let ((disp (- (x (physics-pos c)) (x (player-pos (player-state player))))))
+    (when (and ground-tile
+	       (not (timer-active? (aval :sleep timers)))
+	       (< (abs disp) (tiles 4)))
+      (aupdatef
+       physics
+       (lambda (kin-2d)
+	 (modify-kin-2d (kin-2d)
+	   (+vf vel (make-v (* 0.04 (- (signum disp))) -0.35))))
+       :keys '(:stage)))))
 
-(defmethod draw ((c critter))
-  (with-critter-slots (c)
-    (let ((sprite-tile-x (if (< (abs (- (x pos) (x (player-pos (player-state player))))) (tiles 4))
-			     1
-			     0)))
-      (draw-sprite :enemy :npc-cemet (tile-rect (tile-v sprite-tile-x (if (eq facing :left) 0 1))) pos))))
+(defmethod set-parameters ((c critter))
+  )
+
+(critter-method physics-pos (c)
+  (motion-set-pos physics))
+
+(critter-method draw (c)
+  (let ((sprite-tile-x (cond
+			 ((timer-active? (aval :sleep timers))
+			  0)
+			 ((< (abs (- (x (physics-pos c)) (x (player-pos (player-state player))))) (tiles 7))
+			  1)
+			 (t
+			  0))))
+    (draw-sprite :enemy :npc-cemet
+		 (tile-rect (tile-v sprite-tile-x (if (eq facing :left) 0 1)))
+		 (physics-pos c))))
 
 (defmethod damageable-rect ((c critter))
-  (tile-rect (critter-pos c)))
+  (tile-rect (physics-pos c)))
 
-(defmethod damageable-hit-react ((c critter) amt)
-  (update-damage-number-amt (critter-damage-numbers c) (critter-id c) amt)
-  (push-sound :enemy-hurt)
-  c)
+(critter-methodf damageable-hit-react (c amt)
+  (if (< amt (critter-health-amt c))
+      (progn
+	(update-damage-number-amt (critter-damage-numbers c) (critter-id c) amt)
+	(push-sound :enemy-hurt)
+	(decf health-amt)
+	(asetf physics
+	       (alist :shake
+		      (make-wave-motion :dir :left
+					:amp 2
+					:speed 0.1
+					:rads 0)))
+	(aupdatef timers #'reset-timer :keys '(:shake)))
+      (progn
+	(push-sound :enemy-explode)
+	(create-dorito (floating-number-origin c) (polar-vec->v (rand-angle) 0.07) :small)
+	(create-dorito (floating-number-origin c) (polar-vec->v (rand-angle) 0.07) :small)
+	(create-death-cloud-particles 6 (floating-number-origin c))
+	(tf dead?))))
 
 (defmethod damage-collision-rect ((c critter))
-  (tile-rect (critter-pos c)))
+  (tile-rect (physics-pos c)))
 
 (defmethod damage-collision-amt ((c critter))
   1)
 
 (defmethod dynamic-collision-rect ((c critter))
-  (rect-offset critter-dynamic-collision-rect (critter-pos c)))
+  (rect-offset critter-dynamic-collision-rect (physics-pos c)))
+
+(defun critter-vel (c)
+  (kin-2d-vel (cdr (assoc :stage (critter-physics c)))))
 
 (defmethod dynamic-collision-vel ((c critter))
   (critter-vel c))
 
-(defmethod dynamic-collision-react ((c critter) side player-collision-rect player)
+(critter-method dynamic-collision-react (c side player-collision-rect player)
   (let ((new-p (player-state player)))
-    (with-critter-slots (c)
-      (modify-player (new-p p-)
-	(let ((player-rect (rect-offset player-collision-rect p-pos)))
-	  (case side
-	    (:bottom
-	     (when (and (not (player-on-ground? p-ground-tile))
-			(<= (y pos) (bottom player-rect) (+ (y pos) (tiles 1/2))))
-	       (setf p-ground-tile :dynamic)
-	       (setf p-ground-inertia-entity id)
-	       (setf p-vel (zero-v :x (x p-vel)))
+    (modify-player (new-p p-)
+      (aupdatef
+       p-physics
+       (lambda (p-kin-2d)
+	 (modify-kin-2d (p-kin-2d p-)
+	   (let ((player-rect (rect-offset player-collision-rect p-pos)))
+	     (case side
+	       (:bottom
+		(when (and (not (player-on-ground? p-ground-tile))
+			   (<= (y (physics-pos c)) (bottom player-rect) (+ (y (physics-pos c)) (tiles 1/2))))
+		  (setf p-ground-tile :dynamic)
+		  (setf p-ground-inertia-entity id)
+		  (setf p-vel (zero-v :x (x p-vel)))
 
-	       (setf p-pos
-		     (-v
-		      (flush-rect-pos player-rect (y (+v (rect-pos critter-dynamic-collision-rect) pos)) :up)
-		      (rect-pos player-collision-rect)))))
-	    ((:left :right)
-	     (let ((disp (- (x p-pos) (x pos))))
-	       (when (> (abs disp) (tiles 1/4))
-		 (setf (x p-vel)
-		       (* (/ terminal-speed 70) disp)))))))))))
+		  (setf p-pos
+			(-v
+			 (flush-rect-pos player-rect (y (+v (rect-pos critter-dynamic-collision-rect)
+							    (physics-pos c))) :up)
+			 (rect-pos player-collision-rect)))))
+	       ((:left :right)
+		(let ((disp (- (x p-pos) (x (physics-pos c)))))
+		  (when (> (abs disp) (tiles 1/4))
+		    (setf (x p-vel)
+			  (* (/ terminal-speed 70) disp)))))))))
+       :keys '(:stage)))))
 
 (let ((collision-rects (rect->collision-rects (centered-rect (tile-dims/2) (both-v (tiles 3/4))) 6)))
-  (defmethod stage-collision ((c critter) stage)
-    (modify-critter (c)
-      (let (new-tile)
-	(stage-collisions (pos collision-rects stage)
-	  :bottom
-	  (collision-lambda
-	    (setf new-tile tile-type)
-	    (unless ground-tile
-	      (fnf sleep-timer #'reset-timer))
-	    (allf 0 (y vel) (x vel)))
+  (critter-methodf stage-collision (c stage)
+    (let (new-tile)
+      (stage-collisionsf physics
+			 stage
+			 collision-rects
+			 (alist
+			  :bottom
+			  (collision-lambda
+			    (setf new-tile tile-type)
+			    (unless ground-tile
+			      (aupdatef timers #'reset-timer :keys '(:sleep)))
+			    (setf vel (zero-v)))
 
-	  :right (collision-lambda)
-	  :left (collision-lambda)
+			  :right (collision-lambda)
+			  :left (collision-lambda)
 
-	  :top
-	  (collision-lambda
-	    (maxf (y vel) 0)))
-	(setf ground-tile new-tile)))))
+			  :top
+			  (collision-lambda
+			    (setf vel (make-v (x vel) (max (y vel) 0))))))
+      (setf ground-tile new-tile))))
 
-(defmethod dead? ((c critter))
-  (critter-dead? c))
+(critter-method dead? (c) dead?)
 
 (defgeneric floating-number-origin (obj))
 (defmethod floating-number-origin ((c critter))
-  (+v (critter-pos c) (tile-dims/2)))
+  (+v (physics-pos c) (tile-dims/2)))
 
 (defgeneric inertia-vel (obj))
 (defmethod inertia-vel ((c critter))
   (critter-vel c))
-
-(defun create-critter (pos player damage-numbers &key (id (gen-entity-id)))
-  (create-entity
-   (make-critter :pos pos
-		 :player player
-		 :damage-numbers damage-numbers
-		 :vel (zero-v)
-		 :sleep-timer (create-expiring-timer 300)
-		 :id id)
-   '(:ai :drawable :physics :damageable :damage-collision :dynamic-collision :stage-collision)
-   :id id))

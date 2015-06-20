@@ -48,9 +48,15 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 (def-subsystem physics ()
   (replace-entity-state entity-id #'physics))
 
-(defgeneric ai (obj))
-(def-subsystem ai ()
-  (replace-entity-state entity-id #'ai))
+(defgeneric ai (obj ticks))
+(defmethod ai (obj ticks)
+  obj)
+(defgeneric timers (obj))
+(defmethod timers (obj)
+  (ai obj nil))
+
+(def-subsystem timers ()
+  (replace-entity-state entity-id #'timers))
 
 (defgeneric draw (obj))
 (def-subsystem drawable ()
@@ -68,7 +74,6 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 (defgeneric dynamic-collision-react (obj side player-collision-rect player))
 
 (def-subsystem dynamic-collision (player)
-  ;; TODO: Merge with stage collisions.
   (dolist (side collision-order)
     (let* ((state (estate entity-id))
 	   (rect (dynamic-collision-rect state))
@@ -140,12 +145,14 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 
 (let (entity-registry id)
   (defun current-entity-states ()
-    (list id entity-registry))
+    (list id (copy-alist entity-registry)))
 
   (defun restore-entity-states (id-and-registry)
-    (mvsetq (id entity-registry) (values-list id-and-registry))
-    (dohash (id e) entity-registry
-      (register-entity-subsystems id e)))
+    (setq id (first id-and-registry))
+    (setq entity-registry (second id-and-registry))
+    (loop for (id . e) in entity-registry
+       do
+	 (register-entity-subsystems id e)))
 
   (defun init-id-system ()
     (setf id 0))
@@ -154,28 +161,40 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 
   (defun init-entity-registry ()
     (setf id 0
-	  entity-registry (make-hash-table)))
+	  entity-registry nil))
 
   (defun register-entity (id entity)
-    (setf (gethash id entity-registry) entity)
+    (push (cons id entity) entity-registry)
     id)
 
   (defun estate (id)
-    (entity-state (gethash id entity-registry)))
+    (entity-state (cdr (assoc id entity-registry))))
 
   (defun estate-set (id obj)
-    (setf (entity-state (gethash id entity-registry)) obj)))
+    (setf entity-registry (copy-alist entity-registry))
+    (let ((e (copy-entity (cdr (assoc id entity-registry)))))
+      (setf (entity-state e) obj)
+      (setf (cdr (assoc id entity-registry)) e))))
 
 (defgeneric dead? (obj))
 (defmethod dead? (obj)
   (declare (ignore obj))
   nil)
 
+(defgeneric set-parameters (obj))
+(defmethod set-parameters (obj)
+  (declare (ignore obj))
+  nil)
+
+(def-subsystem parameter ()
+  (set-parameters (estate entity-id)))
+
 (defun register-entity-subsystems (id entity)
   (with-entity-slots (entity)
+    (register-parameter system-type id)
     (dolist (s subsystems)
       (ecase s
-	(:ai (register-ai system-type id))
+	((:ai :timers) (register-timers system-type id))
 	(:bullet (register-bullet system-type id))
 	(:damageable (register-damageable system-type id))
 	(:damage-collision (register-damage-collision system-type id))
@@ -190,3 +209,46 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
   (let ((entity (make-entity :system-type entity-system-type :state initial-state :subsystems subsystems)))
     (register-entity-subsystems id entity)
     (register-entity id entity)))
+
+(defmacro physics-method (struct-type)
+  `(defmethod physics ((o ,struct-type))
+     (,(symbolicate 'modify- struct-type) (o)
+       (motion-set-updatef physics))))
+
+(defmacro timers-method (struct-type)
+  `(defmethod timers ((o ,struct-type))
+     (let (ticks)
+       (,(symbolicate 'modify- struct-type) (o)
+	 (mvsetq (timers ticks) (timer-set-update timers)))
+       (ai o ticks))))
+
+(defmacro def-entity (name fields (constructor-name constructor-args &body constructor-body) &rest subsystems)
+  (let ((physics? (find :physics subsystems))
+	(timers? (find :timers subsystems)))
+    `(progn
+       (defstructure ,name
+	   ,@ (remove-if #'null
+			 (list* (if physics? 'physics nil)
+				(if timers? 'timers nil)
+				fields)))
+       (defun ,constructor-name ,constructor-args
+	 (mvbind (state id) (progn ,@constructor-body)
+	   (create-entity
+	    state
+	    ',subsystems
+	    :id (if id id (gen-entity-id)))))
+
+       ,(when physics?
+	      `(physics-method ,name))
+       ,(when timers?
+	      `(timers-method ,name))
+
+       (defmacro ,(symbolicate name '-methodf) (method-name (obj &rest args) &body body)
+	 `(defmethod ,method-name ((,obj ,',name) ,@args)
+	    (,',(symbolicate 'modify- name) (,obj)
+		,@body)))
+
+       (defmacro ,(symbolicate name '-method) (method-name (obj &rest args) &body body)
+	 `(defmethod ,method-name ((,obj ,',name) ,@args)
+	    (,',(symbolicate 'with- name '-slots) (,obj)
+		,@body))))))

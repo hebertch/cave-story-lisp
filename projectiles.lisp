@@ -52,78 +52,69 @@
     (draw-rect rect yellow)
     dead?))
 
-(defun missile-projectile-pos (origin offset wave-motion)
-  (+v (offset-motion-offset offset)
-      (aif wave-motion
-	   (wave-offset it)
-	   (zero-v))
-      origin))
+(defun missile-projectile-pos (m)
+  (motion-set-pos (missile-projectile-physics m)))
 
-(defstructure missile-projectile
-    lvl
-  dir
-  origin
-  offset
-  wave-motion
-  sprite-rect
-  dead?)
+(def-entity missile-projectile
+    (lvl
+     dir
+     sprite-rect
+     dead?)
+  (create-missile-projectile (lvl dir pos perp-offset-amt speed acc &optional oscillate?)
+			     (let ((perp-dir (if (vertical? dir) :left :up)))
+			       (make-missile-projectile
+				:lvl lvl
+				:dir dir
+				:timers
+				(alist :life (create-expiring-timer (s->ms 3/2) t))
+				:physics
+				(let (physics)
+				  (asetf physics
+					 (alist :kin-2d
+						(make-offset-motion
+						 (offset-in-dir-pos pos
+								    perp-offset-amt
+								    perp-dir)
+						 dir
+						 speed
+						 acc)))
 
-(defmethod ai ((p missile-projectile))
-  (modify-missile-projectile (p)
-    (when (> (offset-motion-dist offset) (x window-dims))
-      (tf dead?))))
+				  (when oscillate?
+				    (asetf physics
+					   (alist :wave-motion
+						  (make-wave-motion
+						   :dir perp-dir
+						   :amp missile-projectile-amplitude
+						   :speed missile-radial-speed))))
+				  physics)
 
-(defmethod physics ((p missile-projectile))
-  (modify-missile-projectile (p)
-    (when wave-motion
-      (fnf wave-motion #'wave-physics))
-    (fnf offset #'offset-motion-physics)))
+				:sprite-rect (tile-rect (tile-v (position dir '(:left :up :right :down)) lvl)))))
+  :timers :physics :drawable :stage-collision :bullet)
 
-(defmethod draw ((p missile-projectile))
-  (with-missile-projectile-slots (p)
-    (draw-sprite :projectile :bullet
-		 sprite-rect
-		 (missile-projectile-pos origin offset wave-motion))))
+(missile-projectile-method draw (p)
+  (draw-sprite :projectile :bullet
+	       sprite-rect
+	       (missile-projectile-pos p)))
 
-(defmethod stage-collision ((p missile-projectile) stage)
-  (modify-missile-projectile (p)
+(missile-projectile-methodf stage-collision (p stage)
+  (let ((dir (missile-projectile-dir p)))
     (setf dead? (missile-projectile-collisions
-		 (missile-projectile-collision-rect lvl dir (missile-projectile-pos origin offset wave-motion))
+		 (missile-projectile-collision-rect lvl dir (missile-projectile-pos p))
 		 dir
 		 stage))))
 
-(defmethod bullet-rect ((p missile-projectile))
-  (with-missile-projectile-slots (p)
-    (missile-projectile-collision-rect lvl dir (missile-projectile-pos origin offset wave-motion))))
+(missile-projectile-method bullet-rect (p)
+  (missile-projectile-collision-rect lvl dir (missile-projectile-pos p)))
 
 (defmethod bullet-damage-amt ((p missile-projectile))
   3)
 
-(defmethod bullet-hit-react ((p missile-projectile))
-  (modify-missile-projectile (p)
-    (tf dead?)))
+(missile-projectile-methodf bullet-hit-react (p)
+  (tf dead?))
 
-(defmethod dead? ((p missile-projectile))
-  (missile-projectile-dead? p))
-
-(defun create-missile-projectile (lvl dir pos perp-offset-amt speed acc &optional oscillate? (id (gen-entity-id)))
-  (let ((perp-dir (if (vertical? dir) :left :up)))
-    (create-entity
-     (make-missile-projectile :lvl lvl
-			      :dir dir
-			      :origin (offset-in-dir-pos pos
-							 perp-offset-amt
-							 perp-dir)
-			      :offset (make-offset-motion :dir dir :speed speed :acc acc)
-			      :wave-motion (if oscillate?
-					       (make-wave-motion
-						:dir perp-dir
-						:amp missile-projectile-amplitude
-						:speed missile-radial-speed)
-					       nil)
-			      :sprite-rect (tile-rect (tile-v (position dir '(:left :up :right :down)) lvl)))
-     '(:ai :physics :drawable :stage-collision :bullet)
-     :id id)))
+(missile-projectile-method dead? (p)
+  (or (not (timer-active? (aval :life timers)))
+      dead?))
 
 (defun make-missile-projectile-group (lvl dir nozzle-pos)
   (let ((pos (sub-v nozzle-pos
@@ -136,58 +127,58 @@
 		(create-missile-projectile lvl dir pos 8 speed (rand-val-between 0.001 0.0015) t)
 		(create-missile-projectile lvl dir pos 0 speed (rand-val-between 0.001 0.0015) t))))))
 
-(defstructure polar-star-projectile
-    nozzle-pos
-  dir
-  lvl
-  (offset (make-offset-motion :dir dir :speed 0.6))
-  dead?
-  (origin (sub-v nozzle-pos (tile-dims/2)))
-  (sprite-rect (make-polar-star-projectile-sprite-rect lvl dir)))
+(def-entity polar-star-projectile
+    (dir
+     lvl
+     sprite-rect
+     dead?)
+  (create-polar-star-projectile (nozzle-pos dir lvl)
+    (make-polar-star-projectile
+     :dir dir
+     :lvl lvl
+     :timers
+     (alist :life (create-expiring-timer (s->ms (elt '(1/8 1/4 1/2) lvl)) t))
+     :physics (alist :kin-2d
+		     (make-offset-motion
+		      (sub-v nozzle-pos (tile-dims/2))
+		      dir
+		      0.6
+		      0))
+     :sprite-rect (make-polar-star-projectile-sprite-rect lvl dir)))
+  :timers :physics :drawable :bullet :stage-collision)
 
-(defmethod ai ((p polar-star-projectile))
-  (modify-polar-star-projectile (p)
-    (setf dead? (polar-star-projectile-ai offset lvl (polar-star-projectile-pos origin offset) dir))))
+(polar-star-projectile-methodf ai (p ticks)
+  (when (not (timer-active? (aval :life timers)))
+    (tf dead?)
+    (push-sound :dissipate)
+    (make-projectile-star-particle (offset-in-dir-pos (+v (physics-pos p) (tile-dims/2))
+						      (tiles/2 1)
+						      dir))))
 
-(defmethod physics ((p polar-star-projectile))
-  (modify-polar-star-projectile (p)
-    (fnf offset #'polar-star-projectile-physics)))
+(polar-star-projectile-method physics-pos (p)
+  (motion-set-pos physics))
 
-(defmethod draw ((p polar-star-projectile))
-  (with-polar-star-projectile-slots (p)
-    (polar-star-projectile-draw (polar-star-projectile-pos origin offset) sprite-rect)))
+(polar-star-projectile-method draw (p)
+  (polar-star-projectile-draw (physics-pos p) sprite-rect))
 
-(defmethod bullet-rect ((p polar-star-projectile))
-  (with-polar-star-projectile-slots (p)
-    (polar-star-projectile-collision-rect lvl dir (polar-star-projectile-pos origin offset))))
+(polar-star-projectile-method bullet-rect (p)
+  (polar-star-projectile-collision-rect lvl dir (physics-pos p)))
 
-(defmethod bullet-hit-react ((p polar-star-projectile))
-  (modify-polar-star-projectile (p)
-    (tf dead?)))
+(polar-star-projectile-methodf bullet-hit-react (polar-star-projectile)
+  (tf dead?))
 
-(defmethod bullet-damage-amt ((p polar-star-projectile))
-  (elt '(1 2 4) (polar-star-projectile-lvl p)))
+(polar-star-projectile-method bullet-damage-amt (p)
+  (elt '(1 2 4) lvl))
 
-(defmethod stage-collision ((p polar-star-projectile) stage)
-  (modify-polar-star-projectile (p)
-    (let ((pos (polar-star-projectile-pos origin offset)))
-      (setf dead? (polar-star-projectile-collisions
-		   (polar-star-projectile-collision-rect lvl dir pos)
-		   dir
-		   pos
-		   stage)))))
+(polar-star-projectile-methodf stage-collision (p stage)
+  (let ((pos (physics-pos p)))
+    (setf dead? (polar-star-projectile-collisions
+		 (polar-star-projectile-collision-rect lvl dir pos)
+		 dir
+		 pos
+		 stage))))
 
-(defmethod dead? ((p polar-star-projectile))
-  (polar-star-projectile-dead? p))
-
-;; Polar Star
-(defun create-polar-star-projectile (nozzle-pos dir lvl &key (id (gen-entity-id)))
-  (create-entity
-   (make-polar-star-projectile :nozzle-pos nozzle-pos
-			       :dir dir
-			       :lvl lvl)
-   '(:ai :physics :drawable :bullet :stage-collision)
-   :id id))
+(polar-star-projectile-method dead? (p) dead?)
 
 (defun make-polar-star-projectile-group (lvl dir nozzle-pos)
   (push-sound :polar-star-shoot-3)
@@ -204,29 +195,12 @@
 	(incf (x tp)))
       (tile-rect (tile-pos tp)))))
 
-(defun polar-star-projectile-pos (origin offset)
-  (+v origin (offset-motion-offset offset)))
-
 (defun polar-star-projectile-draw (pos sprite-rect)
   (draw-sprite :projectile :bullet
 	       sprite-rect
 	       pos))
 
-(defun polar-star-projectile-ai (offset lvl pos dir)
-  (let ((dead? (> (offset-motion-dist offset)
-		  (elt polar-star-projectile-max-offsets lvl))))
-    (when dead?
-      (push-sound :dissipate)
-      (make-projectile-star-particle (offset-in-dir-pos (+v pos (tile-dims/2))
-							(tiles/2 1)
-							dir)))
-    dead?))
-
-(defun polar-star-projectile-physics (offset)
-  (offset-motion-physics offset))
-
 (defun polar-star-projectile-collision-rect (lvl dir pos)
-  ;; TODO: Challenge: Don't use gimp to figure out the collision rectangles.
   (let* ((short-side (ecase lvl
 		       (0 4)
 		       (1 8)
