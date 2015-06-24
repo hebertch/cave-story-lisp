@@ -20,7 +20,7 @@
     (values tr ticked?)))
 
 (defun timer-active? (tr)
-  (plusp (timer-ms-remaining tr)))
+  (and tr (plusp (timer-ms-remaining tr))))
 (defun timer-expired? (tr)
   (not (timer-active? tr)))
 

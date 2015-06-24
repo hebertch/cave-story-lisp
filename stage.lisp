@@ -108,7 +108,8 @@ Returns the TILE-TYPE of the colliding tile."
 	    (apply #'stage-check/resolve-collision args))
 	(when new-pos
 	  (setf position (sub-v new-pos (rect-pos collision-rect)))
-	  (funcall fn tile-type))
+	  (when fn
+	    (funcall fn tile-type)))
 	(draw-rect (rect-offset collision-rect position) blue :layer :debug-stage-collision))))
   position)
 
@@ -116,13 +117,16 @@ Returns the TILE-TYPE of the colliding tile."
   `(aupdatef ,physics
 	     (lambda (kin-2d)
 	       (modify-kin-2d (kin-2d)
-		 (setf pos (stage-collisions pos ,@stage-collision-args))))
-	     :keys '(:stage)))
+		 (setf pos (stage-collisions pos ,@stage-collision-args))))  '(:stage)))
 
-(defmacro collision-lambda (&body body)
-  `(lambda (tile-type)
-     (declare (ignorable tile-type))
-     ,@body))
+(defmacro astage-collisionsf (&rest args)
+  "Expects PHYSICS STAGE COLLISION_RECTS to be bound."
+  `(aupdatef physics
+	     (lambda (kin-2d)
+	       (modify-kin-2d (kin-2d)
+		 (setf pos (stage-collisions pos stage collision-rects ,@args))))
+	     '(:stage)))
+
 
 (defun draw-stage (stage)
   (dotimes (row (array-dimension stage 0))

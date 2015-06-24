@@ -78,7 +78,7 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
     (let* ((state (estate entity-id))
 	   (rect (dynamic-collision-rect state))
 	   (player-collision-rect (cdr (assoc side player-collision-rectangles-alist)))
-	   (player-rect (rect-offset player-collision-rect (player-pos (player-state player)))))
+	   (player-rect (rect-offset player-collision-rect (physics-pos (player-state player)))))
       (draw-rect rect blue :layer :debug-dynamic-collision)
       (draw-rect player-rect green :layer :debug-dynamic-collision)
       (when (rects-collide? rect player-rect)
@@ -215,6 +215,11 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
      (,(symbolicate 'modify- struct-type) (o)
        (motion-set-updatef physics))))
 
+(defmacro physics-pos-method (struct-type)
+  `(defmethod physics-pos ((o ,struct-type))
+     (,(symbolicate 'with- struct-type '-slots) (o)
+       (motion-set-pos physics))))
+
 (defmacro timers-method (struct-type)
   `(defmethod timers ((o ,struct-type))
      (let (ticks)
@@ -239,7 +244,9 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 	    :id (if id id (gen-entity-id)))))
 
        ,(when physics?
-	      `(physics-method ,name))
+	      `(progn
+		 (physics-method ,name)
+		 (physics-pos-method ,name)))
        ,(when timers?
 	      `(timers-method ,name))
 

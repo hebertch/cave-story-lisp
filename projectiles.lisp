@@ -70,22 +70,22 @@
 				:physics
 				(let (physics)
 				  (asetf physics
-					 (alist :kin-2d
-						(make-offset-motion
-						 (offset-in-dir-pos pos
-								    perp-offset-amt
-								    perp-dir)
-						 dir
-						 speed
-						 acc)))
+					 (make-offset-motion
+					  (offset-in-dir-pos pos
+							     perp-offset-amt
+							     perp-dir)
+					  dir
+					  speed
+					  acc)
+					 :kin-2d)
 
 				  (when oscillate?
 				    (asetf physics
-					   (alist :wave-motion
-						  (make-wave-motion
-						   :dir perp-dir
-						   :amp missile-projectile-amplitude
-						   :speed missile-radial-speed))))
+					   (make-wave-motion
+					    :dir perp-dir
+					    :amp missile-projectile-amplitude
+					    :speed missile-radial-speed)
+					   :wave-motion))
 				  physics)
 
 				:sprite-rect (tile-rect (tile-v (position dir '(:left :up :right :down)) lvl)))))
@@ -113,7 +113,7 @@
   (tf dead?))
 
 (missile-projectile-method dead? (p)
-  (or (not (timer-active? (aval :life timers)))
+  (or (not (timer-active? (aval timers :life)))
       dead?))
 
 (defun make-missile-projectile-group (lvl dir nozzle-pos)
@@ -148,7 +148,7 @@
   :timers :physics :drawable :bullet :stage-collision)
 
 (polar-star-projectile-methodf ai (p ticks)
-  (when (not (timer-active? (aval :life timers)))
+  (when (not (timer-active? (aval timers :life)))
     (tf dead?)
     (push-sound :dissipate)
     (make-projectile-star-particle (offset-in-dir-pos (+v (physics-pos p) (tile-dims/2))

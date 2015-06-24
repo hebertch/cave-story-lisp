@@ -100,9 +100,9 @@
 		    (render renderer
 			    font
 			    render-list
-			    (camera-focus->camera-pos
-			     (clamp-pos (camera-focus (estate (game-camera global-game)))
-					(stage-dims->camera-bounds (stage-dims (game-stage global-game))))))
+			    (camera-pos
+			     (estate (game-camera global-game))
+			     (stage-dims->camera-bounds (stage-dims (game-stage global-game)))))
 		    (decf frame-timer (* update-period frame-time)))
 
 		  (let ((dt (- (sdl:get-ticks) last-update-time)))
@@ -199,35 +199,74 @@ This can be abused with the machine gun in TAS."
 		  :size size))
   :timers :physics :stage-collision :drawable :pickup)
 
+(defmacro ai-life-timer ()
+  `(unless (timer-active? (aval timers :life))
+     (tf dead?)))
+
 (dorito-methodf ai (d ticks)
-  (unless (timer-active? (aval :life timers))
-    (tf dead?)))
+  (ai-life-timer))
 
 (defun dorito-pos (d)
-  (motion-set-pos (dorito-physics d)))
+  (physics-pos d))
+
+(defun flash-time? (tr)
+  (and (timer-active? tr) (zerop (chunk-timer-period tr 50))))
+
+
+(defun death-flash? (timers)
+  (let ((tr (aval timers :life)))
+    (and (< (timer-ms-remaining tr) (s->ms 1))
+	 (flash-time? tr))))
 
 (dorito-method draw (d)
-  (dorito-draw (aval :life timers) (timed-cycle-current (aval :anim-cycle timers)) (dorito-size d) (dorito-pos d)))
+  (unless (death-flash? timers)
+    (draw-sprite
+     :pickup :npc-sym
+
+     (create-rect
+      (+v
+       (anim-cycle-offset timers)
+       (tile-v 0 (1+ (position size '(:small :medium :large)))))
+      (make-v (tiles 1) (1- (tiles 1))))
+
+     (physics-pos d))))
+
+(defun set-x-v (v x)
+  (make-v x (y v)))
+(defmacro set-x-vf (v x)
+  `(setf ,v (set-x-v ,v ,x)))
+(defun set-y-v (v y)
+  (make-v (x v) y))
+(defmacro set-y-vf (v y)
+  `(setf ,v (set-y-v ,v ,y)))
+
+(defun reverse-x-v (v)
+  (make-v (- (x v)) (y v)))
+(defmacro reverse-x-vf (v)
+  `(setf ,v (reverse-x-v ,v)))
 
 (dorito-methodf stage-collision (d stage)
-  (stage-collisionsf physics stage (rect->collision-rects (dorito-collision-rect size))
-		     (let ((reverse-x (collision-lambda
-					(setf vel (make-v (- (x vel)) (y vel))))))
-		       (alist
-			:bottom
-			(collision-lambda
-			  (setf vel (make-v (x vel) (- dorito-bounce-speed)))
-			  (push-sound :dorito-bounce))
+  (let ((collision-rects (rect->collision-rects (dorito-collision-rect size))))
+    (astage-collisionsf
+     (alist
+      :bottom
+      (collision-lambda
+	(set-y-vf vel (- dorito-bounce-speed))
+	(push-sound :dorito-bounce))
 
-			:right reverse-x
-			:left reverse-x
+      :right (collision-lambda
+	       (when (plusp (x vel))
+		 (reverse-x-vf vel)))
+      :left (collision-lambda
+	      (when (minusp (x vel))
+		(reverse-x-vf vel)))
 
-			:top
-			(collision-lambda
-			  (setf vel (make-v (x vel) (max (y vel) 0))))))))
+      :top
+      (collision-lambda
+	(max-y-vf vel 0))))))
 
 (dorito-method pickup-rect (d)
-  (rect-offset (dorito-collision-rect size) (dorito-pos d)))
+  (rect-offset (dorito-collision-rect size) (physics-pos d)))
 
 (dorito-methodf pickup-kill (d)
   (push-sound :pickup)
@@ -278,12 +317,12 @@ This can be abused with the machine gun in TAS."
   (with-single-loop-sprite-slots (s)
     (draw-sprite layer
 		 sheet-key
-		 (tile-rect (tile-v (cycle-current (timed-cycle-cycle (aval :cycle timers))) tile-y))
+		 (tile-rect (tile-v (cycle-current (timed-cycle-cycle (aval timers :cycle))) tile-y))
 		 pos)))
 
 (single-loop-sprite-methodf ai (p ticks)
   (when (and (find :cycle ticks)
-	     (zerop (cycle-idx (timed-cycle-cycle (aval :cycle timers)))))
+	     (zerop (cycle-idx (timed-cycle-cycle (aval timers :cycle)))))
     (tf dead?)))
 
 (single-loop-sprite-method dead? (p) dead?)
@@ -300,7 +339,7 @@ This can be abused with the machine gun in TAS."
 
 (particle-method draw (p)
   (with-single-loop-sprite-slots ((estate single-loop-sprite))
-    (let ((cycle-current (cycle-current (timed-cycle-cycle (aval :cycle timers)))))
+    (let ((cycle-current (cycle-current (timed-cycle-cycle (aval timers :cycle)))))
       (draw-sprite :particle sheet-key
 		   (tile-rect (tile-v cycle-current tile-y))
 		   pos))))
@@ -374,20 +413,20 @@ This can be abused with the machine gun in TAS."
   :timers :drawable :physics)
 
 (floating-number-method draw (fn)
-  (draw-number (+v (floating-number-origin (estate entity))
-		   (motion-set-pos physics))
+  (draw-number (+v (origin (estate entity))
+		   (physics-pos fn))
 	       amt))
 
 (floating-number-methodf ai (dn ticks)
   (when (< (y (motion-pos (cdr (assoc :offset physics)))) (- (tiles 1)))
-    (asetf physics (alist :offset (make-offset-motion (zero-v :y (- (tiles 1))) :up 0)))))
+    (asetf physics (make-offset-motion (zero-v :y (- (tiles 1))) :up 0) :offset)))
 
 (floating-number-method dead? (dn)
-  (not (timer-active? (aval :life timers))))
+  (not (timer-active? (aval timers :life))))
 
 (defun floating-number-add-amt (dn amount)
   (modify-floating-number (dn)
-    (aupdatef timers #'reset-timer :keys '(:life))
+    (aupdatef timers #'reset-timer '(:life))
     (incf amt amount)))
 
 (defun remove-all-dead (game)
@@ -490,10 +529,10 @@ This can be abused with the machine gun in TAS."
 			     :color white
 			     :layer :text
 			     :filled? t)))))
-    ((not (timer-active? (aval :text timers)))
+    ((not (timer-active? (aval timers :text)))
      (incf num-chars)
      (push-sound :text-click)
-     (asetf timers (alist :text (create-expiring-timer text-speed t))))))
+     (asetf timers (create-expiring-timer text-speed t) :text))))
 
 (text-display-method draw (td)
   (draw-textbox 5 21 30 8)
@@ -523,7 +562,7 @@ This can be abused with the machine gun in TAS."
      (tile-v 1 2))
 
     (let ((health (player-health-amt (player-state player))))
-      (when (timer-active? (aval :health-change timers))
+      (when (timer-active? (aval timers :health-change))
 	(draw-hud-sprite
 	 :hud :text-box
 	 (create-rect-cmpts 0 (tiles/2 4)
@@ -548,14 +587,12 @@ This can be abused with the machine gun in TAS."
        (create-rect-cmpts 0 (tiles/2 9) (tiles/2 5) (tiles/2 1))
        exp-pos)
 
-      (let ((timer (aval :exp-change timers)))
-	(when (and (timer-active? timer)
-		   (zerop (chunk-timer-period timer 50)))
-	  (draw-hud-sprite :hud-fg
-			   :text-box
-			   (create-rect (tiles/2-v 5 10)
-					(tiles/2-v bar-tile/2-w 1))
-			   exp-pos)))
+      (when (flash-time? (aval timers :exp-change))
+	(draw-hud-sprite :hud-fg
+			 :text-box
+			 (create-rect (tiles/2-v 5 10)
+				      (tiles/2-v bar-tile/2-w 1))
+			 exp-pos))
 
       (mvbind (exp gun-name) (current-gun-exp player gun-exps)
 	(let* ((current-level (gun-level exp (cdr (assoc gun-name gun-level-exps))))
@@ -589,12 +626,12 @@ This can be abused with the machine gun in TAS."
 
 (defun hud-exp-changed (h)
   (modify-hud (h)
-    (aupdatef timers #'reset-timer :keys '(:exp-change))))
+    (aupdatef timers #'reset-timer '(:exp-change))))
 
 (defun hud-health-changed (h)
   (modify-hud (h)
     (setf last-health-amt (player-health-amt (player-state player)))
-    (aupdatef timers #'reset-timer :keys '(:health-change))))
+    (aupdatef timers #'reset-timer '(:health-change))))
 
 (defun draw-textbox-tile (src-pos pos)
   (let ((size (both-v (tiles/2 1))))
@@ -803,7 +840,8 @@ This can be abused with the machine gun in TAS."
 	   (camera (create-player-camera (v/2 window-dims) (zero-v) player)))
       (create-hud player gun-exps hud)
 
-      (create-critter (make-v (+ (tiles 14) (tiles 1/4)) (tiles 6)) player damage-numbers)
+      ;;-critter (make-v (+ (tiles 14) (tiles 1/4)) (tiles 6)) player damage-numbers)
+      (create-elephant (make-v (tiles 7) (tiles 6)) player camera damage-numbers)
       (dolist (x '(1 3 6 7))
 	(create-bat x 7 player))
       (create-dorito (make-v (+ (tiles 14) (tiles 1/4)) (tiles 6)) (make-v 0 0) :medium)
@@ -869,11 +907,14 @@ This can be abused with the machine gun in TAS."
   (throw 'exit nil))
 
 (defun face-player (pos player)
-  (if (< (x pos) (x (player-pos (player-state player)))) :right :left))
+  (if (< (x pos) (x (physics-pos (player-state player)))) :right :left))
 
 (def-entity bat
     (player
      facing
+     health-amt
+     damage-numbers
+     id
      dead?)
   (create-bat (tile-x tile-y player)
 	      (make-bat :physics
@@ -885,30 +926,47 @@ This can be abused with the machine gun in TAS."
 				:speed (/ 0.0325 frame-time)))
 			:timers
 			(alist :anim-cycle (create-timed-cycle 14 #(0 2 1 2)))
+			:health-amt 1
 			:player player))
   :timers :damage-collision :damageable :drawable :physics)
-
-(bat-methodf ai (b ticks)
-  (setf facing (face-player (motion-set-pos physics) player)))
-(bat-method draw (b)
-  (draw-bat (motion-set-pos physics) facing (timed-cycle-current (aval :anim-cycle timers))))
-
-(bat-method damage-collision-rect (b)
-  (create-rect (+v (motion-set-pos physics) (tile-dims/2)) (both-v 1)))
-
-(bat-methodf damageable-hit-react (b bullet-hit-amt)
-  (push-sound :enemy-explode)
-  (let ((pos (motion-set-pos physics)))
-    (create-dorito pos (polar-vec->v (rand-angle) 0.07) :small)
-    (create-dorito pos (polar-vec->v (rand-angle) 0.07) :small)
-    (create-death-cloud-particles 3 (+v (tile-dims/2) pos)))
-  (tf dead?))
-
+(enemy-damageable-hit-react-method bat 3)
 (bat-method dead? (b) dead?)
 
+(defmethod origin ((b bat))
+  (physics-tile-origin b))
+
+(bat-method draw (b)
+  (draw-sprite :enemy
+	       :npc-cemet
+	       (tile-rect (+v (tile-v 2 2)
+			      (anim-cycle-offset timers)
+			      (facing-offset facing)))
+	       (physics-pos b)))
+
+(defmacro ai-face-player (e)
+  `(setf facing (face-player (physics-pos ,e) player)))
+
+(bat-methodf ai (b ticks)
+  (ai-face-player b))
+
+(defun facing-offset (facing)
+  (tile-v 0 (if (eq facing :left) 0 1)))
+
+(defun anim-cycle-offset (timers)
+  (tile-v (timed-cycle-current (aval timers :anim-cycle)) 0))
+
+(defun anim-cycle-val (timers)
+  (timed-cycle-current (aval timers :anim-cycle)))
+
+(defun point-rect (pos)
+  (create-rect pos (both-v 1)))
+
+(defmethod damage-collision-rect ((b bat))
+  (point-rect (origin b)))
+
 (defmethod damage-collision-amt ((b bat)) 1)
-(bat-method damageable-rect (b)
-  (create-rect (motion-set-pos physics) (tile-dims)))
+(defmethod damageable-rect ((b bat))
+  (physics-tile-rect b))
 
 (defun polar-vec->v (angle mag)
   (make-v (* mag (cos angle))
@@ -932,23 +990,21 @@ This can be abused with the machine gun in TAS."
   :drawable :physics :stage-collision)
 
 (death-cloud-particle-method draw (d)
-  (single-loop-sprite-draw (estate single-loop-sprite) (motion-set-pos physics)))
+  (single-loop-sprite-draw (estate single-loop-sprite) (physics-pos d)))
 
 (death-cloud-particle-method dead? (d)
   (dead? (estate single-loop-sprite)))
 
 (let ((collision-rects (rect->collision-rects (centered-rect (tile-dims/2) (both-v (tiles 2/5))))))
   (death-cloud-particle-methodf stage-collision (d stage)
-    (stage-collisionsf physics stage collision-rects
-		       (alist
-			:bottom (collision-lambda
-				  (setf vel (zero-v :x (x vel))))
-			:left (collision-lambda
-				(setf vel (zero-v :y (y vel))))
-			:right (collision-lambda
-				 (setf vel (zero-v :y (y vel))))
-			:top (collision-lambda
-			       (setf vel (zero-v :x (x vel))))))))
+    (astage-collisionsf
+     (let ((stop-x (collision-lambda (set-x-vf vel 0)))
+	   (stop-y (collision-lambda (set-y-vf vel 0))))
+       (alist
+	:bottom stop-y
+	:left stop-x
+	:right stop-x
+	:top stop-y)))))
 
 (defun create-death-cloud-particles (num pos)
   (dotimes (i num)
@@ -956,6 +1012,14 @@ This can be abused with the machine gun in TAS."
 
 (defparameter critter-dynamic-collision-rect
   (make-rect :pos (tile-v 0 1/4) :size (tile-v 1 3/4)))
+
+(defgeneric physics-pos (p))
+
+(defun gravity-kin-2d (&key (pos (zero-v)) (vel (zero-v)))
+  (make-kin-2d :pos pos
+	       :vel vel
+	       :accelerator-y (const-accelerator gravity-acc)
+	       :clamper-vy (clamper+- terminal-speed)))
 
 (def-entity critter
     (dead?
@@ -966,83 +1030,93 @@ This can be abused with the machine gun in TAS."
      id
      player
      damage-numbers)
+
   (create-critter (pos player damage-numbers)
 		  (let ((id (gen-entity-id)))
 		    (values (make-critter :physics
-					  (alist :stage (make-kin-2d :pos pos
-								     :accelerator-y (const-accelerator gravity-acc)
-								     :clamper-vy (clamper+- terminal-speed)))
-					  :timers
-					  (alist
-					   :sleep (create-expiring-timer (s->ms 1/3))
-					   :shake (create-expiring-timer (s->ms 1/3)))
+					  (alist :stage (gravity-kin-2d :pos pos))
 					  :player player
 					  :health-amt 2
 					  :damage-numbers damage-numbers
 					  :id id)
 			    id)))
+
   :timers :drawable :physics :damageable :damage-collision :dynamic-collision :stage-collision)
 
-(defgeneric physics-pos (p))
+(defmacro ai-jump (x-speed y-speed)
+  `(when ground-tile
+     (aupdatef
+      physics
+      (lambda (kin-2d)
+	(modify-kin-2d (kin-2d)
+	  (setf vel (make-v (* ,x-speed (if (eq facing :left) -1 1)) (- ,y-speed))))) '(:stage))))
+
+(defun origin-dist (a b)
+  (dist (origin a) (origin b)))
+
+(defmacro sleeping? ()
+  `(aand (aval timers :sleep) (timer-active? it)))
+
+(defmacro ai-shake ()
+  `(unless (aand (aval timers :shake) (timer-active? it))
+     (removef physics :shake :key #'car :test #'eq)))
 
 (critter-methodf ai (c ticks)
-  (unless (timer-active? (aval :shake timers))
-    (removef physics :shake :key #'car :test #'eq))
-  (setf facing (face-player (physics-pos c) player))
-  (let ((disp (- (x (physics-pos c)) (x (player-pos (player-state player))))))
-    (when (and ground-tile
-	       (not (timer-active? (aval :sleep timers)))
-	       (< (abs disp) (tiles 4)))
-      (aupdatef
-       physics
-       (lambda (kin-2d)
-	 (modify-kin-2d (kin-2d)
-	   (+vf vel (make-v (* 0.04 (- (signum disp))) -0.35))))
-       :keys '(:stage)))))
-
-(defmethod set-parameters ((c critter))
-  )
-
-(critter-method physics-pos (c)
-  (motion-set-pos physics))
+  (ai-shake)
+  (ai-face-player c)
+  (when (and (not (sleeping?))
+	     (< (origin-dist c (estate player)) (tiles 4)))
+    (ai-jump 0.04 0.35)))
 
 (critter-method draw (c)
   (let ((sprite-tile-x (cond
-			 ((timer-active? (aval :sleep timers))
+			 ((sleeping?)
 			  0)
-			 ((< (abs (- (x (physics-pos c)) (x (player-pos (player-state player))))) (tiles 7))
+			 ((< (origin-dist c (estate player)) (tiles 7))
 			  1)
 			 (t
 			  0))))
     (draw-sprite :enemy :npc-cemet
-		 (tile-rect (tile-v sprite-tile-x (if (eq facing :left) 0 1)))
+		 (tile-rect (+v (tile-v sprite-tile-x 0)
+				(facing-offset facing)))
 		 (physics-pos c))))
 
 (defmethod damageable-rect ((c critter))
-  (tile-rect (physics-pos c)))
+  (physics-tile-rect c))
 
-(critter-methodf damageable-hit-react (c amt)
-  (if (< amt (critter-health-amt c))
-      (progn
-	(update-damage-number-amt (critter-damage-numbers c) (critter-id c) amt)
-	(push-sound :enemy-hurt)
-	(decf health-amt)
-	(asetf physics
-	       (alist :shake
-		      (make-wave-motion :dir :left
-					:amp 2
-					:speed 0.1
-					:rads 0)))
-	(aupdatef timers #'reset-timer :keys '(:shake)))
-      (progn
-	(push-sound :enemy-explode)
-	(create-dorito (floating-number-origin c) (polar-vec->v (rand-angle) 0.07) :small)
-	(create-dorito (floating-number-origin c) (polar-vec->v (rand-angle) 0.07) :small)
-	(create-death-cloud-particles 6 (floating-number-origin c))
-	(tf dead?))))
+(defmacro enemy-hurt-react (e num-death-clouds)
+  `(if (< amt health-amt)
+       (progn
+	 (update-damage-number-amt damage-numbers id amt)
+	 (push-sound :enemy-hurt)
+	 (decf health-amt amt))
+       (let ((origin (origin ,e)))
+	 (push-sound :enemy-explode)
+	 (create-dorito origin (polar-vec->v (rand-angle) 0.07) :small)
+	 (create-dorito origin (polar-vec->v (rand-angle) 0.07) :small)
+	 (create-death-cloud-particles ,num-death-clouds origin)
+	 (tf dead?))))
+
+(defmacro enemy-damageable-hit-react (e num-death-clouds)
+  `(progn
+     (asetf physics
+	    (make-wave-motion :dir :left
+			      :amp 2
+			      :speed 0.1
+			      :rads 0)
+	    :shake)
+     (asetf timers (create-expiring-timer (s->ms 1/3) t) :shake)
+     (enemy-hurt-react ,e ,num-death-clouds)))
+
+(defmacro enemy-damageable-hit-react-method (name num-death-clouds)
+  (with-gensyms (obj)
+    `(,(symbolicate name '-methodf) damageable-hit-react (,obj amt)
+       (enemy-damageable-hit-react ,obj ,num-death-clouds))))
+
+(enemy-damageable-hit-react-method critter 6)
 
 (defmethod damage-collision-rect ((c critter))
-  (tile-rect (physics-pos c)))
+  (physics-tile-rect c))
 
 (defmethod damage-collision-amt ((c critter))
   1)
@@ -1050,68 +1124,229 @@ This can be abused with the machine gun in TAS."
 (defmethod dynamic-collision-rect ((c critter))
   (rect-offset critter-dynamic-collision-rect (physics-pos c)))
 
-(defun critter-vel (c)
-  (kin-2d-vel (cdr (assoc :stage (critter-physics c)))))
+(defun dynamic-collision-enemy-react (pos origin id dynamic-collision-rect side player-collision-rect player-state)
+  (modify-player (player-state p-)
+    (aupdatef
+     p-physics
+     (lambda (p-kin-2d)
+       (modify-kin-2d (p-kin-2d p-)
+	 (let ((player-rect (rect-offset player-collision-rect p-pos)))
+	   (case side
+	     (:bottom
+	      (when (and (not (player-on-ground? p-ground-tile))
+			 (<= (y pos) (bottom player-rect) (+ (y origin))))
+		(setf p-ground-tile :dynamic)
+		(setf p-ground-inertia-entity id)
+		(setf p-vel (zero-v :x (x p-vel)))
 
-(defmethod dynamic-collision-vel ((c critter))
-  (critter-vel c))
+		(setf p-pos
+		      (-v
+		       (flush-rect-pos player-rect (y (rect-pos dynamic-collision-rect)) :up)
+		       (rect-pos player-collision-rect)))))
+	     ((:left :right)
+	      (let ((disp (- (x p-pos) (x pos))))
+		(when (> (abs disp) (tiles 1/4))
+		  (setf (x p-vel)
+			(* (/ terminal-speed 70) disp))))))))) '(:stage))))
 
 (critter-method dynamic-collision-react (c side player-collision-rect player)
-  (let ((new-p (player-state player)))
-    (modify-player (new-p p-)
-      (aupdatef
-       p-physics
-       (lambda (p-kin-2d)
-	 (modify-kin-2d (p-kin-2d p-)
-	   (let ((player-rect (rect-offset player-collision-rect p-pos)))
-	     (case side
-	       (:bottom
-		(when (and (not (player-on-ground? p-ground-tile))
-			   (<= (y (physics-pos c)) (bottom player-rect) (+ (y (physics-pos c)) (tiles 1/2))))
-		  (setf p-ground-tile :dynamic)
-		  (setf p-ground-inertia-entity id)
-		  (setf p-vel (zero-v :x (x p-vel)))
+  (dynamic-collision-enemy-react
+   (physics-pos c)
+   (origin c)
+   id
+   (dynamic-collision-rect c)
+   side
+   player-collision-rect
+   (estate player)))
 
-		  (setf p-pos
-			(-v
-			 (flush-rect-pos player-rect (y (+v (rect-pos critter-dynamic-collision-rect)
-							    (physics-pos c))) :up)
-			 (rect-pos player-collision-rect)))))
-	       ((:left :right)
-		(let ((disp (- (x p-pos) (x (physics-pos c)))))
-		  (when (> (abs disp) (tiles 1/4))
-		    (setf (x p-vel)
-			  (* (/ terminal-speed 70) disp)))))))))
-       :keys '(:stage)))))
+(defun max-y-v (v max-y)
+  (make-v (x v) (max (y v) max-y)))
+(defmacro max-y-vf (v max-y)
+  `(setf ,v (max-y-v ,v ,max-y)))
+
+(defmacro zero-vf (place &key (x 0) (y 0))
+  `(setf ,place (zero-v :x ,x :y ,y)))
 
 (let ((collision-rects (rect->collision-rects (centered-rect (tile-dims/2) (both-v (tiles 3/4))) 6)))
   (critter-methodf stage-collision (c stage)
-    (let (new-tile)
-      (stage-collisionsf physics
-			 stage
-			 collision-rects
-			 (alist
-			  :bottom
-			  (collision-lambda
-			    (setf new-tile tile-type)
-			    (unless ground-tile
-			      (aupdatef timers #'reset-timer :keys '(:sleep)))
-			    (setf vel (zero-v)))
+    (let ((last-tile ground-tile))
+      (nilf ground-tile)
+      (astage-collisionsf
+       (alist
+	:bottom
+	(collision-lambda
+	  (setf ground-tile tile-type)
+	  (unless last-tile
+	    (asetf timers (create-expiring-timer (s->ms 1/3) t) :sleep))
+	  (zero-vf vel))
 
-			  :right (collision-lambda)
-			  :left (collision-lambda)
-
-			  :top
-			  (collision-lambda
-			    (setf vel (make-v (x vel) (max (y vel) 0))))))
-      (setf ground-tile new-tile))))
+	:top
+	(collision-lambda
+	  (max-y-vf vel 0)))))))
 
 (critter-method dead? (c) dead?)
 
-(defgeneric floating-number-origin (obj))
-(defmethod floating-number-origin ((c critter))
+(defun physics-tile-origin (c)
   (+v (physics-pos c) (tile-dims/2)))
+(defun physics-tile-rect (c)
+  (tile-rect (physics-pos c)))
+
+(defgeneric origin (obj))
+(defmethod origin ((c critter))
+  (physics-tile-origin c))
 
 (defgeneric inertia-vel (obj))
-(defmethod inertia-vel ((c critter))
-  (critter-vel c))
+
+(defun stage-vel (physics)
+  (kin-2d-vel (cdr (assoc :stage physics))))
+
+(critter-method inertia-vel (c)
+  (stage-vel physics))
+
+(defparameter elephant-speed 0.08)
+(def-entity elephant
+    (dead?
+     health-amt
+     facing
+
+     id
+     player
+     camera
+     damage-numbers)
+
+  (create-elephant (pos player camera damage-numbers)
+		   (let ((id (gen-entity-id)))
+		     (values (make-elephant :physics
+					    (alist :stage
+						   (gravity-kin-2d :pos pos
+								   :vel (make-v (- elephant-speed) 0)))
+					    :timers
+					    (alist :anim-cycle
+						   (create-timed-cycle 12 #(0 2 4)))
+					    :health-amt 8
+					    :facing :left
+					    :damage-numbers damage-numbers
+					    :camera camera
+					    :player player
+					    :id id)
+			     id)))
+
+  :timers :drawable :physics :stage-collision
+  :damageable
+  :damage-collision
+  :dynamic-collision)
+
+(defparameter elephant-dims (make-v (tiles 2) (tiles 3/2)))
+(elephant-method draw (e)
+  (let ((src-pos
+	 (cond
+	   ((timer-active? (aval timers :recover))
+	    (make-v (tiles (* 2 3)) 0))
+	   (t (anim-cycle-offset timers)))))
+    (draw-sprite :enemy
+		 :npc-eggs1
+		 (create-rect (+v src-pos
+				  (make-v 0 (if (eq facing :left) 0 (tiles 3/2))))
+			      elephant-dims)
+		 (physics-pos e))))
+
+(elephant-method origin (e)
+  (+v (physics-pos e)
+      (scale-v elephant-dims 1/2)))
+
+(elephant-method inertia-vel (e)
+  (scale-v (stage-vel physics) 1/3))
+
+(elephant-method damageable-rect (e)
+  (create-rect (physics-pos e) elephant-dims))
+
+(elephant-methodf damageable-hit-react (e amt)
+  (enemy-damageable-hit-react e amt)
+  (unless (timer-active? (aval timers :rage))
+    (if (timer-active? (aval timers :recover))
+	(when (< (timer-ms-remaining (aval timers :recover)) (s->ms 1/2))
+	  (asetf timers (create-expiring-timer (s->ms 3)) :rage))
+	(asetf timers (create-expiring-timer (s->ms 3/4) t) :recover))))
+
+(elephant-method dead? (e) dead?)
+
+(elephant-method dynamic-collision-rect (e)
+  (let ((pos (physics-pos e)))
+    (cond
+      ((timer-active? (aval timers :recover))
+       (+vf pos (make-v 0 (tiles 1/4))))
+      ((= 1 (cycle-idx (timed-cycle-cycle (aval timers :anim-cycle))))
+       (+vf pos (make-v 0 (tiles 1/8)))))
+    (create-rect pos elephant-dims)))
+
+(elephant-method damage-collision-amt (e)
+  (if (timer-active? (aval timers :rage))
+      5
+      1))
+(elephant-method damage-collision-rect (e)
+  (let* ((dims (make-v (tiles 1) (tiles 3/4)))
+	 (y (tiles 3/4))
+	 (pos (if (eq facing :left)
+		  (make-v 0 y)
+		  (make-v (tiles 1) y))))
+    (create-rect (+v (physics-pos e) pos) dims)))
+
+(elephant-method dynamic-collision-react (c side player-collision-rect player)
+  (dynamic-collision-enemy-react
+   (physics-pos c)
+   (origin c)
+   id
+   (dynamic-collision-rect c)
+   side
+   player-collision-rect
+   (estate player)))
+
+(elephant-methodf ai (e ticks)
+  (ai-shake)
+  (when (member :recover ticks)
+    (when (aval timers :rage)
+      (aupdatef timers #'reset-timer '(:rage))
+      (asetf timers (create-timed-cycle 14 #(8 10)) :anim-cycle)))
+  (when (member :rage ticks)
+    (setf timers (arem timers '(:rage)))
+    (asetf timers (create-timed-cycle 12 #(0 2 4)) :anim-cycle))
+  (when (timer-active? (aval timers :rage))
+    (when (and (member :anim-cycle ticks)
+	       (zerop (cycle-idx (timed-cycle-cycle (aval timers :anim-cycle)))))
+      (push-sound :big-footstep)
+      (replace-entity-state camera (rcurry #'timed-camera-shake (s->ms 1/2)))
+      (create-death-cloud-particles 3 (+v (physics-pos e) (make-v (if (eq facing :left) (tiles 3/2) (tiles 1/2)) (tiles 5/4))))))
+
+  (aupdatef
+   physics
+   (lambda (kin-2d)
+     (modify-kin-2d (kin-2d k-)
+       (let ((vel (copy-v2 k-vel)))
+	 (cond
+	   ((timer-active? (aval timers :rage))
+	    (let ((elephant-speed (* 2 elephant-speed)))
+	      (if (eq facing :right)
+		  (setf (x vel) elephant-speed)
+		  (setf (x vel) (- elephant-speed)))))
+	   ((timer-active? (aval timers :recover))
+	    (setf (x vel) 0))
+	   (t
+	    (if (eq facing :right)
+		(setf (x vel) elephant-speed)
+		(setf (x vel) (- elephant-speed)))))
+	 (setf k-vel vel)))) '(:stage)))
+
+(let ((collision-rects (rect->collision-rects
+			(centered-rect (scale-v elephant-dims 1/2) elephant-dims)
+			6)))
+  (elephant-methodf stage-collision (c stage)
+    (astage-collisionsf
+     (alist
+      :left
+      (collision-lambda
+	(when (eq facing :left)
+	  (setf facing :right)))
+      :right
+      (collision-lambda
+	(when (eq facing :right)
+	  (setf facing :left)))))))

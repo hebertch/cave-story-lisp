@@ -64,7 +64,7 @@
 
 (player-methodf ai (p ticks)
   (when (and (find :walk-cycle ticks)
-	     (/= 0 (timed-cycle-current (aval :walk-cycle timers))))
+	     (/= 0 (timed-cycle-current (aval timers :walk-cycle))))
     (push-sound :step))
 
   (aupdatef
@@ -101,8 +101,7 @@
        (draw-line pos
 		  (+v pos
 		      (*v vel debug-velocity-scale))
-		  magenta)))
-   :keys '(:stage)))
+		  magenta))) '(:stage)))
 
 (player-method dead? (p)
   (<= health-amt 0))
@@ -124,7 +123,7 @@
 
 (defun player-take-damage (p dmg-amt)
   (modify-player (p)
-    (unless (timer-active? (aval :invincible timers))
+    (unless (timer-active? (aval timers :invincible))
       (cond
 	((>= (abs dmg-amt) health-amt)
 	 (push-sound :player-die)
@@ -137,7 +136,7 @@
 	      (s->ms 1/2)
 	      (create-game-over-event)))))
 	(t
-	 (aupdatef timers #'reset-timer :keys '(:invincible))
+	 (aupdatef timers #'reset-timer '(:invincible))
 	 (nilf ground-tile)
 	 (push-sound :hurt)
 	 (replace-entity-state hud #'hud-health-changed)
@@ -154,11 +153,10 @@
 	  physics
 	  (lambda (kin-2d)
 	    (modify-kin-2d (kin-2d)
-	      (setf vel (make-v (x vel) (min (y vel) (- player-hop-speed))))))
-	  :keys '(:stage)))))))
+	      (setf vel (make-v (x vel) (min (y vel) (- player-hop-speed)))))) '(:stage)))))))
 
-(defmethod floating-number-origin ((p player))
-  (+v (player-pos p) (tile-dims/2)))
+(defmethod origin ((p player))
+  (physics-tile-origin p))
 
 (defun player-gun-exp (p amt)
   (modify-player (p)
@@ -223,7 +221,7 @@
       v-facing))
 
 (defun player-walk-idx (player)
-  (timed-cycle-current (aval :walk-cycle (player-timers player))))
+  (timed-cycle-current (aval (player-timers player) :walk-cycle)))
 
 (defun player-walking? (acc-dir on-ground?)
   (and acc-dir on-ground?))
@@ -249,21 +247,20 @@
 	 physics
 	 (lambda (kin-2d)
 	   (modify-kin-2d (kin-2d)
-	     (+vf vel (make-v 0 (- player-jump-speed)))))
-	 :keys '(:stage))
+	     (+vf vel (make-v 0 (- player-jump-speed))))) '(:stage))
 
 	(push-sound :jump))
       (nilf interacting? ground-tile)
-      (aupdatef timers #'timed-cycle-pause :keys '(:walk-cycle))
+      (aupdatef timers #'timed-cycle-pause '(:walk-cycle))
       (tf jumping?))))
 
 (defun player-move (p dir)
   "Moves the player in a horizontal direction."
   (modify-player (p)
     (when (player-on-ground? ground-tile)
-      (aupdatef timers #'timed-cycle-resume :keys '(:walk-cycle))
+      (aupdatef timers #'timed-cycle-resume '(:walk-cycle))
       (when (not acc-dir)
-	(aupdatef timers #'timed-cycle-restart :keys '(:walk-cycle))))
+	(aupdatef timers #'timed-cycle-restart '(:walk-cycle))))
 
     (nilf interacting?)
     (allf dir acc-dir h-facing)))
@@ -286,7 +283,7 @@
 	  ((and down? (not up?))
 	   (unless (eq v-facing :down)
 	     (setf v-facing :down)
-	     (aupdatef timers #'timed-cycle-pause :keys '(:walk-cycle))
+	     (aupdatef timers #'timed-cycle-pause '(:walk-cycle))
 	     (setf interacting? on-ground?)))
 
 	  (t (nilf v-facing))))
@@ -302,7 +299,7 @@
 	(t
 	 (modify-player (p)
 	   (when walking?
-	     (aupdatef timers #'timed-cycle-pause :keys '(:walk-cycle))
+	     (aupdatef timers #'timed-cycle-pause '(:walk-cycle))
 	     (push-sound :step))
 	   (nilf acc-dir))))
 
@@ -319,9 +316,9 @@
 	(fnf gun-name-cycle #'cycle-next)))))
 
 (player-methodf stage-collision (p stage)
-  (let (new-ground-tile)
-    (stage-collisionsf
-     physics stage player-collision-rectangles-alist
+  (let (new-ground-tile
+	(collision-rects player-collision-rectangles-alist))
+    (astage-collisionsf
      (let ((stop-x
 	    (collision-lambda
 	      (setf vel (zero-v :y (y vel))))))
@@ -344,14 +341,14 @@
 
     (setf ground-tile new-ground-tile)
     (unless ground-tile
-      (aupdatef timers #'timed-cycle-pause :keys '(:walk-cycle))
+      (aupdatef timers #'timed-cycle-pause '(:walk-cycle))
       (nilf ground-tile))))
 
 (player-method draw (p)
   (let ((kin-2d (cdr (assoc :stage physics))))
     (with-kin-2d-slots (kin-2d)
-      (unless (and (timer-active? (aval :invincible timers))
-		   (plusp (chunk-timer-period (aval :invincible timers) 50)))
+      (unless (and (timer-active? (aval timers :invincible))
+		   (plusp (chunk-timer-period (aval timers :invincible) 50)))
 	(let* ((on-ground? (player-on-ground? ground-tile))
 	       (actual-v-facing (player-actual-v-facing v-facing on-ground?))
 	       (walking? (player-walking? acc-dir on-ground?))
@@ -376,13 +373,11 @@
 	   walking?
 	   walk-idx))))))
 
-(defun player-pos (p)
-  (motion-pos (cdr (assoc :stage (player-physics p)))))
 (defun player-vel (p)
   (kin-2d-vel (cdr (assoc :stage (player-physics p)))))
 
 (defun player-damage-collision-rect (p)
-  (rect-offset player-damage-rect (player-pos p)))
+  (rect-offset player-damage-rect (physics-pos p)))
 
 (defun player-current-gun-name (cycle)
   (cycle-current cycle))

@@ -74,6 +74,11 @@
   (make-v (floor (x p) tile-size)
 	  (floor (y p) tile-size)))
 
+(defun dist (va vb)
+  (let ((disp (-v va vb)))
+    (sqrt (+ (expt (x disp) 2)
+	     (expt (y disp) 2)))))
+
 ;; Rect
 (defun create-rect (pos size)
   (make-rect :pos pos :size size))

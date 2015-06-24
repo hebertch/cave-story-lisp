@@ -160,7 +160,8 @@ the get- function that is produced."
     :pickup "Pickup"
     :enemy-hurt "EnemyHurt"
     :player-die "PlayerDie"
-    :text-click "TextClick"))
+    :text-click "TextClick"
+    :big-footstep "BigFootstep"))
 
 (defun generate-song-fnames ()
   (loop for f in (directory "/home/chebert/Projects/lisp/cave-story/content/remastered-music/*_intro.ogg")
@@ -192,4 +193,5 @@ the get- function that is produced."
     :caret "Caret"
     :text-box "TextBox"
     :bk-blue "bkBlue"
-    :npc-regu "NpcRegu"))
+    :npc-regu "NpcRegu"
+    :npc-eggs1 "NpcEggs1"))
