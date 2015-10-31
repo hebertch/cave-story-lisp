@@ -6,7 +6,7 @@
   (progn
     (ql:quickload :cave-story)
     (in-package :cave-story)
-    (swank:set-default-directory "/home/chebert/Projects/lisp/cave-story")))
+    (swank:set-default-directory "/home/chebert/Projects/lisp/cave-story-lisp")))
 
 (defvar window)
 (defvar renderer)
