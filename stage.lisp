@@ -60,6 +60,10 @@
 	    collecting
 	      (list (make-v col row) (car (aref stage row col)))))))
 
+(defmacro collision-lambda (&rest forms)
+  `(lambda (tile-type)
+     ,@forms))
+
 (defun stage-check/resolve-collision (stage rect offset-dir &key (ground-tile nil ground-tile-supplied-p))
   "Returns (VALUES POS TILE-TYPE)
 Returns a NIL if no collision, otherwise returns a valid POS offset in direction OFFSET-DIR.
