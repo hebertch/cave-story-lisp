@@ -251,19 +251,19 @@ This can be abused with the machine gun in TAS."
      (alist
       :bottom
       (collision-lambda
-	(set-y-vf vel (- dorito-bounce-speed))
-	(push-sound :dorito-bounce))
+       (set-y-vf vel (- dorito-bounce-speed))
+       (push-sound :dorito-bounce))
 
       :right (collision-lambda
-	       (when (plusp (x vel))
-		 (reverse-x-vf vel)))
-      :left (collision-lambda
-	      (when (minusp (x vel))
+	      (when (plusp (x vel))
 		(reverse-x-vf vel)))
+      :left (collision-lambda
+	     (when (minusp (x vel))
+	       (reverse-x-vf vel)))
 
       :top
       (collision-lambda
-	(max-y-vf vel 0))))))
+       (max-y-vf vel 0))))))
 
 (dorito-method pickup-rect (d)
   (rect-offset (dorito-collision-rect size) (physics-pos d)))
