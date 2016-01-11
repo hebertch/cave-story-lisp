@@ -77,7 +77,7 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
   (dolist (side *collision-order*)
     (let* ((state (estate entity-id))
 	   (rect (dynamic-collision-rect state))
-	   (player-collision-rect (cdr (assoc side player-collision-rectangles-alist)))
+	   (player-collision-rect (cdr (assoc side *player-collision-rectangles-alist*)))
 	   (player-rect (rect-offset player-collision-rect (physics-pos (player-state player)))))
       (draw-rect rect *blue* :layer :debug-dynamic-collision)
       (draw-rect player-rect *green* :layer :debug-dynamic-collision)

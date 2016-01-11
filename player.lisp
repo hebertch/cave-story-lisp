@@ -46,12 +46,42 @@
 			       (make-kin-2d :pos (scale-v window-dims 1/2)
 					    :vel (zero-v)
 					    :clamper-vx
-					    (clamper+- player-max-speed-x)
+					    (clamper+- *player-max-speed-x*)
 					    :clamper-vy
-					    (clamper+- terminal-speed)))))
+					    (clamper+- *terminal-speed*)))))
 			    id)))
 
   :timers :input :physics :stage-collision :drawable)
+
+(defparameter *player-walk-acc* 0.00083007812)
+(defparameter *player-max-speed-x* 0.15859375)
+(defparameter *player-friction-acc* 0.00049804687)
+(defparameter *terminal-speed* 0.2998046875)
+(defparameter *gravity-acc* 0.00078125)
+(defparameter *player-jump-gravity-acc* 0.0003125)
+(defparameter *player-air-acc* 0.0003125)
+(defparameter *player-jump-speed* 0.25)
+(defparameter *player-hop-speed* (/ *player-jump-speed* 1.5))
+
+(defparameter *player-collision-rectangles-alist*
+  (loop for (key x y w h) in
+       '((:bottom 11 16 10 15)
+	 (:top 7 2 18 15)
+	 (:left 6 8 10 12)
+	 (:right 16 8 10 12))
+     collect (cons key (make-rect :pos (make-v x y) :size (make-v w h)))))
+
+(defun player-collision-rect (side)
+  (cdr (assoc side *player-collision-rectangles-alist*)))
+
+(defparameter *player-damage-rect*
+  (let ((left (left (player-collision-rect :left)))
+	(right (right (player-collision-rect :right)))
+	(top (top (player-collision-rect :top)))
+	(bottom (bottom (player-collision-rect :bottom))))
+    (make-rect :pos (make-v left top)
+	       :size (make-v (- right left)
+			     (- bottom top)))))
 
 (defun player-pickup (p pickup)
   (ecase (pickup-type pickup)
@@ -75,13 +105,13 @@
 	     ((and (player-on-ground? (player-ground-tile p))
 		   (null (player-acc-dir p)))
 	      ;; Not accelerating, apply friction.
-	      (friction-accelerator player-friction-acc))
+	      (friction-accelerator *player-friction-acc*))
 	     (t
 	      ;; Apply walking accelerations.
 	      (const-accelerator
 	       (* (if (player-on-ground? (player-ground-tile p))
-		      player-walk-acc
-		      player-air-acc)
+		      *player-walk-acc*
+		      *player-air-acc*)
 		  (case (player-acc-dir p)
 		    (:left -1)
 		    (:right 1)
@@ -90,8 +120,8 @@
 	   (const-accelerator
 	    (if (and (minusp (y (kin-2d-vel kin-2d)))
 		     (player-jumping? p))
-		player-jump-gravity-acc
-		gravity-acc)))
+		*player-jump-gravity-acc*
+		*gravity-acc*)))
      (setf (kin-2d-inertia-vel kin-2d)
 	   (if (eq (player-ground-tile p) :dynamic)
 	       (inertia-vel (estate (player-ground-inertia-entity p)))
@@ -156,7 +186,7 @@
 	(lambda (kin-2d)
 	  (setf (kin-2d-vel kin-2d)
 		(make-v (x (kin-2d-vel kin-2d))
-			(min (y (kin-2d-vel kin-2d)) (- player-hop-speed))))
+			(min (y (kin-2d-vel kin-2d)) (- *player-hop-speed*))))
 	  kin-2d)
 	'(:stage)))))
   p)
@@ -172,35 +202,6 @@
   (replace-entity-state (player-hud p) #'hud-exp-changed)
   p)
 
-(defparameter player-walk-acc 0.00083007812)
-(defparameter player-max-speed-x 0.15859375)
-(defparameter player-friction-acc 0.00049804687)
-(defparameter terminal-speed 0.2998046875)
-(defparameter gravity-acc 0.00078125)
-(defparameter player-jump-gravity-acc 0.0003125)
-(defparameter player-air-acc 0.0003125)
-(defparameter player-jump-speed 0.25)
-(defparameter player-hop-speed (/ player-jump-speed 1.5))
-
-(defparameter player-collision-rectangles-alist
-  (loop for (key x y w h) in
-       '((:bottom 11 16 10 15)
-	 (:top 7 2 18 15)
-	 (:left 6 8 10 12)
-	 (:right 16 8 10 12))
-     collect (cons key (make-rect :pos (make-v x y) :size (make-v w h)))))
-
-(defun player-collision-rect (side)
-  (cdr (assoc side player-collision-rectangles-alist)))
-
-(defparameter player-damage-rect
-  (let ((left (left (player-collision-rect :left)))
-	(right (right (player-collision-rect :right)))
-	(top (top (player-collision-rect :top)))
-	(bottom (bottom (player-collision-rect :bottom))))
-    (make-rect :pos (make-v left top)
-	       :size (make-v (- right left)
-			     (- bottom top)))))
 
 (defun char-sprite-pos (h-facing v-facing interacting? walk-idx)
   "Grabs the tile-pos for the character given the character's state."
@@ -251,7 +252,7 @@
       (aupdatef
        (player-physics p)
        (lambda (kin-2d)
-	 (+vf (kin-2d-vel kin-2d) (make-v 0 (- player-jump-speed)))
+	 (+vf (kin-2d-vel kin-2d) (make-v 0 (- *player-jump-speed*)))
 	 kin-2d)
        '(:stage))
 
@@ -321,7 +322,7 @@
 
 (defmethod stage-collision ((p player) stage)
   (let (new-ground-tile
-	(collision-rects player-collision-rectangles-alist))
+	(collision-rects *player-collision-rectangles-alist*))
     (aupdatef
      (player-physics p)
      (lambda (kin-2d)
@@ -400,7 +401,7 @@
   (kin-2d-vel (cdr (assoc :stage (player-physics p)))))
 
 (defun player-damage-collision-rect (p)
-  (rect-offset player-damage-rect (physics-pos p)))
+  (rect-offset *player-damage-rect* (physics-pos p)))
 
 (defun player-current-gun-name (cycle)
   (cycle-current cycle))

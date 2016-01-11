@@ -194,8 +194,8 @@ This can be abused with the machine gun in TAS."
 		   (make-kin-2d :pos (-v pos (rect-pos (dorito-collision-rect size)))
 				:vel vel
 				:accelerator-x (friction-accelerator dorito-friction-acc)
-				:accelerator-y (const-accelerator gravity-acc)
-				:clamper-vy (clamper+- terminal-speed)))
+				:accelerator-y (const-accelerator *gravity-acc*)
+				:clamper-vy (clamper+- *terminal-speed*)))
 		  :size size))
   :timers :physics :stage-collision :drawable :pickup)
 
@@ -984,8 +984,8 @@ This can be abused with the machine gun in TAS."
 				 :stage
 				 (make-kin-2d :pos (-v pos (tile-dims/2))
 					      :vel (polar-vec->v (rand-angle) (rand-val-between 0.1 0.3))
-					      :clamper-vx (clamper+- terminal-speed)
-					      :clamper-vy (clamper+- terminal-speed)))))
+					      :clamper-vx (clamper+- *terminal-speed*)
+					      :clamper-vy (clamper+- *terminal-speed*)))))
   :drawable :physics :stage-collision)
 
 (death-cloud-particle-method draw (d)
@@ -1017,8 +1017,8 @@ This can be abused with the machine gun in TAS."
 (defun gravity-kin-2d (&key (pos (zero-v)) (vel (zero-v)))
   (make-kin-2d :pos pos
 	       :vel vel
-	       :accelerator-y (const-accelerator gravity-acc)
-	       :clamper-vy (clamper+- terminal-speed)))
+	       :accelerator-y (const-accelerator *gravity-acc*)
+	       :clamper-vy (clamper+- *terminal-speed*)))
 
 (def-entity critter
     (dead?
@@ -1149,7 +1149,7 @@ This can be abused with the machine gun in TAS."
 	    (let ((disp (- (x (kin-2d-pos kin-2d)) (x pos))))
 	      (when (> (abs disp) (tiles 1/4))
 		(setf (x (kin-2d-vel kin-2d))
-		      (* (/ terminal-speed 70) disp)))))))
+		      (* (/ *terminal-speed* 70) disp)))))))
        kin-2d) '(:stage))))
 
 (critter-method dynamic-collision-react (c side player-collision-rect player)
