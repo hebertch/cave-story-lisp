@@ -1,6 +1,7 @@
 (in-package :cave-story)
 
 (defun open-joystick ()
+  "Tries to open a joystick for reading input."
   (when (plusp (sdl:num-joysticks))
     (let ((idx 0))
       (let ((joystick (sdl:joystick-open 0)))
@@ -9,9 +10,9 @@
 	  (nilf joystick))
 	joystick))))
 
-(defstructure (transient-input
-	       (:conc-name ti-))
-    "Input that occurs in a single frame"
+(defstruct (transient-input
+	     (:conc-name ti-))
+  "Input that occurs in a single frame"
   pressed-keys
   released-keys
   pressed-buttons
@@ -23,8 +24,8 @@
   joy-axis-x
   joy-axis-y)
 
-(defstructure input
-    "Input that is persistent through updates."
+(defstruct input
+  "Input that is persistent through updates."
   (mouse-coords (zero-v))
   held-buttons
   held-keys
@@ -33,15 +34,10 @@
   joy-axis-y
   (transient-input (make-transient-input)))
 
-(defun clear-transient-input (ti)
-  (modify-transient-input (ti)
-    (nilf pressed-keys
-	  released-keys
-	  pressed-buttons
-	  released-buttons
-	  mouse-wheel-dt
-	  pressed-joy-buttons
-	  released-joy-buttons)))
+(defun reset-transient-input (input)
+  (let ((input (copy-structure input)))
+    (setf (input-transient-input input) (make-transient-input))
+    input))
 
 (defvar *event*)
 (defvar *joystick*)
@@ -52,85 +48,137 @@
 (defun cleanup-input ()
   (sdl:destroy-event *event*)
   (nilf *event*)
-  (awhen *joystick*
-    (when (sdl:joystick-get-attached it)
-      (sdl:joystick-close it))
+  (when *joystick*
+    (when (sdl:joystick-get-attached *joystick*)
+      (sdl:joystick-close *joystick*))
     (nilf *joystick*)))
 
 (defparameter show-joy-buttons? nil)
 
 (defun gather-transient-input ()
-  (let ((res (make-transient-input)))
-    (with-transient-input-slots (res)
-      (loop until (= 0 (sdl:poll-event *event*)) do
-	   (case (sdl:event-get-type *event*)
-	     (:key-up
-	      (pushnew (sdl:keyboard-event-get-scancode *event*) released-keys))
-	     (:key-down
-	      (unless (sdl:keyboard-event-get-repeat *event*)
-		(pushnew (sdl:keyboard-event-get-scancode *event*) pressed-keys)))
-	     (:joy-axis-motion
-	      (when (= 0 (sdl:event-get-joystick-which *event*))
-		;; NOTE: Converts from value to :pos/:neg/nil
-		(let* ((axis (sdl:event-get-joystick-axis *event*))
-		       (value (sdl:event-get-joystick-axis-value *event*))
-		       (sign (cond
-			       ((plusp value) :positive)
-			       ((minusp value) :negative)
-			       (t :zero))))
-		  (case axis
-		    (0 (setf joy-axis-x sign))
-		    (1 (setf joy-axis-y sign))))))
-	     (:joy-button-down
-	      (when (= 0 (sdl:event-get-joystick-which *event*))
-		(let ((button (sdl:event-get-joystick-button *event*)))
-		  (pushnew button pressed-joy-buttons)
-		  (when show-joy-buttons?
-		    (format t "Button Pressed: ~A~%" button)))))
-	     (:joy-button-up
-	      (when (= 0 (sdl:event-get-joystick-which *event*))
-		(let ((button (sdl:event-get-joystick-button *event*)))
-		  (pushnew button released-joy-buttons))))
-	     (:mouse-button-down
-	      (pushnew (sdl:event-get-mouse-button *event*) pressed-buttons))
-	     (:mouse-button-up
-	      (pushnew (sdl:event-get-mouse-button *event*) released-buttons))
-	     (:mouse-motion
-	      (mvbind (x y) (sdl:event-get-mouse-xy *event*)
-		(setf mouse-coords (vector x y))))
-	     (:mouse-wheel
-	      (mvbind (x y) (sdl:event-get-mouse-xy *event*)
-		(setf mouse-wheel-dt (vector x y))))
-	     (:quit (quit)))))
-    res))
+  "Gather all input for a frame into a transient-input object."
+  (let ((ti (make-transient-input)))
+    ;; Gather all input for this frame into the transient input object.
+    (loop until (= 0 (sdl:poll-event *event*)) do
+	 (case (sdl:event-get-type *event*)
+	   ;; Keyboard
+	   (:key-up
+	    (pushnew (sdl:keyboard-event-get-scancode *event*)
+		     (ti-released-keys ti)))
+	   (:key-down
+	    (unless (sdl:keyboard-event-get-repeat *event*)
+	      (pushnew (sdl:keyboard-event-get-scancode *event*)
+		       (ti-pressed-keys ti))))
+
+	   ;; Joystick
+	   (:joy-axis-motion
+	    (when (= 0 (sdl:event-get-joystick-which *event*))
+	      ;; NOTE: Converts from value to :pos/:neg/nil
+	      (let* ((axis (sdl:event-get-joystick-axis *event*))
+		     (value (sdl:event-get-joystick-axis-value *event*))
+		     (sign (cond
+			     ((plusp value) :positive)
+			     ((minusp value) :negative)
+			     (t :zero))))
+		(case axis
+		  (0 (setf (ti-joy-axis-x ti) sign))
+		  (1 (setf (ti-joy-axis-y ti) sign))))))
+	   (:joy-button-down
+	    (when (= 0 (sdl:event-get-joystick-which *event*))
+	      (let ((button (sdl:event-get-joystick-button *event*)))
+		(pushnew button (ti-pressed-joy-buttons ti))
+		(when show-joy-buttons?
+		  (format t "Button Pressed: ~A~%" button)))))
+	   (:joy-button-up
+	    (when (= 0 (sdl:event-get-joystick-which *event*))
+	      (let ((button (sdl:event-get-joystick-button *event*)))
+		(pushnew button (ti-released-joy-buttons ti)))))
+
+	   ;; Mouse
+	   (:mouse-button-down
+	    (pushnew (sdl:event-get-mouse-button *event*)
+		     (ti-pressed-buttons ti)))
+	   (:mouse-button-up
+	    (pushnew (sdl:event-get-mouse-button *event*)
+		     (ti-released-buttons ti)))
+	   (:mouse-motion
+	    (mvbind (x y) (sdl:event-get-mouse-xy *event*)
+	      (setf (ti-mouse-coords ti) (vector x y))))
+	   (:mouse-wheel
+	    (mvbind (x y) (sdl:event-get-mouse-xy *event*)
+	      (setf (ti-mouse-wheel-dt ti) (vector x y))))
+
+	   ;; Window-Manager
+	   (:quit (quit))))
+    ti))
 
 (defun gather-held (held pressed released)
-  (unionf held pressed)
-  (set-differencef held released))
+  "Combines the currently held events with the new pressed/released events."
+  (set-difference (union held pressed) released))
 
-(defmacro gather-heldf (held pressed released)
-  `(setf ,held (gather-held ,held ,pressed ,released)))
+(defun combine-transient-inputs (ti1 ti2)
+  "Combine an two transient inputs into one.
+Favors ti2 as the most recent input."
+  (make-transient-input
+   :pressed-keys
+   (union (ti-pressed-keys ti1) (ti-pressed-keys ti2))
+   :released-keys
+   (union (ti-released-keys ti1) (ti-released-keys ti2))
+   :pressed-buttons
+   (union (ti-pressed-buttons ti1) (ti-pressed-buttons ti2))
+   :released-buttons
+   (union (ti-released-buttons ti1) (ti-released-buttons ti2))
+   :pressed-joy-buttons
+   (union (ti-pressed-joy-buttons ti1) (ti-pressed-joy-buttons ti2))
+   :released-joy-buttons
+   (union (ti-released-joy-buttons ti1) (ti-released-joy-buttons ti2))
+   :mouse-wheel-dt
+   (union (ti-mouse-wheel-dt ti1) (ti-mouse-wheel-dt ti2))
+   :mouse-coords
+   (if (ti-mouse-coords ti2)
+       (ti-mouse-coords ti2)
+       (ti-mouse-coords ti1))
+   :joy-axis-x
+   (if (ti-joy-axis-x ti2)
+       (ti-joy-axis-x ti2)
+       (ti-joy-axis-x ti1))
+   :joy-axis-y
+   (if (ti-joy-axis-y ti2)
+       (ti-joy-axis-y ti2)
+       (ti-joy-axis-y ti1))))
 
 (defun gather-input (input transient-input)
-  "Gather the input collected this frame into INPUT."
-  (modify-input (input i-)
-    (with-transient-input-slots (transient-input)
-      (modify-transient-input (i-transient-input iti-)
-	(unionf iti-pressed-keys pressed-keys)
-	(unionf iti-pressed-joy-buttons pressed-joy-buttons)
-	(unionf iti-pressed-buttons pressed-buttons)
-	(unionf iti-released-keys released-keys)
-	(unionf iti-released-joy-buttons released-joy-buttons)
-	(unionf iti-released-buttons released-buttons))
-      (gather-heldf i-held-joy-buttons pressed-joy-buttons released-joy-buttons)
-      (gather-heldf i-held-buttons pressed-buttons released-buttons)
-      (gather-heldf i-held-keys pressed-keys released-keys)
-      (when joy-axis-x
-	(setf i-joy-axis-x joy-axis-x))
-      (when joy-axis-y
-	(setf i-joy-axis-y joy-axis-y))
-      (when mouse-coords
-	(setf i-mouse-coords mouse-coords)))))
+  "Combine the existing input with the last frame's transient-input."
+  (make-input
+   :transient-input (combine-transient-inputs
+		     (input-transient-input input)
+		     transient-input)
+
+   :held-joy-buttons
+   (gather-held (input-held-joy-buttons input)
+		(ti-pressed-joy-buttons transient-input)
+		(ti-released-joy-buttons transient-input))
+   :held-buttons
+   (gather-held (input-held-buttons input)
+		(ti-pressed-buttons transient-input)
+		(ti-released-buttons transient-input))
+   :held-keys
+   (gather-held (input-held-keys input)
+		(ti-pressed-keys transient-input)
+		(ti-released-keys transient-input))
+
+   :joy-axis-x
+   (if (ti-joy-axis-x transient-input)
+       (ti-joy-axis-x transient-input)
+       (input-joy-axis-x input))
+   :joy-axis-y
+   (if (ti-joy-axis-y transient-input)
+       (ti-joy-axis-y transient-input)
+       (input-joy-axis-y input))
+   :mouse-coords
+   (if (ti-mouse-coords transient-input)
+       (ti-mouse-coords transient-input)
+       (input-mouse-coords input))))
 
 ;; Individual key checks
 (defun key-pressed? (input key)

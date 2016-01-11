@@ -716,8 +716,7 @@ This can be abused with the machine gun in TAS."
   (modify-game (game)
     (when (eq *input-playback* :recording)
       (record-frame-input input))
-    (modify-input (input)
-      (fnf transient-input #'clear-transient-input))))
+    (fnf input #'reset-transient-input)))
 
 (defparameter *input-playback* nil)
 
