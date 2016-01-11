@@ -131,12 +131,12 @@
   (with-player-slots (p)
     (let* ((on-ground? (player-on-ground? ground-tile))
 	   (actual-v-facing (player-actual-v-facing v-facing on-ground?)))
-      (with-kin-2d-slots ((cdr (assoc :stage physics)))
+      (let ((k (cdr (assoc :stage physics))))
 	(+v (nozzle-offset h-facing
 			   actual-v-facing
 			   (player-current-gun-name gun-name-cycle))
 	    (gun-pos
-	     pos
+	     (kin-2d-pos k)
 	     h-facing
 	     actual-v-facing
 	     (player-walking? acc-dir on-ground?)

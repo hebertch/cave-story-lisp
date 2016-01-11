@@ -120,15 +120,19 @@ Returns the TILE-TYPE of the colliding tile."
 (defmacro stage-collisionsf (physics &rest stage-collision-args)
   `(aupdatef ,physics
 	     (lambda (kin-2d)
-	       (modify-kin-2d (kin-2d)
-		 (setf pos (stage-collisions pos ,@stage-collision-args))))  '(:stage)))
+	       (setf (kin-2d-pos kin-2d)
+		     (stage-collisions (kin-2d-pos kin-2d) ,@stage-collision-args))
+	       kin-2d)
+	     '(:stage)))
 
 (defmacro astage-collisionsf (&rest args)
   "Expects PHYSICS STAGE COLLISION_RECTS to be bound."
   `(aupdatef physics
 	     (lambda (kin-2d)
-	       (modify-kin-2d (kin-2d)
-		 (setf pos (stage-collisions pos stage collision-rects ,@args))))
+	       (setf (kin-2d-pos kin-2d)
+		     (stage-collisions (kin-2d-pos kin-2d)
+				       stage collision-rects ,@args))
+	       kin-2d)
 	     '(:stage)))
 
 

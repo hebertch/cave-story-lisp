@@ -70,38 +70,39 @@
   (aupdatef
    physics
    (lambda (kin-2d)
-     (modify-kin-2d (kin-2d)
-       (setf accelerator-x
-	     (cond
-	       ((and (player-on-ground? ground-tile)
-		     (null acc-dir))
-		;; Not accelerating, apply friction.
-		(friction-accelerator player-friction-acc))
-	       (t
-		;; Apply walking accelerations.
-		(const-accelerator
-		 (* (if (player-on-ground? ground-tile)
-			player-walk-acc
-			player-air-acc)
-		    (case acc-dir
-		      (:left -1)
-		      (:right 1)
-		      (t 0)))))))
-       (setf accelerator-y
-	     (const-accelerator
-	      (if (and (minusp (y vel))
-		       jumping?)
-		  player-jump-gravity-acc
-		  gravity-acc)))
-       (setf inertia-vel
-	     (if (eq ground-tile :dynamic)
-		 (inertia-vel (estate ground-inertia-entity))
-		 nil))
+     (setf (kin-2d-accelerator-x kin-2d)
+	   (cond
+	     ((and (player-on-ground? ground-tile)
+		   (null acc-dir))
+	      ;; Not accelerating, apply friction.
+	      (friction-accelerator player-friction-acc))
+	     (t
+	      ;; Apply walking accelerations.
+	      (const-accelerator
+	       (* (if (player-on-ground? ground-tile)
+		      player-walk-acc
+		      player-air-acc)
+		  (case acc-dir
+		    (:left -1)
+		    (:right 1)
+		    (t 0)))))))
+     (setf (kin-2d-accelerator-y kin-2d)
+	   (const-accelerator
+	    (if (and (minusp (y (kin-2d-vel kin-2d)))
+		     jumping?)
+		player-jump-gravity-acc
+		gravity-acc)))
+     (setf (kin-2d-inertia-vel kin-2d)
+	   (if (eq ground-tile :dynamic)
+	       (inertia-vel (estate ground-inertia-entity))
+	       nil))
 
-       (draw-line pos
-		  (+v pos
-		      (*v vel debug-velocity-scale))
-		  *magenta*))) '(:stage)))
+     (draw-line (kin-2d-pos kin-2d)
+		(+v (kin-2d-pos kin-2d)
+		    (*v (kin-2d-vel kin-2d) debug-velocity-scale))
+		*magenta*)
+     kin-2d)
+   '(:stage)))
 
 (player-method dead? (p)
   (<= health-amt 0))
@@ -152,8 +153,11 @@
 	 (aupdatef
 	  physics
 	  (lambda (kin-2d)
-	    (modify-kin-2d (kin-2d)
-	      (setf vel (make-v (x vel) (min (y vel) (- player-hop-speed)))))) '(:stage)))))))
+	    (setf (kin-2d-vel kin-2d)
+		  (make-v (x (kin-2d-vel kin-2d))
+			  (min (y (kin-2d-vel kin-2d)) (- player-hop-speed))))
+	    kin-2d)
+	  '(:stage)))))))
 
 (defmethod origin ((p player))
   (physics-tile-origin p))
@@ -246,8 +250,9 @@
 	(aupdatef
 	 physics
 	 (lambda (kin-2d)
-	   (modify-kin-2d (kin-2d)
-	     (+vf vel (make-v 0 (- player-jump-speed))))) '(:stage))
+	   (+vf (kin-2d-vel kin-2d) (make-v 0 (- player-jump-speed)))
+	   kin-2d)
+	 '(:stage))
 
 	(push-sound :jump))
       (nilf interacting? ground-tile)
@@ -321,22 +326,24 @@
     (astage-collisionsf
      (let ((stop-x
 	    (collision-lambda
-	      (setf vel (zero-v :y (y vel))))))
+	     (setf (kin-2d-vel kin-2d) (zero-v :y (y (kin-2d-vel kin-2d)))))))
        (alist :bottom
 	      (collision-lambda
-		(setf vel (zero-v :x (x vel)))
-		(unless ground-tile
-		  (push-sound :land))
-		(setf new-ground-tile tile-type))
+	       (setf (kin-2d-vel kin-2d) (zero-v :x (x (kin-2d-vel kin-2d))))
+	       (unless ground-tile
+		 (push-sound :land))
+	       (setf new-ground-tile tile-type))
 
 	      :left stop-x
 	      :right stop-x
 
 	      :top
 	      (collision-lambda
-		(when (minusp (y vel))
-		  (push-sound :head-bump))
-		(setf vel (make-v (x vel) (max (y vel) 0))))))
+	       (when (minusp (y (kin-2d-vel kin-2d)))
+		 (push-sound :head-bump))
+	       (setf (kin-2d-vel kin-2d)
+		     (make-v (x (kin-2d-vel kin-2d))
+			     (max (y (kin-2d-vel kin-2d)) 0))))))
      ground-tile)
 
     (setf ground-tile new-ground-tile)
@@ -346,32 +353,31 @@
 
 (player-method draw (p)
   (let ((kin-2d (cdr (assoc :stage physics))))
-    (with-kin-2d-slots (kin-2d)
-      (unless (and (timer-active? (aval timers :invincible))
-		   (plusp (chunk-timer-period (aval timers :invincible) 50)))
-	(let* ((on-ground? (player-on-ground? ground-tile))
-	       (actual-v-facing (player-actual-v-facing v-facing on-ground?))
-	       (walking? (player-walking? acc-dir on-ground?))
-	       (walk-idx (player-walk-idx p)))
-	  (draw-sprite
-	   :player
-	   :my-char
-	   (player-sprite-rect
-	    h-facing
-	    actual-v-facing
-	    interacting?
-	    walking?
-	    walk-idx
-	    (y vel))
-	   (pixel-v pos))
+    (unless (and (timer-active? (aval timers :invincible))
+		 (plusp (chunk-timer-period (aval timers :invincible) 50)))
+      (let* ((on-ground? (player-on-ground? ground-tile))
+	     (actual-v-facing (player-actual-v-facing v-facing on-ground?))
+	     (walking? (player-walking? acc-dir on-ground?))
+	     (walk-idx (player-walk-idx p)))
+	(draw-sprite
+	 :player
+	 :my-char
+	 (player-sprite-rect
+	  h-facing
+	  actual-v-facing
+	  interacting?
+	  walking?
+	  walk-idx
+	  (y (kin-2d-vel kin-2d)))
+	 (pixel-v (kin-2d-pos kin-2d)))
 
-	  (player-draw-gun
-	   pos
-	   (player-current-gun-name gun-name-cycle)
-	   h-facing
-	   actual-v-facing
-	   walking?
-	   walk-idx))))))
+	(player-draw-gun
+	 (kin-2d-pos kin-2d)
+	 (player-current-gun-name gun-name-cycle)
+	 h-facing
+	 actual-v-facing
+	 walking?
+	 walk-idx)))))
 
 (defun player-vel (p)
   (kin-2d-vel (cdr (assoc :stage (player-physics p)))))
