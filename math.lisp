@@ -125,32 +125,40 @@
 
 ;; Cycle (Animation Utilities?)
 
-(defstructure cycle seq (idx 0) len)
+(defstruct cycle seq (idx 0))
+
+(defun cycle-len (cycle)
+  (length (cycle-seq cycle)))
 
 (defun create-cycle (seq)
-  (make-cycle :seq seq :len (length seq)))
+  (make-cycle :seq seq))
 
 (defun cycle-current (c)
   (elt (cycle-seq c) (cycle-idx c)))
 
 (defun cycle-next (c)
-  (modify-cycle (c)
-    (incf idx)
-    (when (= idx len)
-      (setf idx 0))))
+  (make-cycle
+   :seq (cycle-seq c)
+   :idx
+   (if (= (cycle-idx c) (1- (cycle-len c)))
+       0
+       (1+ (cycle-idx c)))))
 
 (defun cycle-previous (c)
-  (modify-cycle (c)
-    (if (zerop idx)
-	(setf idx (1- len))
-	(decf idx))))
+  (make-cycle
+   :seq (cycle-seq c)
+   :idx
+   (if (= (cycle-idx c) 0)
+       (1- (cycle-len c))
+       (1- (cycle-idx c)))))
 
 (defun cycle-reset (c)
-  (modify-cycle (c)
-    (setf idx 0)))
+  (make-cycle
+   :seq (cycle-seq c)
+   :idx 0))
 
-(defstructure timed-cycle
-    timer
+(defstruct timed-cycle
+  timer
   cycle
   paused?)
 
@@ -160,32 +168,38 @@
 		    :paused? start-paused?))
 
 (defmethod update-timer ((tc timed-cycle))
-  (let (ticked?)
-    (with-timed-cycle-copy-slots (tc)
-      (unless paused?
-	(mvbind (tr tick?) (update-timer timer)
-	  (when tick?
-	    (fnf cycle #'cycle-next))
-	  (setf timer tr
-		ticked? tick?)))
-      (values tc ticked?))))
+  (cond
+    ((timed-cycle-paused? tc) tc)
+    (t
+     (mvbind (timer tick?) (update-timer (timed-cycle-timer tc))
+       (values (make-timed-cycle
+		:timer timer
+		:cycle (if tick?
+			   (cycle-next (timed-cycle-cycle tc))
+			   (timed-cycle-cycle tc))
+		:paused? nil)
+	       tick?)))))
 
-(defun timed-cycle-current (tc) (cycle-current (timed-cycle-cycle tc)))
+(defun timed-cycle-current (tc)
+  (cycle-current (timed-cycle-cycle tc)))
+
 (defun timed-cycle-pause (tc)
-  (with-timed-cycle-copy-slots (tc)
-    (tf paused?)
-    tc))
+  (make-timed-cycle
+   :timer (timed-cycle-timer tc)
+   :cycle (timed-cycle-cycle tc)
+   :paused? t))
 
 (defun timed-cycle-resume (tc)
-  (with-timed-cycle-copy-slots (tc)
-    (nilf paused?)
-    tc))
+  (make-timed-cycle
+   :timer (timed-cycle-timer tc)
+   :cycle (timed-cycle-cycle tc)
+   :paused? nil))
 
 (defun timed-cycle-restart (tc)
-  (with-timed-cycle-copy-slots (tc)
-    (fnf timer #'reset-timer)
-    (fnf cycle #'cycle-reset)
-    tc))
+  (make-timed-cycle
+   :timer (reset-timer (timed-cycle-timer tc))
+   :cycle (cycle-reset (timed-cycle-cycle tc))
+   :paused? (timed-cycle-paused? tc)))
 
 ;; Clamps
 
