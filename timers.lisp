@@ -13,12 +13,6 @@
   (let ((len (fps->ms-per-frame fps)))
     (make-timer :length len :ms-remaining (if begin-active? len 0) :looping? t)))
 
-(defun update-loop-timer (tr)
-  (mvbind (tr ticked?) (update-timer tr)
-    (unless (timer-active? tr)
-      (incf (timer-ms-remaining tr) (timer-length tr)))
-    (values tr ticked?)))
-
 (defun timer-active? (tr)
   (and tr (plusp (timer-ms-remaining tr))))
 (defun timer-expired? (tr)
