@@ -46,7 +46,7 @@
 
 (defun missile-projectile-collisions (rect dir stage)
   (let ((dead? (projectile-collision? rect dir stage)))
-    (draw-rect rect yellow)
+    (draw-rect rect *yellow*)
     dead?))
 
 (defun missile-projectile-pos (m)
@@ -211,7 +211,7 @@
 		 size)))
 
 (defun polar-star-projectile-collisions (rect dir pos stage)
-  (draw-rect rect yellow)
+  (draw-rect rect *yellow*)
   (let ((dead?))
     (when (projectile-collision? rect dir stage)
       (push-sound :hit-wall)

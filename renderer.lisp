@@ -1,30 +1,30 @@
 (in-package :cave-story)
 
-(defstructure sprite-drawing
+(defstruct sprite-drawing
   layer
   sheet-key
   src-rect
   pos)
 
-(defstructure rect-drawing
+(defstruct rect-drawing
   (layer :debug)
   color
   rect
   filled?)
 
-(defstructure line-drawing
+(defstruct line-drawing
   (layer :debug)
   color a b)
 
-(defstructure text-line-drawing pos text layer)
+(defstruct text-line-drawing pos text layer)
 
-(defparameter red #(255 0 0 255))
-(defparameter green #(0 255 0 255))
-(defparameter blue #(0 0 255 255))
-(defparameter white #(255 255 255 255))
-(defparameter yellow #(255 255 0 255))
-(defparameter magenta #(255 0 255 255))
-(defparameter cyan #(0 255 255 255))
+(defparameter *red* #(255 0 0 255))
+(defparameter *green* #(0 255 0 255))
+(defparameter *blue* #(0 0 255 255))
+(defparameter *white* #(255 255 255 255))
+(defparameter *yellow* #(255 255 0 255))
+(defparameter *magenta* #(255 0 255 255))
+(defparameter *cyan* #(0 255 255 255))
 
 (defgeneric drawing-layer (d))
 (defmethod drawing-layer ((d sprite-drawing))
@@ -36,11 +36,11 @@
 (defmethod drawing-layer ((d text-line-drawing))
   (text-line-drawing-layer d))
 
-(defvar render-debug? t
+(defvar *render-debug?* t
   "Whether to render the DEBUG-RENDER-LIST")
-(defvar render-list nil
+(defvar *render-list* nil
   "The list of drawings to be rendered once per frame.")
-(defparameter screen-render-list nil
+(defparameter *screen-render-list* nil
   "The list of drawings to be rendered once per frame.
 These are drawn relative to the SCREEN and not relative to the camera position.")
 
@@ -85,18 +85,18 @@ These are drawn relative to the SCREEN and not relative to the camera position."
 			  (round (y b)))))
 
 (defun push-render (r)
-  "Interface to the RENDER-LIST"
-  (push r render-list))
+  "Interface to the *RENDER-LIST*"
+  (push r *render-list*))
 
 (defun push-screen-render (r)
-  "Interface to the SCREEN-RENDER-LIST"
-  (push r screen-render-list))
+  "Interface to the *SCREEN-RENDER-LIST*"
+  (push r *screen-render-list*))
 
 (defun draw-slope (tile-pos tile-type)
   "Pushes a slope to the DEBUG-RENDER-LIST"
   (let ((pos (tile-pos->pos tile-pos)))
     (push-render (make-line-drawing
-		  :color white
+		  :color *white*
 		  :a (make-v (x pos) (tile-slope-pos-y
 				      tile-pos
 				      tile-type
@@ -197,7 +197,7 @@ These are drawn relative to the SCREEN and not relative to the camera position."
   (aif (gethash char character-textures)
        it
        (setf (gethash char character-textures)
-	     (mvlist (create-text-texture renderer font (string char) (color->hex white))))))
+	     (mvlist (create-text-texture renderer font (string char) (color->hex *white*))))))
 
 (defun draw-text-line (pos text)
   (push-screen-render (make-text-line-drawing :pos pos :text text :layer :text)))
@@ -226,9 +226,9 @@ These are drawn relative to the SCREEN and not relative to the camera position."
       ((rect-drawing-p r) (render-rect renderer r camera-pos))
       ((line-drawing-p r) (render-line renderer r camera-pos))))
 
-  (setf screen-render-list (sort-by-layers screen-render-list))
+  (setf *screen-render-list* (sort-by-layers *screen-render-list*))
 
-  (dolist (r screen-render-list)
+  (dolist (r *screen-render-list*)
     (cond
       ((sprite-drawing-p r) (render-sprite renderer r (zero-v)))
       ((rect-drawing-p r) (render-rect renderer r (zero-v)))

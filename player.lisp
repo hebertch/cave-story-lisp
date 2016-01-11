@@ -101,7 +101,7 @@
        (draw-line pos
 		  (+v pos
 		      (*v vel debug-velocity-scale))
-		  magenta))) '(:stage)))
+		  *magenta*))) '(:stage)))
 
 (player-method dead? (p)
   (<= health-amt 0))

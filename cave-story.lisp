@@ -99,7 +99,7 @@
 			(fnf global-game (curry #'update-and-render renderer)))
 		    (render renderer
 			    font
-			    render-list
+			    *render-list*
 			    (camera-pos
 			     (estate (game-camera global-game))
 			     (stage-dims->camera-bounds (stage-dims (game-stage global-game)))))
@@ -526,7 +526,7 @@ This can be abused with the machine gun in TAS."
 	     (w (x (get-text-size font text))))
 	 (push-screen-render
 	  (make-rect-drawing :rect (create-rect (+v pos (make-v w 0)) char-dims)
-			     :color white
+			     :color *white*
 			     :layer :text
 			     :filled? t)))))
     ((not (timer-active? (aval timers :text)))
@@ -674,7 +674,7 @@ This can be abused with the machine gun in TAS."
       (setf input (next-playback-input))))
   (handle-input global-game)
 
-  (nilf render-list screen-render-list)
+  (nilf *render-list* *screen-render-list*)
   (update-parameter-subsystem entity-systems)
 
   (case *input-playback*
@@ -702,13 +702,13 @@ This can be abused with the machine gun in TAS."
 
   ;; Debug Drawings Below.
 
-  ;; (draw-point (player-nozzle-pos player) red)
+  ;; (draw-point (player-nozzle-pos player) *red*)
   (let ((focus (camera-focus (estate (game-camera game))))
 	(camera-bounds (stage-dims->camera-bounds (stage-dims (game-stage game)))))
-    (draw-point focus cyan)
-    (draw-point (clamp-pos focus camera-bounds) red)
-    (draw-rect camera-bounds cyan))
-  (draw-point (camera-target-from-player (player-state (game-player game))) white)
+    (draw-point focus *cyan*)
+    (draw-point (clamp-pos focus camera-bounds) *red*)
+    (draw-rect camera-bounds *cyan*))
+  (draw-point (camera-target-from-player (player-state (game-player game))) *white*)
   ;; End Debug Drawings.
 
   (play-sounds sfx-play-list)

@@ -1,6 +1,6 @@
 (in-package :cave-story)
 
-(defstructure resource-type
+(defstruct resource-type
   put-fn
   fnames-fn
   cleanup-fn
@@ -75,7 +75,7 @@ the get- function that is produced."
   #'sdl:destroy-texture)
 
 ;;; MUSIC
-(defstructure song intro loop name)
+(defstruct song intro loop name)
 (defvar current-song)
 
 (defun load-song (name)
@@ -110,7 +110,8 @@ the get- function that is produced."
   "Given an integer from 1-100 sets the volume of the music."
   (sdl.mixer:volume-music (percent->volume fixnum-percent)))
 
-(comment-code
+#+nil
+(progn
   ;; TODO: These still need to be fleshed out. Can't work with SDL_Mixer, because we can't store positions in songs.
   (defun pause-and-play-new-song (song-key)
     )

@@ -71,7 +71,7 @@ Returns the TILE-TYPE of the colliding tile."
 
   (loop for (tile-pos tile-type) in (stage-get-colliding-tiles stage rect)
      do
-       (draw-tile-rect (tile-pos tile-pos) cyan :layer :debug-stage-collision)
+       (draw-tile-rect (tile-pos tile-pos) *cyan* :layer :debug-stage-collision)
 
        (case tile-type
 	 (:wall
@@ -114,7 +114,7 @@ Returns the TILE-TYPE of the colliding tile."
 	  (setf position (sub-v new-pos (rect-pos collision-rect)))
 	  (when fn
 	    (funcall fn tile-type)))
-	(draw-rect (rect-offset collision-rect position) blue :layer :debug-stage-collision))))
+	(draw-rect (rect-offset collision-rect position) *blue* :layer :debug-stage-collision))))
   position)
 
 (defmacro stage-collisionsf (physics &rest stage-collision-args)
