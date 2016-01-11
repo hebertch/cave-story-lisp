@@ -102,7 +102,7 @@ Returns the TILE-TYPE of the colliding tile."
 				    tile-type)))))))))))
 
 (defun stage-collisions (position stage collision-rects collision-reactions &optional (ground-tile nil ground-tile-provided-p))
-  (dolist (side collision-order)
+  (dolist (side *collision-order*)
     (let* ((fn (cdr (assoc side collision-reactions)))
 	   (collision-rect (cdr (assoc side collision-rects))))
       (mvbind (new-pos tile-type)

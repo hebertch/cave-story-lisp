@@ -1,5 +1,7 @@
 (in-package :cave-story)
 
+(defparameter *collision-order* '(:bottom :left :right :top))
+
 (defun vertical? (dir) (member dir '(:up :down)))
 (defun horizontal? (dir) (member dir '(:left :right)))
 
@@ -114,4 +116,3 @@
   (if (vertical? offset-dir)
       (<= (tiles (x tile-pos)) (x (center rect)) (tiles (1+ (x tile-pos))))
       (<= (tiles (y tile-pos)) (y (center rect)) (tiles (1+ (y tile-pos))))))
-(defparameter collision-order '(:bottom :left :right :top))
