@@ -451,7 +451,7 @@ This can be abused with the machine gun in TAS."
 (defun exp-for-gun-level (gun-name lvl)
   (when (eq lvl :max)
     (setf lvl 2))
-  (elt (cdr (assoc gun-name gun-level-exps)) lvl))
+  (elt (cdr (assoc gun-name *gun-level-exps*)) lvl))
 
 (comment-code
   ("If there are no more red flowers we can, hopefully, avoid the war."
@@ -595,7 +595,7 @@ This can be abused with the machine gun in TAS."
 			 exp-pos))
 
       (mvbind (exp gun-name) (current-gun-exp player gun-exps)
-	(let* ((current-level (gun-level exp (cdr (assoc gun-name gun-level-exps))))
+	(let* ((current-level (gun-level exp (cdr (assoc gun-name *gun-level-exps*))))
 	       (next-lvl-exp (exp-for-gun-level gun-name current-level))
 	       (current-lvl-exp (if (zerop current-level) 0 (exp-for-gun-level gun-name (1- current-level)))))
 	  (if (= exp (exp-for-gun-level gun-name :max))
@@ -788,7 +788,7 @@ This can be abused with the machine gun in TAS."
 
 (defun create-gun-exps (&key (id (gen-entity-id)))
   (create-entity
-   (loop for g across gun-names collecting (cons g 0))
+   (loop for g across *gun-names* collecting (cons g 0))
    ()
    :id id))
 

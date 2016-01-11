@@ -80,8 +80,8 @@
 				    (asetf physics
 					   (make-wave-motion
 					    :dir perp-dir
-					    :amp missile-projectile-amplitude
-					    :speed missile-radial-speed)
+					    :amp *missile-projectile-amplitude*
+					    :speed *missile-radial-speed*)
 					   :wave-motion))
 				  physics)
 

@@ -1,7 +1,7 @@
 (in-package :cave-story)
 
-(defparameter gun-names #(:polar-star :missile-launcher :machine-gun :fireball :nemesis
-			  :super-missile-launcher :bubbler :spur :snake))
+(defparameter *gun-names* #(:polar-star :missile-launcher :machine-gun :fireball :nemesis
+			    :super-missile-launcher :bubbler :spur :snake))
 
 (defun gun-pos (pos h-facing actual-v-facing walking? walk-idx)
   (let ((gun-x-off (if (eq h-facing :right)
@@ -17,10 +17,10 @@
 			   0)))
     (+v pos (make-v gun-x-off (+ gun-y-off gun-bob-y-off)))))
 
-(defparameter gun-x-idxs '(:spur :snake :polar-star :fireball :machine-gun :missile-launcher
-			   nil :nemesis nil nil :super-missile-launcher nil :bubbler))
+(defparameter *gun-x-idxs* '(:spur :snake :polar-star :fireball :machine-gun :missile-launcher
+			     nil :nemesis nil nil :super-missile-launcher nil :bubbler))
 
-(defparameter nozzle-pixel-positions
+(defparameter *nozzle-pixel-positions*
   '((:polar-star . (106 21
 		    134 53
 		    128 68
@@ -77,18 +77,18 @@
 	      19 382)))
   "Positions of the nozzle relative to Arms.BMP 0x0")
 
-(defparameter gun-width (tiles 3/2))
+(defparameter *gun-width* (tiles 3/2))
 
 (defun gun-sprite-rect (gun-name h-facing v-facing)
   (let ((gun-y-idx (+ (if (eq gun-name :spur) 6 0)
 		      (position h-facing '(:left :right))
 		      (* 2
 			 (position v-facing '(nil :up :down))))))
-    (create-rect-cmpts (* (position gun-name gun-x-idxs) gun-width) (tiles gun-y-idx)
-		       gun-width (tiles 1))))
+    (create-rect-cmpts (* (position gun-name *gun-x-idxs*) *gun-width*) (tiles gun-y-idx)
+		       *gun-width* (tiles 1))))
 
 (defun nozzle-pixel-positions->nozzle-offsets (gun-name)
-  (let ((npp (cdr (assoc gun-name nozzle-pixel-positions)))
+  (let ((npp (cdr (assoc gun-name *nozzle-pixel-positions*)))
 	(i -1)
 	nozzle-offsets)
     (loop for v-facing in '(nil :up :down)
@@ -113,13 +113,13 @@
 	       (gun-sprite-rect gun-name h-facing actual-v-facing)
 	       (gun-pos pos h-facing actual-v-facing walking? walk-idx)))
 
-(defparameter gun-nozzle-offsets
-  (loop for gun-name across gun-names
+(defparameter *gun-nozzle-offsets*
+  (loop for gun-name across *gun-names*
      collecting
        (cons gun-name (nozzle-pixel-positions->nozzle-offsets gun-name))))
 
 (defun nozzle-offset (h-facing v-facing gun-name)
-  (let* ((offsets (cdr (assoc v-facing (cdr (assoc gun-name gun-nozzle-offsets)))))
+  (let* ((offsets (cdr (assoc v-facing (cdr (assoc gun-name *gun-nozzle-offsets*)))))
 	 (x-offsets (first offsets))
 	 (y-offset (second offsets)))
     (make-v (ecase h-facing
@@ -149,22 +149,22 @@
        it
        2))
 
-(defparameter max-projectile-groups
+(defparameter *max-projectile-groups*
   ;; TODO: This is based on level.
   '((:polar-star . 2)
     (:missile-launcher . 2)))
 
 ;; Polar Star
-(defparameter polar-star-exp 40)
-(defparameter polar-star-projectile-max-offsets
+(defparameter *polar-star-exp* 40)
+(defparameter *polar-star-projectile-max-offsets*
   (mapcar #'tiles '(7/2 5 7)))
 
 
 ;; Missile Launcher
-(defparameter missile-projectile-amplitude 4)
-(defparameter missile-radial-speed 0.010800001)
+(defparameter *missile-projectile-amplitude* 4)
+(defparameter *missile-radial-speed* 0.010800001)
 
-(defparameter gun-level-exps
+(defparameter *gun-level-exps*
   (append '((:polar-star . (10 30 40)))
-	  (loop for g across gun-names
+	  (loop for g across *gun-names*
 	     collecting (cons g (list 10 30 40)))))

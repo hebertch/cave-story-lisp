@@ -25,7 +25,7 @@
 			   (values
 			    (make-player
 			     :h-facing :left
-			     :gun-name-cycle (create-cycle gun-names)
+			     :gun-name-cycle (create-cycle *gun-names*)
 			     :health-amt 3
 			     :max-health-amt 3
 			     :damage-numbers damage-numbers
@@ -113,8 +113,8 @@
 	  (dir (aif (player-actual-v-facing (player-v-facing p) (player-on-ground? (player-ground-tile p)))
 		    it
 		    (player-h-facing p)))
-	  (lvl (gun-level (gun-exp-for (estate (player-gun-exps p)) gun-name) (cdr (assoc gun-name gun-level-exps))))
-	  (max-projectiles (cdr (assoc gun-name max-projectile-groups))))
+	  (lvl (gun-level (gun-exp-for (estate (player-gun-exps p)) gun-name) (cdr (assoc gun-name *gun-level-exps*))))
+	  (max-projectiles (cdr (assoc gun-name *max-projectile-groups*))))
       (unless (null max-projectiles)
 	(when (< num-projectile-groups max-projectiles)
 	  (replace-entity-state (player-projectile-groups p)
