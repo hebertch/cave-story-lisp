@@ -33,9 +33,6 @@
 	    t)))))
 
 ;; Missiles
-
-(defparameter missile-projectile-max-speed 0.3)
-
 (defun missile-projectile-collision-rect (lvl dir pos)
   (let ((short-sides '(10 10 10)))
     (let* ((short-side (elt short-sides lvl))
