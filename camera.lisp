@@ -1,5 +1,9 @@
 (in-package :cave-story)
 
+(defparameter *camera-speed-scale-factor* 1/20)
+(defparameter *camera-acc* 2e-4)
+(defparameter *camera-max-speed* 0.15859374)
+
 (defun camera-target-from-player (player)
   (let ((h-facing (player-h-facing player))
 	(v-facing (player-v-facing player))
@@ -30,30 +34,36 @@
    (asetfn (make-shake) :shake-h)
    (asetfn (make-shake) :shake-v)))
 
-(camera-methodf ai (c ticks)
-  (when (member :shake ticks)
-    (aremf physics :shake-h :shake-v)
-    (aremf timers :shake))
-  (aupdatef
-   physics
-   (lambda (m)
-     (target-kin-2d-update-target
-      m
-      (camera-target-from-player (estate player))
-      (player-vel (estate player))))
-   '(:target)))
+(defmethod ai ((c camera) ticks)
+  (let ((physics (aupdate
+		  (camera-physics c)
+		  (lambda (m)
+		    (target-kin-2d-update-target
+		     m
+		     (camera-target-from-player (estate (camera-player c)))
+		     (player-vel (estate (camera-player c)))))
+		  '(:target)))
+	(shake-tick? (member :shake ticks)))
+
+    (make-camera
+     :physics (if shake-tick?
+		  (arem physics :shake-h :shake-v)
+		  physics)
+     :timers (if shake-tick?
+		 (arem (camera-timers c) :shake)
+		 (camera-timers c))
+     :player (camera-player c))))
 
 (defun timed-camera-shake (c time)
-  (modify-camera (c)
-    (fnf physics (add-camera-shake))
-    (asetf timers (create-expiring-timer time t) :shake)))
+  (make-camera :physics (funcall (add-camera-shake)
+				 (camera-physics c))
+	       :timers (aset (camera-timers c)
+			     (create-expiring-timer time t)
+			     :shake)
+	       :player (camera-player c)))
 
 (defun camera-focus (c)
   (target-kin-2d-pos (aval (camera-physics c) :target)))
-
-(defparameter camera-speed-scale-factor 1/20)
-(defparameter camera-acc 2e-4)
-(defparameter camera-max-speed 0.15859374)
 
 (defun stage-dims->camera-bounds (stage-dims)
   (create-rect (scale-v window-dims 1/2)

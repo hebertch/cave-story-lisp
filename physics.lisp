@@ -150,7 +150,7 @@
 (defmethod motion-physics ((m target-kin-2d))
   (modify-target-kin-2d (m)
     (let* ((disp (sub-v target pos))
-	   (disp-speeds (abs-v (scale-v disp (/ camera-speed-scale-factor frame-time))))
+	   (disp-speeds (abs-v (scale-v disp (/ *camera-speed-scale-factor* frame-time))))
 	   (target-speeds (abs-v target-vel))
 
 	   ;; Camera velocity clamped by speed proportional to distance, and by a max speed
@@ -158,12 +158,12 @@
 	    (clamper-zero
 	     (* (signum (x disp))
 		(min (x disp-speeds)
-		     (+ (x target-speeds) camera-max-speed)))))
+		     (+ (x target-speeds) *camera-max-speed*)))))
 	   (clamper-y
 	    (clamper-zero
 	     (* (signum (y disp))
 		(min (y disp-speeds)
-		     (+ (y target-speeds) camera-max-speed))))))
+		     (+ (y target-speeds) *camera-max-speed*))))))
 
       ;; When disp is less than 1 pixel distance, don't accelerate.
       ;; This is to avoid shaking.
@@ -176,8 +176,8 @@
 
       (physics-2d
        pos vel
-       (const-accelerator (* (signum (x disp)) camera-acc))
-       (const-accelerator (* (signum (y disp)) camera-acc))
+       (const-accelerator (* (signum (x disp)) *camera-acc*))
+       (const-accelerator (* (signum (y disp)) *camera-acc*))
        :clamper-vx clamper-x
        :clamper-vy clamper-y))))
 
