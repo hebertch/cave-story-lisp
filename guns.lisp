@@ -128,19 +128,18 @@
 	    y-offset)))
 
 (defun player-nozzle-pos (p)
-  (with-player-slots (p)
-    (let* ((on-ground? (player-on-ground? ground-tile))
-	   (actual-v-facing (player-actual-v-facing v-facing on-ground?)))
-      (let ((k (cdr (assoc :stage physics))))
-	(+v (nozzle-offset h-facing
-			   actual-v-facing
-			   (player-current-gun-name gun-name-cycle))
-	    (gun-pos
-	     (kin-2d-pos k)
-	     h-facing
-	     actual-v-facing
-	     (player-walking? acc-dir on-ground?)
-	     (player-walk-idx p)))))))
+  (let* ((on-ground? (player-on-ground? (player-ground-tile p)))
+	 (actual-v-facing (player-actual-v-facing (player-v-facing p) on-ground?)))
+    (let ((k (cdr (assoc :stage (player-physics p)))))
+      (+v (nozzle-offset (player-h-facing p)
+			 actual-v-facing
+			 (player-current-gun-name (player-gun-name-cycle p)))
+	  (gun-pos
+	   (kin-2d-pos k)
+	   (player-h-facing p)
+	   actual-v-facing
+	   (player-walking? (player-acc-dir p) on-ground?)
+	   (player-walk-idx p))))))
 
 (defun gun-level (exp exp-list)
   (aif (position-if-not (lambda (lvl-exp)
