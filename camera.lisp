@@ -16,14 +16,22 @@
 	 (zero-v))
      (offset-in-dir-pos pos (tiles 3) h-facing))))
 
-(def-entity camera (player)
-  (create-player-camera
-   (focus vel player)
-   (make-camera :physics (alist :target
-				(make-target-kin-2d :pos focus :vel vel
-						    :target (camera-target-from-player (estate player))
-						    :target-vel (player-vel (estate player))))
-		:player player))
+(defstruct (camera (:include entity-state)) player)
+(def-entity-constructor create-player-camera
+    (lambda (focus vel player)
+      (make-camera :physics
+		   (alist :target
+			  (make-target-kin-2d :pos focus
+					      :vel vel
+					      :target
+					      (camera-target-from-player
+					       (estate
+						player))
+					      :target-vel
+					      (player-vel
+					       (estate
+						player))))
+		   :player player))
   :timers :physics)
 
 (defun make-shake ()

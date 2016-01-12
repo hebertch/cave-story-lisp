@@ -44,16 +44,12 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 (defun replace-entity-state (entity-id fn)
   (estate-set entity-id (funcall fn (estate entity-id))))
 
-(defgeneric physics (obj))
 (def-subsystem physics ()
   (replace-entity-state entity-id #'physics))
 
 (defgeneric ai (obj ticks))
 (defmethod ai (obj ticks)
   obj)
-(defgeneric timers (obj))
-(defmethod timers (obj)
-  (ai obj nil))
 
 (def-subsystem timers ()
   (replace-entity-state entity-id #'timers))
@@ -77,14 +73,19 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
   (dolist (side *collision-order*)
     (let* ((state (estate entity-id))
 	   (rect (dynamic-collision-rect state))
-	   (player-collision-rect (cdr (assoc side *player-collision-rectangles-alist*)))
-	   (player-rect (rect-offset player-collision-rect (physics-pos (player-state player)))))
+	   (player-collision-rect
+	    (cdr (assoc side *player-collision-rectangles-alist*)))
+	   (player-rect
+	    (rect-offset player-collision-rect (physics-pos (player-state player)))))
       (draw-rect rect *blue* :layer :debug-dynamic-collision)
       (draw-rect player-rect *green* :layer :debug-dynamic-collision)
       (when (rects-collide? rect player-rect)
 	(draw-rect player-rect *green* :layer :debug-dynamic-collision :filled? t)
 	(draw-rect rect *yellow* :layer :debug-dynamic-collision :filled? t)
-	(estate-set player (dynamic-collision-react state side player-collision-rect player))))))
+	(estate-set player (dynamic-collision-react state
+						    side
+						    player-collision-rect
+						    player))))))
 
 (defgeneric damageable-rect (obj))
 (defgeneric damageable-hit-react (obj bullet-hit-amt))
@@ -205,51 +206,52 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 	(:drawable (register-drawable system-type id))
 	(:pickup (register-pickup system-type id))))))
 
-(defun create-entity (initial-state subsystems &key (id (gen-entity-id)))
-  (let ((entity (make-entity :system-type *entity-system-type* :state initial-state :subsystems subsystems)))
+(defun create-entity (initial-state subsystems &key id)
+  (unless id
+    (setf id (gen-entity-id)))
+  (let ((entity (make-entity :system-type *entity-system-type*
+			     :state initial-state
+			     :subsystems subsystems)))
     (register-entity-subsystems id entity)
     (register-entity id entity)))
 
-(defmacro physics-method (struct-type)
-  `(defmethod physics ((o ,struct-type))
-     (let ((cpy (copy-structure o)))
-       (motion-set-updatef (,(symbolicate struct-type '-physics) cpy))
-       cpy)))
+(defstruct entity-state
+  physics
+  timers)
 
-(defmacro physics-pos-method (struct-type)
-  `(defmethod physics-pos ((o ,struct-type))
-     (motion-set-pos (,(symbolicate struct-type '-physics) o))))
+(defun physics (o)
+  (let ((cpy (copy-structure o)))
+    (fnf (entity-state-physics cpy) #'motion-set-update)
+    cpy))
 
-(defmacro timers-method (struct-type)
-  (let ((timers (symbolicate struct-type '-timers)))
-    `(defmethod timers ((o ,struct-type))
-       (let ((cpy (copy-structure o))
-	     ticks
-	     timers)
-	 (mvsetq (timers ticks)
-		 (timer-set-update (,timers cpy)))
-	 (setf (,timers cpy) timers)
-	 (ai cpy ticks)))))
+(defun physics-pos (o)
+  (motion-set-pos (entity-state-physics o)))
 
-(defmacro def-entity (name fields (constructor-name constructor-args &body constructor-body) &rest subsystems)
-  (let ((physics? (find :physics subsystems))
-	(timers? (find :timers subsystems)))
-    `(progn
-       (defstruct ,name
-	 ,@ (remove-if #'null
-		       (list* (if physics? 'physics nil)
-			      (if timers? 'timers nil)
-			      fields)))
-       (defun ,constructor-name ,constructor-args
-	 (mvbind (state id) (progn ,@constructor-body)
-	   (create-entity
-	    state
-	    ',subsystems
-	    :id (if id id (gen-entity-id)))))
+(defun timers (o)
+  (let ((cpy (copy-structure o))
+	ticks
+	timers)
+    (mvsetq (timers ticks)
+	    (timer-set-update (entity-state-timers cpy)))
+    (setf (entity-state-timers cpy) timers)
+    (ai cpy ticks)))
 
-       ,(when physics?
-	      `(progn
-		 (physics-method ,name)
-		 (physics-pos-method ,name)))
-       ,(when timers?
-	      `(timers-method ,name)))))
+(defun entity-constructor (constructor subsystems)
+  (lambda (&rest constructor-args)
+    (multiple-value-bind (state id) (apply constructor constructor-args)
+      (create-entity state subsystems :id id))))
+
+(defmacro def-entity-constructor (constructor-name constructor &rest subsystems)
+  `(setf (symbol-function ',constructor-name)
+	 (entity-constructor ,constructor ',subsystems)))
+
+(defmacro def-entity
+    (name fields (constructor-name constructor-args &body constructor-body) &rest subsystems)
+  `(progn
+     (defstruct (,name (:include entity-state))
+       ,@ fields)
+     (def-entity-constructor
+	 ,constructor-name
+	 (lambda ,constructor-args
+	   ,@constructor-body)
+       ,@subsystems)))

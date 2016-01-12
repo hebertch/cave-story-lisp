@@ -1,39 +1,51 @@
 (in-package :cave-story)
 
-(def-entity missile-projectile
-    (lvl
-     dir
-     sprite-rect
-     dead?)
-  (create-missile-projectile (lvl dir pos perp-offset-amt speed acc &optional oscillate?)
-			     (let ((perp-dir (if (vertical? dir) :left :up)))
-			       (make-missile-projectile
-				:lvl lvl
-				:dir dir
-				:timers
-				(alist :life (create-expiring-timer (s->ms 3/2) t))
-				:physics
-				(let (physics)
-				  (asetf physics
-					 (make-offset-motion
-					  (offset-in-dir-pos pos
-							     perp-offset-amt
-							     perp-dir)
-					  dir
-					  speed
-					  acc)
-					 :kin-2d)
+(defstruct (missile-projectile (:include entity-state))
+  lvl
+  dir
+  sprite-rect
+  dead?)
 
-				  (when oscillate?
-				    (asetf physics
-					   (make-wave-motion
-					    :dir perp-dir
-					    :amp *missile-projectile-amplitude*
-					    :speed *missile-radial-speed*)
-					   :wave-motion))
-				  physics)
-
-				:sprite-rect (tile-rect (tile-v (position dir '(:left :up :right :down)) lvl)))))
+(def-entity-constructor create-missile-projectile
+    (lambda
+	(lvl dir pos perp-offset-amt speed acc
+	 &optional oscillate?)
+      (let ((perp-dir
+	     (if (vertical? dir)
+		 :left
+		 :up)))
+	(make-missile-projectile :lvl lvl :dir dir :timers
+				 (alist :life
+					(create-expiring-timer
+					 (s->ms 3/2) t))
+				 :physics
+				 (let (physics)
+				   (asetf physics
+					  (make-offset-motion
+					   (offset-in-dir-pos
+					    pos
+					    perp-offset-amt
+					    perp-dir)
+					   dir speed acc)
+					  :kin-2d)
+				   (when oscillate?
+				     (asetf physics
+					    (make-wave-motion
+					     :dir perp-dir
+					     :amp
+					     *missile-projectile-amplitude*
+					     :speed
+					     *missile-radial-speed*)
+					    :wave-motion))
+				   physics)
+				 :sprite-rect
+				 (tile-rect
+				  (tile-v
+				   (position dir
+					     '(:left :up
+					       :right
+					       :down))
+				   lvl)))))
   :timers :physics :drawable :stage-collision :bullet)
 
 (defun projectile-collision? (rect dir stage)
@@ -142,24 +154,32 @@
 		(create-missile-projectile lvl dir pos 8 speed (rand-val-between 0.001 0.0015) t)
 		(create-missile-projectile lvl dir pos 0 speed (rand-val-between 0.001 0.0015) t))))))
 
-(def-entity polar-star-projectile
-    (dir
-     lvl
-     sprite-rect
-     dead?)
-  (create-polar-star-projectile (nozzle-pos dir lvl)
-    (make-polar-star-projectile
-     :dir dir
-     :lvl lvl
-     :timers
-     (alist :life (create-expiring-timer (s->ms (elt '(1/8 1/4 1/2) lvl)) t))
-     :physics (alist :kin-2d
-		     (make-offset-motion
-		      (sub-v nozzle-pos (tile-dims/2))
-		      dir
-		      0.6
-		      0))
-     :sprite-rect (make-polar-star-projectile-sprite-rect lvl dir)))
+(defstruct (polar-star-projectile (:include entity-state))
+  dir
+  lvl
+  sprite-rect
+  dead?)
+(def-entity-constructor create-polar-star-projectile
+    (lambda (nozzle-pos dir lvl)
+      (make-polar-star-projectile :dir dir :lvl lvl
+				  :timers
+				  (alist :life
+					 (create-expiring-timer
+					  (s->ms
+					   (elt
+					    '(1/8 1/4 1/2)
+					    lvl))
+					  t))
+				  :physics
+				  (alist :kin-2d
+					 (make-offset-motion
+					  (sub-v
+					   nozzle-pos
+					   (tile-dims/2))
+					  dir 0.6 0))
+				  :sprite-rect
+				  (make-polar-star-projectile-sprite-rect
+				   lvl dir)))
   :timers :physics :drawable :bullet :stage-collision)
 
 (defmethod ai ((p polar-star-projectile) ticks)
@@ -178,9 +198,6 @@
 	  :sprite-rect (polar-star-projectile-sprite-rect p)
 	  :dead? t))
 	(t p)))
-
-(defmethod physics-pos ((p polar-star-projectile))
-  (motion-set-pos (polar-star-projectile-physics p)))
 
 (defmethod draw ((p polar-star-projectile))
   (polar-star-projectile-draw (physics-pos p)

@@ -1,7 +1,5 @@
 (in-package :cave-story)
 
-(defgeneric motion-physics (motion))
-(defgeneric motion-pos (motion))
 
 (defun accelerate (vel acc)
   "Linear Acceleration. Assuming constant acceleration calc a new (values DELTA-POS VEL)."
