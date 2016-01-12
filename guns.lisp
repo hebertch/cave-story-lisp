@@ -128,7 +128,7 @@
 	    y-offset)))
 
 (defun player-nozzle-pos (p)
-  (let* ((on-ground? (player-on-ground? (player-ground-tile p)))
+  (let* ((on-ground? (player-on-ground? p))
 	 (actual-v-facing (player-actual-v-facing (player-v-facing p) on-ground?)))
     (let ((k (cdr (assoc :stage (player-physics p)))))
       (+v (nozzle-offset (player-h-facing p)

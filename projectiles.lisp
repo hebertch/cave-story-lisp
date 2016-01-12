@@ -1,5 +1,41 @@
 (in-package :cave-story)
 
+(def-entity missile-projectile
+    (lvl
+     dir
+     sprite-rect
+     dead?)
+  (create-missile-projectile (lvl dir pos perp-offset-amt speed acc &optional oscillate?)
+			     (let ((perp-dir (if (vertical? dir) :left :up)))
+			       (make-missile-projectile
+				:lvl lvl
+				:dir dir
+				:timers
+				(alist :life (create-expiring-timer (s->ms 3/2) t))
+				:physics
+				(let (physics)
+				  (asetf physics
+					 (make-offset-motion
+					  (offset-in-dir-pos pos
+							     perp-offset-amt
+							     perp-dir)
+					  dir
+					  speed
+					  acc)
+					 :kin-2d)
+
+				  (when oscillate?
+				    (asetf physics
+					   (make-wave-motion
+					    :dir perp-dir
+					    :amp *missile-projectile-amplitude*
+					    :speed *missile-radial-speed*)
+					   :wave-motion))
+				  physics)
+
+				:sprite-rect (tile-rect (tile-v (position dir '(:left :up :right :down)) lvl)))))
+  :timers :physics :drawable :stage-collision :bullet)
+
 (defun projectile-collision? (rect dir stage)
   (loop for (tile-pos tile-type) in (stage-get-colliding-tiles stage rect)
      do
@@ -52,53 +88,23 @@
 (defun missile-projectile-pos (m)
   (motion-set-pos (missile-projectile-physics m)))
 
-(def-entity missile-projectile
-    (lvl
-     dir
-     sprite-rect
-     dead?)
-  (create-missile-projectile (lvl dir pos perp-offset-amt speed acc &optional oscillate?)
-			     (let ((perp-dir (if (vertical? dir) :left :up)))
-			       (make-missile-projectile
-				:lvl lvl
-				:dir dir
-				:timers
-				(alist :life (create-expiring-timer (s->ms 3/2) t))
-				:physics
-				(let (physics)
-				  (asetf physics
-					 (make-offset-motion
-					  (offset-in-dir-pos pos
-							     perp-offset-amt
-							     perp-dir)
-					  dir
-					  speed
-					  acc)
-					 :kin-2d)
 
-				  (when oscillate?
-				    (asetf physics
-					   (make-wave-motion
-					    :dir perp-dir
-					    :amp *missile-projectile-amplitude*
-					    :speed *missile-radial-speed*)
-					   :wave-motion))
-				  physics)
-
-				:sprite-rect (tile-rect (tile-v (position dir '(:left :up :right :down)) lvl)))))
-  :timers :physics :drawable :stage-collision :bullet)
-
-(missile-projectile-method draw (p)
-  (draw-sprite :projectile :bullet
-	       sprite-rect
+(defmethod draw ((p missile-projectile))
+  (draw-sprite :projectile
+	       :bullet
+	       (missile-projectile-sprite-rect p)
 	       (missile-projectile-pos p)))
 
-(missile-projectile-methodf stage-collision (p stage)
-  (let ((dir (missile-projectile-dir p)))
-    (setf dead? (missile-projectile-collisions
-		 (missile-projectile-collision-rect lvl dir (missile-projectile-pos p))
-		 dir
-		 stage))))
+(defmethod stage-collision ((p missile-projectile) stage)
+  (with-missile-projectile-copy-slots (p nil)
+    (let ((dir (missile-projectile-dir p)))
+      (setf dead?
+	    (missile-projectile-collisions
+	     (missile-projectile-collision-rect lvl dir
+						(missile-projectile-pos
+						 p))
+	     dir stage)))
+    p))
 
 (missile-projectile-method bullet-rect (p)
   (missile-projectile-collision-rect lvl dir (missile-projectile-pos p)))

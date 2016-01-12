@@ -1133,7 +1133,7 @@ This can be abused with the machine gun in TAS."
 				       (kin-2d-pos kin-2d))))
 	 (case side
 	   (:bottom
-	    (when (and (not (player-on-ground? p-ground-tile))
+	    (when (and (not (player-on-ground? player-state))
 		       (<= (y pos) (bottom player-rect) (+ (y origin))))
 	      (setf p-ground-tile :dynamic)
 	      (setf p-ground-inertia-entity id)
