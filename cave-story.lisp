@@ -90,27 +90,34 @@
 		(swank-tools:continuable
 		  (let ((transient-input (gather-transient-input)))
 		    (handle-debug-input transient-input)
-		    (modify-game (global-game)
-		      (fnf input (rcurry #'gather-input transient-input))))
+		    (setf global-game
+			  (make-game :player (game-player global-game)
+				     :camera (game-camera global-game)
+				     :stage (game-stage global-game)
+				     :projectile-groups (game-projectile-groups global-game)
+				     :damage-numbers (game-damage-numbers global-game)
+				     :active-systems (game-active-systems global-game)
+				     :input (gather-input (game-input global-game)
+							  transient-input)))))
+		
+		(when (>= frame-timer (* update-period frame-time))
+		  (if global-paused?
+		      (draw-text-line (zero-v) "PAUSED")
+		      (setf global-game (update-and-render renderer global-game)))
+		  (render renderer
+			  font
+			  *render-list*
+			  (camera-pos
+			   (estate (game-camera global-game))
+			   (stage-dims->camera-bounds (stage-dims (game-stage global-game)))))
+		  (decf frame-timer (* update-period frame-time)))
 
-		  (when (>= frame-timer (* update-period frame-time))
-		    (if global-paused?
-			(draw-text-line (zero-v) "PAUSED")
-			(fnf global-game (curry #'update-and-render renderer)))
-		    (render renderer
-			    font
-			    *render-list*
-			    (camera-pos
-			     (estate (game-camera global-game))
-			     (stage-dims->camera-bounds (stage-dims (game-stage global-game)))))
-		    (decf frame-timer (* update-period frame-time)))
-
-		  (let ((dt (- (sdl:get-ticks) last-update-time)))
-		    ;; NOTE: if we are paused beyond our control, Don't play catchup.
-		    (incf frame-timer (min dt (* 2 frame-time))))
-		  (setf last-update-time (sdl:get-ticks))
-		  (music-update)
-		  (sdl:delay 1))))
+		(let ((dt (- (sdl:get-ticks) last-update-time)))
+		  ;; NOTE: if we are paused beyond our control, Don't play catchup.
+		  (incf frame-timer (min dt (* 2 frame-time))))
+		(setf last-update-time (sdl:get-ticks))
+		(music-update)
+		(sdl:delay 1)))
       (cleanup))))
 
 (defun copy-hash-table (hash-table)
@@ -754,8 +761,14 @@ This can be abused with the machine gun in TAS."
 (defun update-and-render (renderer game)
   "The Main Loop, called once per FRAME-TIME."
   (when (eq *input-playback* :playback)
-    (modify-game (global-game)
-      (setf input (next-playback-input))))
+    (setf global-game
+	  (make-game :player (game-player global-game)
+		     :camera (game-camera global-game)
+		     :stage (game-stage global-game)
+		     :projectile-groups (game-projectile-groups global-game)
+		     :damage-numbers (game-damage-numbers global-game)
+		     :active-systems (game-active-systems global-game)
+		     :input (next-playback-input))))
   (handle-input global-game)
 
   (nilf *render-list* *screen-render-list*)
@@ -797,10 +810,18 @@ This can be abused with the machine gun in TAS."
 
   (play-sounds sfx-play-list)
   (nilf sfx-play-list)
-  (modify-game (game)
-    (when (eq *input-playback* :recording)
-      (record-frame-input input))
-    (fnf input #'reset-transient-input)))
+
+  (when (eq *input-playback* :recording)
+    (record-frame-input (game-input global-game)))
+
+  (setf global-game
+	(make-game :player (game-player global-game)
+		   :camera (game-camera global-game)
+		   :stage (game-stage global-game)
+		   :projectile-groups (game-projectile-groups global-game)
+		   :damage-numbers (game-damage-numbers global-game)
+		   :active-systems (game-active-systems global-game)
+		   :input (reset-transient-input (game-input global-game)))))
 
 (defparameter *input-playback* nil)
 
@@ -921,8 +942,8 @@ This can be abused with the machine gun in TAS."
 	   (camera (create-player-camera (v/2 window-dims) (zero-v) player)))
       (create-hud player gun-exps hud)
 
-      (create-critter (make-v (+ (tiles 14) (tiles 1/4)) (tiles 6)) player damage-numbers)
-      ;;(create-elephant (make-v (tiles 7) (tiles 6)) player camera damage-numbers)
+      ;;(create-critter (make-v (+ (tiles 14) (tiles 1/4)) (tiles 6)) player damage-numbers)
+      (create-elephant (make-v (tiles 7) (tiles 6)) player camera damage-numbers)
       (dolist (x '(1 3 6 7))
 	(create-bat x 7 player))
       (create-dorito (make-v (+ (tiles 14) (tiles 1/4)) (tiles 6)) (make-v 0 0) :medium)
@@ -1320,33 +1341,35 @@ This can be abused with the machine gun in TAS."
 (defmethod dynamic-collision-rect ((c critter))
   (rect-offset critter-dynamic-collision-rect (physics-pos c)))
 
-(defun dynamic-collision-enemy-react (pos origin id dynamic-collision-rect side player-collision-rect player-state)
-  (modify-player (player-state p-)
-    (aupdatef
-     p-physics
-     (lambda (kin-2d)
-       (let ((player-rect (rect-offset player-collision-rect
-				       (kin-2d-pos kin-2d))))
-	 (case side
-	   (:bottom
-	    (when (and (not (player-on-ground? player-state))
-		       (<= (y pos) (bottom player-rect) (+ (y origin))))
-	      (setf p-ground-tile :dynamic)
-	      (setf p-ground-inertia-entity id)
-	      (setf (kin-2d-vel kin-2d) (zero-v :x (x (kin-2d-vel kin-2d))))
+(defun dynamic-collision-enemy-react
+    (pos origin id dynamic-collision-rect side player-collision-rect player-state)
+  (aupdatef
+   (player-physics player-state)
+   (lambda (kin-2d)
+     (let ((player-rect (rect-offset player-collision-rect
+				     (kin-2d-pos kin-2d))))
+       (case side
+	 (:bottom
+	  (when (and (not (player-on-ground? player-state))
+		     (<= (y pos) (bottom player-rect) (+ (y origin))))
+	    (setf (player-ground-tile player-state) :dynamic)
+	    (setf (player-ground-inertia-entity player-state) id)
+	    (setf (kin-2d-vel kin-2d) (zero-v :x (x (kin-2d-vel kin-2d))))
 
-	      (setf (kin-2d-pos kin-2d)
-		    (-v
-		     (flush-rect-pos player-rect
-				     (y (rect-pos dynamic-collision-rect))
-				     :up)
-		     (rect-pos player-collision-rect)))))
-	   ((:left :right)
-	    (let ((disp (- (x (kin-2d-pos kin-2d)) (x pos))))
-	      (when (> (abs disp) (tiles 1/4))
-		(setf (x (kin-2d-vel kin-2d))
-		      (* (/ *terminal-speed* 70) disp)))))))
-       kin-2d) '(:stage))))
+	    (setf (kin-2d-pos kin-2d)
+		  (-v
+		   (flush-rect-pos player-rect
+				   (y (rect-pos dynamic-collision-rect))
+				   :up)
+		   (rect-pos player-collision-rect)))))
+	 ((:left :right)
+	  (let ((disp (- (x (kin-2d-pos kin-2d)) (x pos))))
+	    (when (> (abs disp) (tiles 1/4))
+	      (setf (x (kin-2d-vel kin-2d))
+		    (* (/ *terminal-speed* 70) disp)))))))
+     kin-2d)
+   '(:stage))
+  player-state)
 
 (defmethod dynamic-collision-react ((c critter) side player-collision-rect player)
   (dynamic-collision-enemy-react (physics-pos c) (origin c) (critter-id c)
