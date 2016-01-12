@@ -138,8 +138,8 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
       (draw-rect rect *magenta* :layer :debug-damage-collision :filled? t)
       (draw-rect player-rect *magenta* :layer :debug-damage-collision :filled? t))))
 
-(defstructure entity
-    state
+(defstruct entity
+  state
   subsystems
   system-type)
 
@@ -212,30 +212,34 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 
 (defmacro physics-method (struct-type)
   `(defmethod physics ((o ,struct-type))
-     (,(symbolicate 'modify- struct-type) (o)
-       (motion-set-updatef physics))))
+     (let ((cpy (copy-structure o)))
+       (motion-set-updatef (,(symbolicate struct-type '-physics) cpy))
+       cpy)))
 
 (defmacro physics-pos-method (struct-type)
   `(defmethod physics-pos ((o ,struct-type))
-     (,(symbolicate 'with- struct-type '-slots) (o)
-       (motion-set-pos physics))))
+     (motion-set-pos (,(symbolicate struct-type '-physics) o))))
 
 (defmacro timers-method (struct-type)
-  `(defmethod timers ((o ,struct-type))
-     (let (ticks)
-       (,(symbolicate 'modify- struct-type) (o)
-	 (mvsetq (timers ticks) (timer-set-update timers)))
-       (ai o ticks))))
+  (let ((timers (symbolicate struct-type '-timers)))
+    `(defmethod timers ((o ,struct-type))
+       (let ((cpy (copy-structure o))
+	     ticks
+	     timers)
+	 (mvsetq (timers ticks)
+		 (timer-set-update (,timers cpy)))
+	 (setf (,timers cpy) timers)
+	 (ai cpy ticks)))))
 
 (defmacro def-entity (name fields (constructor-name constructor-args &body constructor-body) &rest subsystems)
   (let ((physics? (find :physics subsystems))
 	(timers? (find :timers subsystems)))
     `(progn
-       (defstructure ,name
-	   ,@ (remove-if #'null
-			 (list* (if physics? 'physics nil)
-				(if timers? 'timers nil)
-				fields)))
+       (defstruct ,name
+	 ,@ (remove-if #'null
+		       (list* (if physics? 'physics nil)
+			      (if timers? 'timers nil)
+			      fields)))
        (defun ,constructor-name ,constructor-args
 	 (mvbind (state id) (progn ,@constructor-body)
 	   (create-entity
@@ -248,14 +252,4 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 		 (physics-method ,name)
 		 (physics-pos-method ,name)))
        ,(when timers?
-	      `(timers-method ,name))
-
-       (defmacro ,(symbolicate name '-methodf) (method-name (obj &rest args) &body body)
-	 `(defmethod ,method-name ((,obj ,',name) ,@args)
-	    (,',(symbolicate 'modify- name) (,obj)
-		,@body)))
-
-       (defmacro ,(symbolicate name '-method) (method-name (obj &rest args) &body body)
-	 `(defmethod ,method-name ((,obj ,',name) ,@args)
-	    (,',(symbolicate 'with- name '-slots) (,obj)
-		,@body))))))
+	      `(timers-method ,name)))))

@@ -16,8 +16,8 @@
 (defparameter update-period 1
   "Number of frames per update. 1 for real-time.")
 
-(defstructure game
-    player
+(defstruct game
+  player
   camera
   stage
   projectile-groups
@@ -944,7 +944,7 @@ This can be abused with the machine gun in TAS."
 	   (camera (create-player-camera (v/2 window-dims) (zero-v) player)))
       (create-hud player gun-exps hud)
 
-      ;;(create-critter (make-v (+ (tiles 14) (tiles 1/4)) (tiles 6)) player damage-numbers)
+      (create-critter (make-v (+ (tiles 14) (tiles 1/4)) (tiles 6)) player damage-numbers)
       (create-elephant (make-v (tiles 7) (tiles 6)) player camera damage-numbers)
       (dolist (x '(1 3 6 7))
 	(create-bat x 7 player))
