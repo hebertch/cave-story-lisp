@@ -6,7 +6,7 @@
   cleanup-fn
   load-fn)
 
-(defparameter resource-types nil)
+(defparameter *resource-types* nil)
 
 (defmacro def-resource-type (name (load-args &body load-forms) fnames-form destruct-fn)
   "Introduces Anaphora of FNAME into the load definition. This is to keep consistent args with
@@ -34,7 +34,7 @@ the get- function that is produced."
 		    ;; NOTE: FNAME Anaphora introduced here.
 		    (lambda (fname ,@load-args)
 		      ,@load-forms)))
-	     resource-types)
+	     *resource-types*)
        (defun ,(symbolicate 'get- name) (keysym ,@load-args)
 	 (let ((ss (gethash keysym ,hash-table)))
 	   (when ss
@@ -46,11 +46,11 @@ the get- function that is produced."
 		 ss)))))))
 
 (defun put-all-resources ()
-  (dolist (rt resource-types)
+  (dolist (rt *resource-types*)
     (funcall (resource-type-put-fn rt))))
 
 (defun cleanup-all-resources ()
-  (dolist (rt resource-types)
+  (dolist (rt *resource-types*)
     (funcall (resource-type-cleanup-fn rt))))
 
 ;;; SPRITES
