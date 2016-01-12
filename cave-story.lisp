@@ -351,11 +351,13 @@ This can be abused with the machine gun in TAS."
   :timers)
 
 (defun single-loop-sprite-draw (s pos)
-  (with-single-loop-sprite-slots (s)
-    (draw-sprite layer
-		 sheet-key
-		 (tile-rect (tile-v (cycle-current (timed-cycle-cycle (aval timers :cycle))) tile-y))
-		 pos)))
+  (draw-sprite (single-loop-sprite-layer s)
+	       (single-loop-sprite-sheet-key s)
+	       (tile-rect (tile-v (cycle-current
+				   (timed-cycle-cycle
+				    (aval (single-loop-sprite-timers s) :cycle)))
+				  (single-loop-sprite-tile-y s)))
+	       pos))
 
 (defmethod ai ((p single-loop-sprite) ticks)
   (cond ((and (find :cycle ticks)

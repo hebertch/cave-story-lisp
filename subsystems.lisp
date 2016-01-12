@@ -190,9 +190,9 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
   (set-parameters (estate entity-id)))
 
 (defun register-entity-subsystems (id entity)
-  (with-entity-slots (entity)
+  (let ((system-type (entity-system-type entity)))
     (register-parameter system-type id)
-    (dolist (s subsystems)
+    (dolist (s (entity-subsystems entity))
       (ecase s
 	((:ai :timers) (register-timers system-type id))
 	(:bullet (register-bullet system-type id))
