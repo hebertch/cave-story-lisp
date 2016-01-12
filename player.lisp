@@ -192,7 +192,7 @@
 			       #'active-systems-switch-to-dialog)
 
 	 (setf (player-health-amt p) 0)
-	 (let ((entity-system-type :dialog))
+	 (let ((*entity-system-type* :dialog))
 	   (comment-code
 	     (create-callback-timer
 	      (s->ms 1/2)

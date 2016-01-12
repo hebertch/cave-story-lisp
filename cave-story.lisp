@@ -823,7 +823,7 @@ This can be abused with the machine gun in TAS."
   (list (current-entity-states) (copy-game global-game)))
 
 (defun restore-state (state)
-  (dolist (s registry-syms)
+  (dolist (s *registry-syms*)
     (nilf (symbol-value s)))
   (restore-entity-states (first state))
   (setf global-game (second state)))
@@ -855,7 +855,7 @@ This can be abused with the machine gun in TAS."
   (switch-to-new-song :lastcave)
   (set-music-volume 20)
 
-  (dolist (s registry-syms)
+  (dolist (s *registry-syms*)
     (nilf (symbol-value s)))
   (init-entity-registry)
 

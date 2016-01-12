@@ -1,7 +1,7 @@
 (in-package :cave-story)
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (defvar registry-syms nil)
+  (defvar *registry-syms* nil)
 
   (defun interface-forms-name (interface)
     (symbolicate interface '-forms))
@@ -10,7 +10,7 @@
     `(list* 'lambda (list ,@ (cdr interface))
 	    ,(interface-forms-name (car interface)))))
 
-(defvar entity-system-type :game)
+(defvar *entity-system-type* :game)
 
 (defmacro def-subsystem (name update-args &body update-forms)
   "Creates a subsytem of NAME.
@@ -25,7 +25,7 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
       `(progn
 	 (defvar ,registry nil)
 	 (eval-when (:compile-toplevel :load-toplevel :execute)
-	   (pushnew ',registry registry-syms))
+	   (pushnew ',registry *registry-syms*))
 
 	 (defun ,register-name (system-type id)
 	   (push (cons system-type id) ,registry))
@@ -206,7 +206,7 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 	(:pickup (register-pickup system-type id))))))
 
 (defun create-entity (initial-state subsystems &key (id (gen-entity-id)))
-  (let ((entity (make-entity :system-type entity-system-type :state initial-state :subsystems subsystems)))
+  (let ((entity (make-entity :system-type *entity-system-type* :state initial-state :subsystems subsystems)))
     (register-entity-subsystems id entity)
     (register-entity id entity)))
 
