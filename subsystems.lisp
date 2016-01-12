@@ -244,14 +244,3 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 (defmacro def-entity-constructor (constructor-name constructor &rest subsystems)
   `(setf (symbol-function ',constructor-name)
 	 (entity-constructor ,constructor ',subsystems)))
-
-(defmacro def-entity
-    (name fields (constructor-name constructor-args &body constructor-body) &rest subsystems)
-  `(progn
-     (defstruct (,name (:include entity-state))
-       ,@ fields)
-     (def-entity-constructor
-	 ,constructor-name
-	 (lambda ,constructor-args
-	   ,@constructor-body)
-       ,@subsystems)))

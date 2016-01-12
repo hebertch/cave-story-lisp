@@ -18,43 +18,43 @@
   projectile-groups
   acc-dir)
 
-(def-entity-constructor create-default-player
-    (lambda
-	(hud projectile-groups damage-numbers gun-exps
-	 active-systems)
-      (let ((id (gen-entity-id)))
-	(values
-	 (make-player :h-facing :left :gun-name-cycle
-		      (create-cycle *gun-names*)
-		      :health-amt 3 :max-health-amt 3
-		      :damage-numbers damage-numbers
-		      :gun-exps gun-exps
-		      :projectile-groups projectile-groups
-		      :active-systems active-systems :hud
-		      hud :id id :timers
-		      (alist :walk-cycle
-			     (create-timed-cycle 12
-						 #(0 1 0
-						   2)
-						 t)
-			     :invincible
-			     (create-expiring-timer
-			      (s->ms 3)))
-		      :physics
-		      (list
-		       (cons :stage
-			     (make-kin-2d :pos
-					  (scale-v
-					   window-dims
-					   1/2)
-					  :vel (zero-v)
-					  :clamper-vx
-					  (clamper+-
-					   *player-max-speed-x*)
-					  :clamper-vy
-					  (clamper+-
-					   *terminal-speed*)))))
-	 id)))
+(defun make-default-player (hud projectile-groups damage-numbers gun-exps
+			    active-systems)
+  (let ((id (gen-entity-id)))
+    (values
+     (make-player :h-facing :left :gun-name-cycle
+		  (create-cycle *gun-names*)
+		  :health-amt 3 :max-health-amt 3
+		  :damage-numbers damage-numbers
+		  :gun-exps gun-exps
+		  :projectile-groups projectile-groups
+		  :active-systems active-systems :hud
+		  hud :id id :timers
+		  (alist :walk-cycle
+			 (create-timed-cycle 12
+					     #(0 1 0
+					       2)
+					     t)
+			 :invincible
+			 (create-expiring-timer
+			  (s->ms 3)))
+		  :physics
+		  (list
+		   (cons :stage
+			 (make-kin-2d :pos
+				      (scale-v
+				       window-dims
+				       1/2)
+				      :vel (zero-v)
+				      :clamper-vx
+				      (clamper+-
+				       *player-max-speed-x*)
+				      :clamper-vy
+				      (clamper+-
+				       *terminal-speed*)))))
+     id)))
+
+(def-entity-constructor create-default-player #'make-default-player
   :timers :input :physics :stage-collision :drawable)
 
 (defparameter *player-walk-acc* 0.00083007812)
