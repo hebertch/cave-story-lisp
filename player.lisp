@@ -131,7 +131,7 @@
 
 (defun apply-player-physics (p)
   (aupdate (player-physics p)
-	   (lambda (kin-2d) (player-apply-physics p kin-2d))
+	   (lambda (kin-2d) (player-kin-2d-physics p kin-2d))
 	   '(:stage)))
 
 (defmethod ai ((p player) ticks)

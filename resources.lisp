@@ -8,6 +8,49 @@
 
 (defparameter *resource-types* nil)
 
+(defparameter *sfx-fnames*
+  '(:step "Step"
+    :jump "Jump"
+    :hurt "Hurt"
+    :enemy-explode "EnemyExplode"
+    :head-bump "HeadBump"
+    :land "Land"
+    :dissipate "Dissipate"
+    :hit-wall "HitWall"
+    :polar-star-shoot-3 "PolarStarShoot3"
+    :dorito-bounce "DoritoBounce"
+    :pickup "Pickup"
+    :enemy-hurt "EnemyHurt"
+    :player-die "PlayerDie"
+    :text-click "TextClick"
+    :big-footstep "BigFootstep"))
+
+(defparameter *song-names*
+  '(:ACCESS "access" :ANZEN "anzen" :BALCONY "balcony" :BALLOS "ballos" :BDOWN
+    "bdown" :BREAKDOWN "breakdown" :CEMETERY "cemetery" :CREDITS "credits" :CURLY
+    "curly" :DR "dr" :ENDING "ending" :ESCAPE "escape" :FANFALE1 "fanfale1"
+    :FANFALE2 "fanfale2" :FANFALE3 "fanfale3" :FIREEYE "fireeye" :GAMEOVER
+    "gameover" :GINSUKE "ginsuke" :GRAND "grand" :GRAVITY "gravity" :HELL "hell"
+    :IRONH "ironh" :JENKA2 "jenka2" :JENKA "jenka" :KAZE "kaze" :KODOU "kodou"
+    :LASTBT3 "lastbt3" :LASTCAVE2 "lastcave2" :LASTCAVE "lastcave" :MARINE
+    "marine" :MAZE "maze" :MDOWN2 "mdown2" :MURA "mura" :OSIDE "oside" :PLANT
+    "plant" :QUIET "quiet" :REQUIEM "requiem" :SILENCE "silence" :TOROKO "toroko"
+    :VIVI "vivi" :WANPAK2 "wanpak2" :WANPAKU_ENDING "wanpaku_ending" :WANPAKU
+    "wanpaku" :WEED "weed" :WHITE "white" :ZONBIE "zonbie"))
+
+(defparameter *spritesheet-fnames*
+  '(:my-char "MyChar"
+    :npc-sym "NpcSym"
+    :prt-cave "PrtCave"
+    :arms "Arms"
+    :bullet "Bullet"
+    :npc-cemet "NpcCemet"
+    :caret "Caret"
+    :text-box "TextBox"
+    :bk-blue "bkBlue"
+    :npc-regu "NpcRegu"
+    :npc-eggs1 "NpcEggs1"))
+
 (defmacro def-resource-type (name (load-args &body load-forms) fnames-form destruct-fn)
   "Introduces Anaphora of FNAME into the load definition. This is to keep consistent args with
 the get- function that is produced."
@@ -71,7 +114,7 @@ the get- function that is produced."
 (def-resource-type spritesheet
     ((renderer)
      (load-spritesheet renderer (bmp-path fname)))
-  spritesheet-fnames
+  *spritesheet-fnames*
   #'sdl:destroy-texture)
 
 ;;; MUSIC
@@ -122,7 +165,7 @@ the get- function that is produced."
 (def-resource-type song
     (()
      (load-song fname))
-  song-names
+  *song-names*
   #'destroy-song)
 
 ;;; SOUNDS
@@ -144,55 +187,12 @@ the get- function that is produced."
 (def-resource-type sound
     (()
      (sdl.mixer:load-wav (wav-path fname)))
-  sfx-fnames
+  *sfx-fnames*
   #'sdl.mixer:free-chunk)
 
-(defparameter sfx-fnames
-  '(:step "Step"
-    :jump "Jump"
-    :hurt "Hurt"
-    :enemy-explode "EnemyExplode"
-    :head-bump "HeadBump"
-    :land "Land"
-    :dissipate "Dissipate"
-    :hit-wall "HitWall"
-    :polar-star-shoot-3 "PolarStarShoot3"
-    :dorito-bounce "DoritoBounce"
-    :pickup "Pickup"
-    :enemy-hurt "EnemyHurt"
-    :player-die "PlayerDie"
-    :text-click "TextClick"
-    :big-footstep "BigFootstep"))
-
+;; TODO: Generate meaningful names or just live with these?
 (defun generate-song-fnames ()
   (loop for f in (directory "/home/chebert/Projects/lisp/cave-story/content/remastered-music/*_intro.ogg")
      appending (let* ((str (file-namestring f))
 		      (name (subseq str 0 (- (length str) (length "_intro.ogg")))))
 		 (list (alexandria:make-keyword (format nil "~:@(~A~)" name)) name))))
-
-(defparameter song-names
-  '(:ACCESS "access" :ANZEN "anzen" :BALCONY "balcony" :BALLOS "ballos" :BDOWN
-    "bdown" :BREAKDOWN "breakdown" :CEMETERY "cemetery" :CREDITS "credits" :CURLY
-    "curly" :DR "dr" :ENDING "ending" :ESCAPE "escape" :FANFALE1 "fanfale1"
-    :FANFALE2 "fanfale2" :FANFALE3 "fanfale3" :FIREEYE "fireeye" :GAMEOVER
-    "gameover" :GINSUKE "ginsuke" :GRAND "grand" :GRAVITY "gravity" :HELL "hell"
-    :IRONH "ironh" :JENKA2 "jenka2" :JENKA "jenka" :KAZE "kaze" :KODOU "kodou"
-    :LASTBT3 "lastbt3" :LASTCAVE2 "lastcave2" :LASTCAVE "lastcave" :MARINE
-    "marine" :MAZE "maze" :MDOWN2 "mdown2" :MURA "mura" :OSIDE "oside" :PLANT
-    "plant" :QUIET "quiet" :REQUIEM "requiem" :SILENCE "silence" :TOROKO "toroko"
-    :VIVI "vivi" :WANPAK2 "wanpak2" :WANPAKU_ENDING "wanpaku_ending" :WANPAKU
-    "wanpaku" :WEED "weed" :WHITE "white" :ZONBIE "zonbie"))
-
-;; TODO: Generate meaningful names or just live with these?
-(defparameter spritesheet-fnames
-  '(:my-char "MyChar"
-    :npc-sym "NpcSym"
-    :prt-cave "PrtCave"
-    :arms "Arms"
-    :bullet "Bullet"
-    :npc-cemet "NpcCemet"
-    :caret "Caret"
-    :text-box "TextBox"
-    :bk-blue "bkBlue"
-    :npc-regu "NpcRegu"
-    :npc-eggs1 "NpcEggs1"))
