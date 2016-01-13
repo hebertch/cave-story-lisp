@@ -77,11 +77,11 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 	    (cdr (assoc side *player-collision-rectangles-alist*)))
 	   (player-rect
 	    (rect-offset player-collision-rect (physics-pos (player-state player)))))
-      (draw-rect rect *blue* :layer :debug-dynamic-collision)
-      (draw-rect player-rect *green* :layer :debug-dynamic-collision)
+      (draw-rect! rect *blue* :layer :debug-dynamic-collision)
+      (draw-rect! player-rect *green* :layer :debug-dynamic-collision)
       (when (rects-collide? rect player-rect)
-	(draw-rect player-rect *green* :layer :debug-dynamic-collision :filled? t)
-	(draw-rect rect *yellow* :layer :debug-dynamic-collision :filled? t)
+	(draw-rect! player-rect *green* :layer :debug-dynamic-collision :filled? t)
+	(draw-rect! rect *yellow* :layer :debug-dynamic-collision :filled? t)
 	(estate-set player (dynamic-collision-react state
 						    side
 						    player-collision-rect
@@ -100,11 +100,11 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
     (let ((bullet-rect (bullet-rect (estate bullet-id)))
 	  (bullet-hit-amt (bullet-damage-amt (estate bullet-id)))
 	  (rect (damageable-rect (estate entity-id))))
-      (draw-rect bullet-rect *green* :layer :debug-damageable)
-      (draw-rect rect *blue* :layer :debug-damageable)
+      (draw-rect! bullet-rect *green* :layer :debug-damageable)
+      (draw-rect! rect *blue* :layer :debug-damageable)
       (when (rects-collide? rect bullet-rect)
-	(draw-rect bullet-rect *yellow* :layer :debug-damageable :filled? t)
-	(draw-rect rect *yellow* :layer :debug-damageable :filled? t)
+	(draw-rect! bullet-rect *yellow* :layer :debug-damageable :filled? t)
+	(draw-rect! rect *yellow* :layer :debug-damageable :filled? t)
 	(replace-entity-state entity-id (rcurry #'damageable-hit-react bullet-hit-amt))
 	(replace-entity-state bullet-id #'bullet-hit-react)))))
 
@@ -118,11 +118,11 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 (def-subsystem pickup (player)
   (let ((rect (pickup-rect (estate entity-id)))
 	(player-rect  (player-damage-collision-rect (player-state player))))
-    (draw-rect rect *green* :layer :debug-pickup)
-    (draw-rect player-rect *blue* :layer :debug-pickup)
+    (draw-rect! rect *green* :layer :debug-pickup)
+    (draw-rect! player-rect *blue* :layer :debug-pickup)
     (when (rects-collide? rect player-rect)
-      (draw-rect rect *yellow* :layer :debug-pickup :filled? t)
-      (draw-rect player-rect *yellow* :layer :debug-pickup :filled? t)
+      (draw-rect! rect *yellow* :layer :debug-pickup :filled? t)
+      (draw-rect! player-rect *yellow* :layer :debug-pickup :filled? t)
       (player-pickup (estate player) (pickup-data (estate entity-id)))
       (replace-entity-state entity-id #'pickup-kill))))
 
@@ -132,12 +132,12 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 (def-subsystem damage-collision (player)
   (let ((rect (damage-collision-rect (estate entity-id)))
 	(player-rect (player-damage-collision-rect (player-state player))))
-    (draw-rect rect *red* :layer :debug-damage-collision)
-    (draw-rect player-rect *blue* :layer :debug-damage-collision)
+    (draw-rect! rect *red* :layer :debug-damage-collision)
+    (draw-rect! player-rect *blue* :layer :debug-damage-collision)
     (when (rects-collide? rect player-rect)
       (replace-entity-state player (lambda (p) (player-take-damage p (damage-collision-amt (estate entity-id)))))
-      (draw-rect rect *magenta* :layer :debug-damage-collision :filled? t)
-      (draw-rect player-rect *magenta* :layer :debug-damage-collision :filled? t))))
+      (draw-rect! rect *magenta* :layer :debug-damage-collision :filled? t)
+      (draw-rect! player-rect *magenta* :layer :debug-damage-collision :filled? t))))
 
 (defstruct entity
   state

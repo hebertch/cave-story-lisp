@@ -113,7 +113,7 @@
     nozzle-offsets))
 
 (defun player-draw-gun (pos gun-name h-facing actual-v-facing walking? walk-idx)
-  (draw-sprite :gun :arms
+  (draw-sprite! :gun :arms
 	       (gun-sprite-rect gun-name h-facing actual-v-facing)
 	       (gun-pos pos h-facing actual-v-facing walking? walk-idx)))
 

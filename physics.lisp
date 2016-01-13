@@ -23,12 +23,6 @@ new (values DELTA-POS VEL)."
        (make-v px py)
        (make-v vx vy)))))
 
-(defmacro physics-2d (pos-form vel-form &rest accelerate-2d-args)
-  (with-gensyms (dpos vel)
-    `(mvbind (,dpos ,vel) (accelerate-2d ,vel-form ,@accelerate-2d-args)
-       (+vf ,pos-form ,dpos)
-       (setf ,vel-form ,vel))))
-
 (defun friction-accelerate (vel friction-acc)
   "Apply friction. Clamps to zero."
   (let ((moving-left? (minusp vel))
@@ -88,8 +82,6 @@ new (values DELTA-POS VEL)."
 
 (defun motion-set-update (physics)
   (aupdate physics #'motion-physics))
-(defmacro motion-set-updatef (physics)
-  `(fnf ,physics #'motion-set-update))
 
 (defun motion-set-pos (physics)
   (let ((pos (zero-v)))
@@ -122,7 +114,6 @@ new (values DELTA-POS VEL)."
 
   inertia-vel)
 
-
 (defmethod motion-physics ((m kin-2d))
   (mvbind (dpos nvel)
       (accelerate-2d (kin-2d-vel m)
@@ -147,12 +138,14 @@ new (values DELTA-POS VEL)."
   target-vel)
 
 (defun target-kin-2d-update-target (m targ targ-vel)
-  (setf (target-kin-2d-target m) targ
-	(target-kin-2d-target-vel m) targ-vel)
-  m)
+  (let ((m (copy-structure m)))
+    (setf (target-kin-2d-target m) targ
+	  (target-kin-2d-target-vel m) targ-vel)
+    m))
 
 (defmethod motion-physics ((m target-kin-2d))
-  (let* ((disp (sub-v (target-kin-2d-target m)
+  (let* ((m (copy-structure m))
+	 (disp (sub-v (target-kin-2d-target m)
 		      (target-kin-2d-pos m)))
 	 (disp-speeds (abs-v (scale-v disp (/ *camera-speed-scale-factor*
 					      *frame-time*))))
@@ -180,13 +173,14 @@ new (values DELTA-POS VEL)."
     (when (< (abs (y disp)) 1)
       (allf 0 (y disp) (y (target-kin-2d-vel m))))
 
-    (physics-2d
-     (target-kin-2d-pos m) (target-kin-2d-vel m)
-     (const-accelerator (* (signum (x disp)) *camera-acc*))
-     (const-accelerator (* (signum (y disp)) *camera-acc*))
-     :clamper-vx clamper-x
-     :clamper-vy clamper-y))
-  m)
+    (mvbind (pos vel)
+	(accelerate-2d (target-kin-2d-vel m)
+		       (const-accelerator (* (signum (x disp)) *camera-acc*))
+		       (const-accelerator (* (signum (y disp)) *camera-acc*))
+		       :clamper-vx clamper-x :clamper-vy clamper-y)
+      (+vf (target-kin-2d-pos m) pos)
+      (setf (target-kin-2d-vel m) vel))
+    m))
 
 (defmethod motion-pos ((m target-kin-2d))
   (target-kin-2d-pos m))

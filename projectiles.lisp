@@ -45,7 +45,8 @@
 					   :down))
 			       lvl)))))
 
-(def-entity-constructor create-missile-projectile #'make-default-missile-projectile
+(def-entity-constructor create-missile-projectile
+    #'make-default-missile-projectile
   :timers :physics :drawable :stage-collision :bullet)
 
 (defun projectile-collision? (rect dir stage)
@@ -94,14 +95,14 @@
 
 (defun missile-projectile-collisions (rect dir stage)
   (let ((dead? (projectile-collision? rect dir stage)))
-    (draw-rect rect *yellow*)
+    (draw-rect! rect *yellow*)
     dead?))
 
 (defun missile-projectile-pos (m)
   (motion-set-pos (missile-projectile-physics m)))
 
 (defmethod draw ((p missile-projectile))
-  (draw-sprite :projectile
+  (draw-sprite! :projectile
 	       :bullet
 	       (missile-projectile-sprite-rect p)
 	       (missile-projectile-pos p)))
@@ -150,9 +151,15 @@
     (if (< lvl 2)
 	(list (create-missile-projectile lvl dir pos 0 0.05 0.001))
 	(let ((speed 0.0005))
-	  (list (create-missile-projectile lvl dir pos 12 speed (rand-val-between 0.0005 0.001) t)
-		(create-missile-projectile lvl dir pos 8 speed (rand-val-between 0.001 0.0015) t)
-		(create-missile-projectile lvl dir pos 0 speed (rand-val-between 0.001 0.0015) t))))))
+	  (list (create-missile-projectile lvl dir pos 12 speed
+					   (rand-val-between 0.0005 0.001)
+					   t)
+		(create-missile-projectile lvl dir pos 8 speed
+					   (rand-val-between 0.001 0.0015)
+					   t)
+		(create-missile-projectile lvl dir pos 0 speed
+					   (rand-val-between 0.001 0.0015)
+					   t))))))
 
 (defstruct (polar-star-projectile (:include entity-state))
   dir
@@ -181,7 +188,8 @@
 			      (make-polar-star-projectile-sprite-rect
 			       lvl dir)))
 
-(def-entity-constructor create-polar-star-projectile #'make-default-polar-star-projectile
+(def-entity-constructor create-polar-star-projectile
+    #'make-default-polar-star-projectile
   :timers :physics :drawable :bullet :stage-collision)
 
 (defmethod ai ((p polar-star-projectile) ticks)
@@ -256,7 +264,7 @@
       (tile-rect (tile-pos tp)))))
 
 (defun polar-star-projectile-draw (pos sprite-rect)
-  (draw-sprite :projectile :bullet
+  (draw-sprite! :projectile :bullet
 	       sprite-rect
 	       pos)
   (values))
@@ -275,7 +283,7 @@
 		 size)))
 
 (defun polar-star-projectile-collisions (rect dir pos stage)
-  (draw-rect rect *yellow*)
+  (draw-rect! rect *yellow*)
   (let ((dead?))
     (when (projectile-collision? rect dir stage)
       (push-sound :hit-wall)

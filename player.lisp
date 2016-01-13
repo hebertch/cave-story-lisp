@@ -97,7 +97,7 @@
   (estate p))
 
 (defun player-kin-2d-physics (p kin-2d)
-  (draw-line (kin-2d-pos kin-2d)
+  (draw-line! (kin-2d-pos kin-2d)
 	     (+v (kin-2d-pos kin-2d)
 		 (*v (kin-2d-vel kin-2d) *debug-velocity-scale*))
 	     *magenta*)
@@ -417,7 +417,7 @@
       (let* ((actual-v-facing (player-actual-v-facing p))
 	     (walking? (player-walking? p))
 	     (walk-idx (player-walk-idx p)))
-	(draw-sprite :player :my-char
+	(draw-sprite! :player :my-char
 		     (player-sprite-rect (player-h-facing p)
 					 actual-v-facing
 					 (player-interacting? p)

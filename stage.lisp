@@ -71,7 +71,7 @@ Returns the TILE-TYPE of the colliding tile."
 
   (loop for (tile-pos tile-type) in (stage-get-colliding-tiles stage rect)
      do
-       (draw-tile-rect (tile-pos tile-pos) *cyan* :layer :debug-stage-collision)
+       (draw-tile-rect! (tile-pos tile-pos) *cyan* :layer :debug-stage-collision)
 
        (case tile-type
 	 (:wall
@@ -88,7 +88,7 @@ Returns the TILE-TYPE of the colliding tile."
 
 	      ;; Only test if our center is inside the tile.
 	      (when (rect-center-in-tile? rect tile-pos offset-dir)
-		(draw-slope tile-pos tile-type)
+		(draw-slope! tile-pos tile-type)
 		(let* ((x (x (center rect)))
 		       (y (tile-slope-pos-y tile-pos tile-type x))
 		       ;; Sticky collisions only apply when going down.
@@ -114,7 +114,7 @@ Returns the TILE-TYPE of the colliding tile."
 	  (setf position (sub-v new-pos (rect-pos collision-rect)))
 	  (when fn
 	    (funcall fn tile-type)))
-	(draw-rect (rect-offset collision-rect position) *blue* :layer :debug-stage-collision))))
+	(draw-rect! (rect-offset collision-rect position) *blue* :layer :debug-stage-collision))))
   position)
 
 (defmacro stage-collisionsf (physics &rest stage-collision-args)
@@ -140,6 +140,6 @@ Returns the TILE-TYPE of the colliding tile."
   (dotimes (row (array-dimension stage 0))
     (dotimes (col (array-dimension stage 1))
       (when (aref stage row col)
-	(draw-sprite :foreground :prt-cave
+	(draw-sprite! :foreground :prt-cave
 		     (tile-rect (tile-pos (cdr (aref stage row col))))
 		     (tile-v col row))))))
