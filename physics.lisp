@@ -5,10 +5,10 @@
   "Linear Acceleration. Assuming constant acceleration calc a new (values DELTA-POS VEL)."
   (values
    ;; dp = v0t + 1/2 at^2
-   (+ (* vel frame-time) (* 1/2 acc frame-time frame-time))
+   (+ (* vel *frame-time*) (* 1/2 acc *frame-time* *frame-time*))
 
    ;; v = v0 + at
-   (+ vel (* acc frame-time))))
+   (+ vel (* acc *frame-time*))))
 
 (defun accelerate-2d (vel accelerator-x accelerator-y &key clamper-vx clamper-vy)
   "Vector Acceleration. Assuming constant acceleration calc a new (values DELTA-POS VEL)."
@@ -98,7 +98,7 @@
 
 (defun wave-physics (w)
   (let ((w (copy-structure w)))
-    (incf (wave-motion-rads w) (* frame-time (wave-motion-speed w)))
+    (incf (wave-motion-rads w) (* *frame-time* (wave-motion-speed w)))
     w))
 
 (defun wave-offset (w)
@@ -154,7 +154,7 @@
   (let* ((disp (sub-v (target-kin-2d-target m)
 		      (target-kin-2d-pos m)))
 	 (disp-speeds (abs-v (scale-v disp (/ *camera-speed-scale-factor*
-					      frame-time))))
+					      *frame-time*))))
 	 (target-speeds (abs-v (target-kin-2d-target-vel m)))
 
 	 ;; Camera velocity clamped by speed proportional to distance,

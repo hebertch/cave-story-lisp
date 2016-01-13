@@ -75,8 +75,8 @@
   (target-kin-2d-pos (aval (camera-physics c) :target)))
 
 (defun stage-dims->camera-bounds (stage-dims)
-  (create-rect (scale-v window-dims 1/2)
-	       (sub-v stage-dims window-dims)))
+  (create-rect (scale-v *window-dims* 1/2)
+	       (sub-v stage-dims *window-dims*)))
 
 (defun camera-pos (camera camera-bounds)
   (let ((pos (clamp-pos (camera-focus camera) camera-bounds)))
@@ -84,4 +84,4 @@
       (+vf pos (wave-offset it)))
     (awhen (aval (camera-physics camera) :shake-v)
       (+vf pos (wave-offset it)))
-    (+vf pos (scale-v window-dims -1/2))))
+    (+vf pos (scale-v *window-dims* -1/2))))

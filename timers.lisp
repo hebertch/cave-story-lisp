@@ -23,7 +23,7 @@
 (defmethod update-timer ((tr timer))
   (cond ((timer-active? tr)
 	 (let* ((tr2 (make-timer :length (timer-length tr)
-				 :ms-remaining (- (timer-ms-remaining tr) frame-time)
+				 :ms-remaining (- (timer-ms-remaining tr) *frame-time*)
 				 :looping? (timer-looping? tr)))
 		(ticked? (not (timer-active? tr2))))
 	   (values

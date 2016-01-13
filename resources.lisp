@@ -119,7 +119,7 @@ the get- function that is produced."
 
 ;;; MUSIC
 (defstruct song intro loop name)
-(defvar current-song)
+(defvar *current-song*)
 
 (defun load-song (name)
   (make-song
@@ -133,18 +133,18 @@ the get- function that is produced."
 
 (defun music-update ()
   "Call as often as possible."
-  (when (and current-song (= 0 (sdl.mixer:playing-music)))
+  (when (and *current-song* (= 0 (sdl.mixer:playing-music)))
     ;; When the song intro has finished, switch to the loop portion.
-    (sdl.mixer:play-music (song-loop current-song) -1)))
+    (sdl.mixer:play-music (song-loop *current-song*) -1)))
 
 (defun stop-music ()
   (sdl.mixer:halt-music)
-  (nilf current-song))
+  (nilf *current-song*))
 
 (defun switch-to-new-song (song-key)
   (sdl.mixer:halt-music)
-  (setf current-song (get-song song-key))
-  (sdl.mixer:play-music (song-intro current-song) 0))
+  (setf *current-song* (get-song song-key))
+  (sdl.mixer:play-music (song-intro *current-song*) 0))
 
 (defun percent->volume (fixnum-percent)
   (floor (* 128 fixnum-percent) 100))
@@ -179,10 +179,10 @@ the get- function that is produced."
   (dolist (s sfx-play-list)
     (sdl.mixer:play-channel -1 (get-sound s) 0)))
 
-(defparameter sfx-play-list nil)
+(defvar *sfx-play-list* nil)
 
 (defun push-sound (key-sym)
-  (push key-sym sfx-play-list))
+  (push key-sym *sfx-play-list*))
 
 (def-resource-type sound
     (()

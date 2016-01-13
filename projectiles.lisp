@@ -75,8 +75,8 @@
 	       (x (tile-slope-pos-x tile-pos tile-type y))
 	       (pos (tile-pos->pos tile-pos)))
 	  (when (and
-		 (<= (x pos) x (+ (x pos) tile-size))
-		 (<= (y pos) y (+ (y pos) tile-size))
+		 (<= (x pos) x (+ (x pos) *tile-size*))
+		 (<= (y pos) y (+ (y pos) *tile-size*))
 		 (rect-slope-collision? rect x y (opposite-dir dir)))
 	    t)))))
 
@@ -84,8 +84,8 @@
 (defun missile-projectile-collision-rect (lvl dir pos)
   (let ((short-sides '(10 10 10)))
     (let* ((short-side (elt short-sides lvl))
-	   (w (if (vertical? dir) short-side tile-size))
-	   (h (if (vertical? dir) tile-size  short-side))
+	   (w (if (vertical? dir) short-side *tile-size*))
+	   (h (if (vertical? dir) *tile-size*  short-side))
 	   (size (make-v w h)))
       (create-rect (+v (tile-dims/2)
 		       (-v pos
@@ -266,8 +266,8 @@
 		       (0 4)
 		       (1 8)
 		       (2 16)))
-	 (w (if (vertical? dir) short-side tile-size))
-	 (h (if (vertical? dir) tile-size  short-side))
+	 (w (if (vertical? dir) short-side *tile-size*))
+	 (h (if (vertical? dir) *tile-size*  short-side))
 	 (size (make-v w h)))
     (create-rect (+v (tile-dims/2)
 		     (-v pos

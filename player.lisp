@@ -43,7 +43,7 @@
 		   (cons :stage
 			 (make-kin-2d :pos
 				      (scale-v
-				       window-dims
+				       *window-dims*
 				       1/2)
 				      :vel (zero-v)
 				      :clamper-vx
@@ -99,7 +99,7 @@
 (defun player-kin-2d-physics (p kin-2d)
   (draw-line (kin-2d-pos kin-2d)
 	     (+v (kin-2d-pos kin-2d)
-		 (*v (kin-2d-vel kin-2d) debug-velocity-scale))
+		 (*v (kin-2d-vel kin-2d) *debug-velocity-scale*))
 	     *magenta*)
 
   (make-kin-2d :pos (kin-2d-pos kin-2d)

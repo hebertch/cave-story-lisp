@@ -11,9 +11,9 @@
   size)
 
 (defun tiles (tl)
-  (* tl tile-size))
+  (* tl *tile-size*))
 (defun tiles/2 (tl)
-  (* tl (/ tile-size 2)))
+  (* tl (/ *tile-size* 2)))
 
 ;; Vector
 (defun zero-v (&key (x 0) (y 0))
@@ -58,21 +58,21 @@
   (tile-pos (make-v x y)))
 
 (defun tile-dims ()
-  (both-v tile-size))
+  (both-v *tile-size*))
 (defun tile-dims/2 ()
   (v/2 (tile-dims)))
 
 
 (defun tile-pos (tp)
-  (scale-v tp tile-size))
+  (scale-v tp *tile-size*))
 (defun tile-pos/2 (tp)
-  (scale-v tp (/ tile-size 2)))
+  (scale-v tp (/ *tile-size* 2)))
 
 (defun tile-pos->pos (tp)
   (tile-pos tp))
 (defun pos->tile-pos (p)
-  (make-v (floor (x p) tile-size)
-	  (floor (y p) tile-size)))
+  (make-v (floor (x p) *tile-size*)
+	  (floor (y p) *tile-size*)))
 
 (defun dist (va vb)
   (let ((disp (-v va vb)))
@@ -101,7 +101,7 @@
 	 (scale-v (rect-size rect) 1/2)))
 
 (defun tile-rect (pos)
-  "Creates a tile-size square at pos."
+  "Creates a *tile-size* square at pos."
   (make-rect :pos pos :size (tile-dims)))
 
 (defun rect-offset (rect offset-pos)
