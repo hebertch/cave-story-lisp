@@ -167,12 +167,12 @@
   (<= (player-health-amt p) 0))
 
 (defun player-fire-gun (p)
-  (let ((gun-name (player-current-gun-name (player-gun-name-cycle p))))
+  (let ((gun-name (player-current-gun-name p)))
     (let ((num-projectile-groups
 	   (projectile-groups-count (estate (player-projectile-groups p))
 				    gun-name))
 	  (nozzle-pos (player-nozzle-pos p))
-	  (dir (aif (player-actual-v-facing (player-v-facing p) (player-on-ground? p))
+	  (dir (aif (player-actual-v-facing p)
 		    it
 		    (player-h-facing p)))
 	  (lvl (gun-level (gun-exp-for (estate (player-gun-exps p)) gun-name)
@@ -212,7 +212,7 @@
 	  (lambda (g)
 	    (incr-gun-exp
 	     g
-	     (player-current-gun-name (player-gun-name-cycle p))
+	     (player-current-gun-name p)
 	     (- (* 2 dmg-amt)))))
 	 (update-damage-number-amt (player-damage-numbers p) (player-id p) dmg-amt)
 	 (aupdatef
@@ -232,7 +232,7 @@
   (replace-entity-state
    (player-gun-exps p)
    (lambda (g)
-     (incr-gun-exp g (player-current-gun-name (player-gun-name-cycle p)) amt)))
+     (incr-gun-exp g (player-current-gun-name p) amt)))
   (replace-entity-state (player-hud p) #'hud-exp-changed)
   (values))
 
@@ -254,17 +254,19 @@
 (defun player-on-ground? (p)
   (player-ground-tile p))
 
-(defun player-actual-v-facing (v-facing on-ground?)
+(defun player-actual-v-facing (p)
   "The player cannot actually face down when on the ground."
-  (if (and on-ground? (eq v-facing :down))
-      nil
-      v-facing))
+  (let ((v-facing (player-v-facing p))
+	(on-ground? (player-on-ground? p)))
+    (if (and on-ground? (eq v-facing :down))
+	nil
+	v-facing)))
 
 (defun player-walk-idx (player)
   (timed-cycle-current (aval (player-timers player) :walk-cycle)))
 
-(defun player-walking? (acc-dir on-ground?)
-  (and acc-dir on-ground?))
+(defun player-walking? (p)
+  (and (player-acc-dir p) (player-on-ground? p)))
 
 (defun player-sprite-rect (h-facing actual-v-facing interacting? walking? walk-idx vel-y)
   "The sprite-rect for player P."
@@ -314,7 +316,7 @@
 	(p (copy-player p)))
 
     (let* ((on-ground? (player-on-ground? p))
-	   (walking? (player-walking? (player-acc-dir p) on-ground?)))
+	   (walking? (player-walking? p)))
       (cond
 	;; Look Up/Down or Interact
 	((and up? (not down?))
@@ -412,9 +414,8 @@
     (unless
 	(and (timer-active? (aval (player-timers p) :invincible))
 	     (plusp (chunk-timer-period (aval (player-timers p) :invincible) 50)))
-      (let* ((on-ground? (player-on-ground? p))
-	     (actual-v-facing (player-actual-v-facing (player-v-facing p) on-ground?))
-	     (walking? (player-walking? (player-acc-dir p) (player-on-ground? p)))
+      (let* ((actual-v-facing (player-actual-v-facing p))
+	     (walking? (player-walking? p))
 	     (walk-idx (player-walk-idx p)))
 	(draw-sprite :player :my-char
 		     (player-sprite-rect (player-h-facing p)
@@ -425,7 +426,7 @@
 					 (y (kin-2d-vel kin-2d)))
 		     (pixel-v (kin-2d-pos kin-2d)))
 	(player-draw-gun (kin-2d-pos kin-2d)
-			 (player-current-gun-name (player-gun-name-cycle p))
+			 (player-current-gun-name p)
 			 (player-h-facing p)
 			 actual-v-facing
 			 walking?
@@ -438,5 +439,5 @@
 (defun player-damage-collision-rect (p)
   (rect-offset *player-damage-rect* (physics-pos p)))
 
-(defun player-current-gun-name (cycle)
-  (cycle-current cycle))
+(defun player-current-gun-name (p)
+  (cycle-current (player-gun-name-cycle p)))

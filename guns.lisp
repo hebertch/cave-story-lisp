@@ -1,7 +1,8 @@
 (in-package :cave-story)
 
-(defparameter *gun-names* #(:polar-star :missile-launcher :machine-gun :fireball :nemesis
-			    :super-missile-launcher :bubbler :spur :snake))
+(defparameter *gun-names*
+  #(:polar-star :missile-launcher :machine-gun :fireball :nemesis
+    :super-missile-launcher :bubbler :spur :snake))
 
 (defun gun-pos (pos h-facing actual-v-facing walking? walk-idx)
   (let ((gun-x-off (if (eq h-facing :right)
@@ -17,8 +18,9 @@
 			   0)))
     (+v pos (make-v gun-x-off (+ gun-y-off gun-bob-y-off)))))
 
-(defparameter *gun-x-idxs* '(:spur :snake :polar-star :fireball :machine-gun :missile-launcher
-			     nil :nemesis nil nil :super-missile-launcher nil :bubbler))
+(defparameter *gun-x-idxs*
+  '(:spur :snake :polar-star :fireball :machine-gun :missile-launcher
+    nil :nemesis nil nil :super-missile-launcher nil :bubbler))
 
 (defparameter *nozzle-pixel-positions*
   '((:polar-star . (106 21
@@ -84,8 +86,10 @@
 		      (position h-facing '(:left :right))
 		      (* 2
 			 (position v-facing '(nil :up :down))))))
-    (create-rect-cmpts (* (position gun-name *gun-x-idxs*) *gun-width*) (tiles gun-y-idx)
-		       *gun-width* (tiles 1))))
+    (create-rect-cmpts (* (position gun-name *gun-x-idxs*) *gun-width*)
+		       (tiles gun-y-idx)
+		       *gun-width*
+		       (tiles 1))))
 
 (defun nozzle-pixel-positions->nozzle-offsets (gun-name)
   (let ((npp (cdr (assoc gun-name *nozzle-pixel-positions*)))
@@ -118,8 +122,12 @@
      collecting
        (cons gun-name (nozzle-pixel-positions->nozzle-offsets gun-name))))
 
+(defun gun-offsets (gun-name v-facing)
+  (cdr (assoc v-facing
+	      (cdr (assoc gun-name *gun-nozzle-offsets*)))))
+
 (defun nozzle-offset (h-facing v-facing gun-name)
-  (let* ((offsets (cdr (assoc v-facing (cdr (assoc gun-name *gun-nozzle-offsets*)))))
+  (let* ((offsets (gun-offsets gun-name v-facing))
 	 (x-offsets (first offsets))
 	 (y-offset (second offsets)))
     (make-v (ecase h-facing
@@ -128,25 +136,25 @@
 	    y-offset)))
 
 (defun player-nozzle-pos (p)
-  (let* ((on-ground? (player-on-ground? p))
-	 (actual-v-facing (player-actual-v-facing (player-v-facing p) on-ground?)))
-    (let ((k (cdr (assoc :stage (player-physics p)))))
-      (+v (nozzle-offset (player-h-facing p)
-			 actual-v-facing
-			 (player-current-gun-name (player-gun-name-cycle p)))
-	  (gun-pos
-	   (kin-2d-pos k)
-	   (player-h-facing p)
-	   actual-v-facing
-	   (player-walking? (player-acc-dir p) on-ground?)
-	   (player-walk-idx p))))))
+  (let ((actual-v-facing (player-actual-v-facing p))
+	(k (cdr (assoc :stage (player-physics p)))))
+    (+v (nozzle-offset (player-h-facing p)
+		       actual-v-facing
+		       (player-current-gun-name p))
+	(gun-pos
+	 (kin-2d-pos k)
+	 (player-h-facing p)
+	 actual-v-facing
+	 (player-walking? p)
+	 (player-walk-idx p)))))
 
 (defun gun-level (exp exp-list)
-  (aif (position-if-not (lambda (lvl-exp)
-			  (>= exp lvl-exp))
-			exp-list)
-       it
-       2))
+  (let ((lvl (position-if-not (lambda (lvl-exp)
+				(>= exp lvl-exp))
+			      exp-list)))
+    (if lvl
+	lvl
+	2)))
 
 (defparameter *max-projectile-groups*
   ;; TODO: This is based on level.

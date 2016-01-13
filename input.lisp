@@ -34,21 +34,23 @@
     (setf (input-transient-input input) (make-transient-input))
     input))
 
-(defun open-joystick ()
+(defun open-joystick! ()
   "Tries to open a joystick for reading input."
   (when (plusp (sdl:num-joysticks))
     (let ((idx 0))
       (let ((joystick (sdl:joystick-open 0)))
 	(when (cffi:null-pointer-p joystick)
-	  (format t "Failed to Open Joystick at index ~A. ~A~%" idx (sdl:get-error))
+	  (warn "Failed to Open Joystick at index ~A. ~A~%"
+		idx
+		(sdl:get-error))
 	  (nilf joystick))
 	joystick))))
 
-(defun init-input ()
+(defun init-input! ()
   (setf *event* (sdl:create-event)
-	*joystick* (open-joystick)))
+	*joystick* (open-joystick!)))
 
-(defun cleanup-input ()
+(defun cleanup-input! ()
   (sdl:destroy-event *event*)
   (nilf *event*)
   (when *joystick*
@@ -56,7 +58,7 @@
       (sdl:joystick-close *joystick*))
     (nilf *joystick*)))
 
-(defun gather-transient-input ()
+(defun gather-transient-input! ()
   "Gather all input for a frame into a transient-input object."
   (let ((ti (make-transient-input)))
     ;; Gather all input for this frame into the transient input object.

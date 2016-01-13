@@ -1,8 +1,8 @@
 (in-package :cave-story)
 
-
 (defun accelerate (vel acc)
-  "Linear Acceleration. Assuming constant acceleration calc a new (values DELTA-POS VEL)."
+  "Linear Acceleration. Assuming constant acceleration calc a
+new (values DELTA-POS VEL)."
   (values
    ;; dp = v0t + 1/2 at^2
    (+ (* vel *frame-time*) (* 1/2 acc *frame-time* *frame-time*))
@@ -11,7 +11,8 @@
    (+ vel (* acc *frame-time*))))
 
 (defun accelerate-2d (vel accelerator-x accelerator-y &key clamper-vx clamper-vy)
-  "Vector Acceleration. Assuming constant acceleration calc a new (values DELTA-POS VEL)."
+  "Vector Acceleration. Assuming constant acceleration calc a
+new (values DELTA-POS VEL)."
   (mvbind (px vx) (funcall accelerator-x (x vel))
     (mvbind (py vy) (funcall accelerator-y (y vel))
       (when clamper-vx

@@ -87,7 +87,7 @@
 	   (loop do
 		(swank-tools:update)
 		(swank-tools:continuable
-		  (let ((transient-input (gather-transient-input)))
+		  (let ((transient-input (gather-transient-input!)))
 		    (handle-debug-input transient-input)
 		    (setf *global-game*
 			  (make-game :player (game-player *global-game*)
@@ -954,7 +954,7 @@ This can be abused with the machine gun in TAS."
   (replace-entity-state damage-numbers (lambda (dn) (damage-numbers-update-damage-amt dn e amt))))
 
 (defun current-gun-exp (player gun-exps)
-  (let* ((gun-name (player-current-gun-name (player-gun-name-cycle (player-state player))))
+  (let* ((gun-name (player-current-gun-name (player-state player)))
 	 (exp (gun-exp-for (estate gun-exps) gun-name)))
     (values
      exp
@@ -1030,7 +1030,7 @@ This can be abused with the machine gun in TAS."
 
 (defun cleanup ()
   "Called at application closing to cleanup all subsystems."
-  (cleanup-input)
+  (cleanup-input!)
   (cleanup-all-resources)
   (clrhash *character-textures*)
 

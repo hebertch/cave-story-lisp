@@ -36,7 +36,9 @@
   :timers :physics)
 
 (defun make-shake ()
-  (make-wave-motion :dir :left :amp (tiles 1/8) :speed (rand-val-between 0.017 0.022)))
+  (make-wave-motion :dir :left
+		    :amp (tiles 1/8)
+		    :speed (rand-val-between 0.017 0.022)))
 
 (defun add-camera-shake ()
   (compose
@@ -84,4 +86,4 @@
       (+vf pos (wave-offset it)))
     (awhen (aval (camera-physics camera) :shake-v)
       (+vf pos (wave-offset it)))
-    (+vf pos (scale-v *window-dims* -1/2))))
+    (+v pos (scale-v *window-dims* -1/2))))
