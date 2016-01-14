@@ -112,7 +112,7 @@
 (defmethod draw ((p missile-projectile))
   (missile-projectile-drawing p))
 
-(defmethod stage-collision ((p missile-projectile) stage)
+(defun missile-projectile-stage-collision (p stage)
   (let ((dir (missile-projectile-dir p))
 	(lvl (missile-projectile-lvl p)))
     (make-missile-projectile
@@ -127,6 +127,9 @@
 					 (missile-projectile-pos
 					  p))
       dir stage))))
+
+(defmethod stage-collision ((p missile-projectile) stage)
+  (missile-projectile-stage-collision p stage))
 
 (defmethod bullet-rect ((p missile-projectile))
   (missile-projectile-collision-rect (missile-projectile-lvl p)
@@ -246,7 +249,7 @@
 (defmethod bullet-damage-amt ((p polar-star-projectile))
   (elt '(1 2 4) (polar-star-projectile-lvl p)))
 
-(defmethod stage-collision ((p polar-star-projectile) stage)
+(defun polar-star-projectile-stage-collision (p stage)
   (let ((pos (physics-pos p))
 	(lvl (polar-star-projectile-lvl p))
 	(dir (polar-star-projectile-dir p)))
@@ -261,6 +264,9 @@
 	     dir
 	     pos
 	     stage))))
+
+(defmethod stage-collision ((p polar-star-projectile) stage)
+  (polar-star-projectile-stage-collision p stage))
 
 (defmethod dead? ((p polar-star-projectile))
   (polar-star-projectile-dead? p))

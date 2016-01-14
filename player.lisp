@@ -323,7 +323,7 @@
     (allf dir (player-acc-dir p) (player-h-facing p))
     p))
 
-(defmethod input ((p player) input)
+(defun player-input (p input)
   (let ((left?  (or (key-held? input :left)
 		    (eq :negative (input-joy-axis-x input))))
 	(right? (or (key-held? input :right)
@@ -375,7 +375,10 @@
       (fnf (player-gun-name-cycle p) #'cycle-next))
     p))
 
-(defmethod stage-collision ((p player) stage)
+(defmethod input ((p player) input)
+  (player-input p input))
+
+(defun player-stage-collision (p stage)
   (let (new-ground-tile
 	(collision-rects *player-collision-rectangles-alist*)
 	(p (copy-structure p)))
@@ -428,6 +431,9 @@
       (aupdatef (player-timers p) #'timed-cycle-pause '(:walk-cycle))
       (nilf (player-ground-tile p)))
     p))
+
+(defmethod stage-collision ((p player) stage)
+  (player-stage-collision p stage))
 
 (defun player-drawing (p)
   (let ((kin-2d (cdr (assoc :stage (player-physics p)))))

@@ -283,7 +283,7 @@ This can be abused with the machine gun in TAS."
 (defmacro zero-vf (place &key (x 0) (y 0))
   `(setf ,place (zero-v :x ,x :y ,y)))
 
-(defmethod stage-collision ((d dorito) stage)
+(defun dorito-stage-collision (d stage)
   (let ((collision-rects (rect->collision-rects (dorito-collision-rect (dorito-size d)))))
     (make-dorito
      :timers (dorito-timers d)
@@ -323,6 +323,9 @@ This can be abused with the machine gun in TAS."
 					 0)))))
 		kin-2d)
 	      '(:stage)))))
+
+(defmethod stage-collision ((d dorito) stage)
+  (dorito-stage-collision d stage))
 
 (defmethod pickup-rect ((d dorito))
   (rect-offset (dorito-collision-rect (dorito-size d)) (physics-pos d)))
@@ -1305,7 +1308,7 @@ This can be abused with the machine gun in TAS."
 
 (let ((collision-rects (rect->collision-rects
 			(centered-rect (tile-dims/2) (both-v (tiles 2/5))))))
-  (defmethod stage-collision ((d death-cloud-particle) stage)
+  (defun death-cloud-particle-stage-collision (d stage)
     (make-death-cloud-particle
      :physics (aupdate (death-cloud-particle-physics d)
 		       (lambda (kin-2d)
@@ -1328,6 +1331,9 @@ This can be abused with the machine gun in TAS."
 			 kin-2d)
 		       '(:stage))
      :single-loop-sprite (death-cloud-particle-single-loop-sprite d))))
+
+(defmethod stage-collision ((d death-cloud-particle) stage)
+  (death-cloud-particle-stage-collision d stage))
 
 (defun create-death-cloud-particles (num pos)
   (dotimes (i num)
@@ -1519,7 +1525,7 @@ This can be abused with the machine gun in TAS."
 
 (let ((collision-rects (rect->collision-rects
 			(centered-rect (tile-dims/2) (both-v (tiles 3/4))) 6)))
-  (defmethod stage-collision ((c critter) stage)
+  (defun critter-stage-collision (c stage)
     (let* ((physics (critter-physics c))
 	   (timers (critter-timers c))
 	   (ground-tile (critter-ground-tile c))
@@ -1559,6 +1565,9 @@ This can be abused with the machine gun in TAS."
 		    :id (critter-id c)
 		    :player (critter-player c)
 		    :damage-numbers (critter-damage-numbers c)))))
+
+(defmethod stage-collision ((c critter) stage)
+  (critter-stage-collision c stage))
 
 (defmethod dead? ((c critter))
   (critter-dead? c))
@@ -1795,7 +1804,7 @@ This can be abused with the machine gun in TAS."
 (let ((collision-rects (rect->collision-rects
 			(centered-rect (scale-v *elephant-dims* 1/2) *elephant-dims*)
 			6)))
-  (defmethod stage-collision ((e elephant) stage)
+  (defun elephant-stage-collision (e stage)
     (let* ((facing (elephant-facing e))
 	   (physics (aupdate (elephant-physics e)
 			     (lambda (kin-2d)
@@ -1823,3 +1832,6 @@ This can be abused with the machine gun in TAS."
        :player (elephant-player e)
        :camera (elephant-camera e)
        :damage-numbers (elephant-damage-numbers e)))))
+
+(defmethod stage-collision ((e elephant) stage)
+  (elephant-stage-collision e stage))
