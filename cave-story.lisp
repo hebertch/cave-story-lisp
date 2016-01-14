@@ -141,7 +141,7 @@ This can be abused with the machine gun in TAS."
       (:game
        (when (or (joy-pressed? input :b) (key-pressed? input :x))
 	 ;; Fire Gun
-	 (player-fire-gun (estate (game-player game)))))
+	 (player-fire-gun! (estate (game-player game)))))
 
       (:dialog
        (cond
@@ -976,6 +976,7 @@ This can be abused with the machine gun in TAS."
 	(hud (gen-entity-id))
 	(gun-exps (create-gun-exps))
 	(active-systems (create-active-systems)))
+    (create-stage! stage)
     (let* ((player (create-default-player hud projectile-groups damage-numbers gun-exps active-systems))
 	   (camera (create-player-camera (v/2 *window-dims*) (zero-v) player)))
       (create-hud player gun-exps hud)

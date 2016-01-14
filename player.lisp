@@ -87,10 +87,10 @@
 	       :size (make-v (- right left)
 			     (- bottom top)))))
 
-(defun player-pickup (p pickup)
+(defun player-pickup! (p pickup)
   (ecase (pickup-type pickup)
     (:dorito
-     (player-gun-exp p (pickup-amt pickup))))
+     (player-gun-exp! p (pickup-amt pickup))))
   (values))
 
 (defun player-state (p)
@@ -166,7 +166,7 @@
 (defmethod dead? ((p player))
   (<= (player-health-amt p) 0))
 
-(defun player-fire-gun (p)
+(defun player-fire-gun! (p)
   (let ((gun-name (player-current-gun-name p)))
     (let ((num-projectile-groups
 	   (projectile-groups-count (estate (player-projectile-groups p))
@@ -180,9 +180,10 @@
 	  (max-projectiles (cdr (assoc gun-name *max-projectile-groups*))))
       (unless (null max-projectiles)
 	(when (< num-projectile-groups max-projectiles)
-	  (replace-entity-state (player-projectile-groups p)
-				(rcurry #'projectile-groups-add
-					(make-projectile-group gun-name lvl dir nozzle-pos)))))))
+	  (replace-entity-state
+	   (player-projectile-groups p)
+	   (rcurry #'projectile-groups-add
+		   (make-projectile-group gun-name lvl dir nozzle-pos)))))))
   (values))
 
 (defun player-take-damage (p dmg-amt)
@@ -214,7 +215,9 @@
 	     g
 	     (player-current-gun-name p)
 	     (- (* 2 dmg-amt)))))
-	 (update-damage-number-amt (player-damage-numbers p) (player-id p) dmg-amt)
+	 (update-damage-number-amt (player-damage-numbers p)
+				   (player-id p)
+				   dmg-amt)
 	 (aupdatef
 	  (player-physics p)
 	  (lambda (kin-2d)
@@ -228,7 +231,7 @@
 (defmethod origin ((p player))
   (physics-tile-origin p))
 
-(defun player-gun-exp (p amt)
+(defun player-gun-exp! (p amt)
   (replace-entity-state
    (player-gun-exps p)
    (lambda (g)
@@ -268,7 +271,8 @@
 (defun player-walking? (p)
   (and (player-acc-dir p) (player-on-ground? p)))
 
-(defun player-sprite-rect (h-facing actual-v-facing interacting? walking? walk-idx vel-y)
+(defun player-sprite-rect
+    (h-facing actual-v-facing interacting? walking? walk-idx vel-y)
   "The sprite-rect for player P."
   (tile-rect (char-sprite-pos
 	      h-facing
@@ -280,39 +284,44 @@
 		((minusp vel-y) 2)
 		(t 0)))))
 
-
 (defun player-jump (p)
-  (unless (player-jumping? p)
-    (when (player-on-ground? p)
-      (aupdatef
-       (player-physics p)
-       (lambda (kin-2d)
-	 (+vf (kin-2d-vel kin-2d) (make-v 0 (- *player-jump-speed*)))
-	 kin-2d)
-       '(:stage))
+  (let ((p (copy-structure p)))
+    (unless (player-jumping? p)
+      (when (player-on-ground? p)
+	(aupdatef
+	 (player-physics p)
+	 (lambda (kin-2d)
+	   (+vf (kin-2d-vel kin-2d) (make-v 0 (- *player-jump-speed*)))
+	   kin-2d)
+	 '(:stage))
 
-      (push-sound :jump))
-    (nilf (player-interacting? p) (player-ground-tile p))
-    (aupdatef (player-timers p) #'timed-cycle-pause '(:walk-cycle))
-    (tf (player-jumping? p)))
-  p)
+	(push-sound :jump))
+      (nilf (player-interacting? p) (player-ground-tile p))
+      (aupdatef (player-timers p) #'timed-cycle-pause '(:walk-cycle))
+      (tf (player-jumping? p)))
+    p))
 
 (defun player-move (p dir)
   "Moves the player in a horizontal direction."
-  (when (player-on-ground? p)
-    (aupdatef (player-timers p) #'timed-cycle-resume '(:walk-cycle))
-    (when (null (player-acc-dir p))
-      (aupdatef (player-timers p) #'timed-cycle-restart '(:walk-cycle))))
+  (let ((p (copy-structure p)))
+    (when (player-on-ground? p)
+      (aupdatef (player-timers p) #'timed-cycle-resume '(:walk-cycle))
+      (when (null (player-acc-dir p))
+	(aupdatef (player-timers p) #'timed-cycle-restart '(:walk-cycle))))
 
-  (nilf (player-interacting? p))
-  (allf dir (player-acc-dir p) (player-h-facing p))
-  p)
+    (nilf (player-interacting? p))
+    (allf dir (player-acc-dir p) (player-h-facing p))
+    p))
 
 (defmethod input ((p player) input)
-  (let ((left?  (or (key-held? input :left) (eq :negative (input-joy-axis-x input))))
-	(right? (or (key-held? input :right) (eq :positive (input-joy-axis-x input))))
-	(down?  (or (key-held? input :down) (eq :positive (input-joy-axis-y input))))
-	(up?    (or (key-held? input :up) (eq :negative (input-joy-axis-y input))))
+  (let ((left?  (or (key-held? input :left)
+		    (eq :negative (input-joy-axis-x input))))
+	(right? (or (key-held? input :right)
+		    (eq :positive (input-joy-axis-x input))))
+	(down?  (or (key-held? input :down)
+		    (eq :positive (input-joy-axis-y input))))
+	(up?    (or (key-held? input :up)
+		    (eq :negative (input-joy-axis-y input))))
 	(p (copy-player p)))
 
     (let* ((on-ground? (player-on-ground? p))
@@ -358,7 +367,8 @@
 
 (defmethod stage-collision ((p player) stage)
   (let (new-ground-tile
-	(collision-rects *player-collision-rectangles-alist*))
+	(collision-rects *player-collision-rectangles-alist*)
+	(p (copy-structure p)))
     (aupdatef
      (player-physics p)
      (lambda (kin-2d)
@@ -406,25 +416,26 @@
     (setf (player-ground-tile p) new-ground-tile)
     (unless (player-ground-tile p)
       (aupdatef (player-timers p) #'timed-cycle-pause '(:walk-cycle))
-      (nilf (player-ground-tile p))))
-  p)
+      (nilf (player-ground-tile p)))
+    p))
 
 (defmethod draw ((p player))
   (let ((kin-2d (cdr (assoc :stage (player-physics p)))))
     (unless
 	(and (timer-active? (aval (player-timers p) :invincible))
-	     (plusp (chunk-timer-period (aval (player-timers p) :invincible) 50)))
+	     (plusp (chunk-timer-period
+		     (aval (player-timers p) :invincible) 50)))
       (let* ((actual-v-facing (player-actual-v-facing p))
 	     (walking? (player-walking? p))
 	     (walk-idx (player-walk-idx p)))
 	(draw-sprite! :player :my-char
-		     (player-sprite-rect (player-h-facing p)
-					 actual-v-facing
-					 (player-interacting? p)
-					 walking?
-					 (player-walk-idx p)
-					 (y (kin-2d-vel kin-2d)))
-		     (pixel-v (kin-2d-pos kin-2d)))
+		      (player-sprite-rect (player-h-facing p)
+					  actual-v-facing
+					  (player-interacting? p)
+					  walking?
+					  (player-walk-idx p)
+					  (y (kin-2d-vel kin-2d)))
+		      (pixel-v (kin-2d-pos kin-2d)))
 	(player-draw-gun (kin-2d-pos kin-2d)
 			 (player-current-gun-name p)
 			 (player-h-facing p)
