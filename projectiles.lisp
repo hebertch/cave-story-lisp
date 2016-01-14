@@ -102,12 +102,15 @@
 (defun missile-projectile-pos (m)
   (motion-set-pos (missile-projectile-physics m)))
 
-(defmethod draw ((p missile-projectile))
+(defun missile-projectile-drawing (p)
   (make-sprite-drawing :layer :projectile
 		       :sheet-key :bullet
 		       :src-rect
 		       (missile-projectile-sprite-rect p)
 		       :pos (missile-projectile-pos p)))
+
+(defmethod draw ((p missile-projectile))
+  (missile-projectile-drawing p))
 
 (defmethod stage-collision ((p missile-projectile) stage)
   (let ((dir (missile-projectile-dir p))

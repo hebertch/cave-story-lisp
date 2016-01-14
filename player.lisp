@@ -24,14 +24,18 @@
 			    active-systems)
   (let ((id (gen-entity-id)))
     (values
-     (make-player :h-facing :left :gun-name-cycle
+     (make-player :h-facing :left
+		  :gun-name-cycle
 		  (create-cycle *gun-names*)
-		  :health-amt 3 :max-health-amt 3
+		  :health-amt 3
+		  :max-health-amt 3
 		  :damage-numbers damage-numbers
 		  :gun-exps gun-exps
 		  :projectile-groups projectile-groups
-		  :active-systems active-systems :hud
-		  hud :id id :timers
+		  :active-systems active-systems
+		  :hud hud
+		  :id id
+		  :timers
 		  (alist :walk-cycle
 			 (create-timed-cycle 12
 					     #(0 1 0
@@ -437,7 +441,7 @@
 						       (y (kin-2d-vel kin-2d)))
 			 :pos (pixel-v (kin-2d-pos kin-2d)))))
 
-(defmethod draw ((p player))
+(defun player-and-gun-drawing (p)
   (let ((kin-2d (cdr (assoc :stage (player-physics p)))))
     (unless
 	(and (timer-active? (aval (player-timers p) :invincible))
@@ -451,6 +455,9 @@
 			   (player-actual-v-facing p)
 			   (player-walking? p)
 			   (player-walk-idx p))))))
+
+(defmethod draw ((p player))
+  (player-and-gun-drawing p))
 
 (defun player-vel (p)
   (kin-2d-vel (cdr (assoc :stage (player-physics p)))))

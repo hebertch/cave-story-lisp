@@ -1,7 +1,7 @@
 (in-package :cave-story)
 
 (defmethod draw ((s array))
-  (draw-stage s))
+  (stage-drawing s))
 
 (defun create-stage! (stage-data)
   (create-entity
@@ -135,7 +135,7 @@ Returns the TILE-TYPE of the colliding tile."
 		    :debug-stage-collision))))
   position)
 
-(defun draw-stage (stage)
+(defun stage-drawing (stage)
   (let ((drawings nil))
     (dotimes (row (array-dimension stage 0))
       (dotimes (col (array-dimension stage 1))

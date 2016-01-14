@@ -243,7 +243,7 @@ This can be abused with the machine gun in TAS."
     (and (< (timer-ms-remaining tr) (s->ms 1))
 	 (flash-time? tr))))
 
-(defmethod draw ((d dorito))
+(defun dorito-drawing (d)
   (unless (death-flash? (dorito-timers d))
     (make-sprite-drawing
      :layer :pickup
@@ -257,6 +257,9 @@ This can be abused with the machine gun in TAS."
       (make-v (tiles 1) (1- (tiles 1))))
 
      :pos (physics-pos d))))
+
+(defmethod draw ((d dorito))
+  (dorito-drawing d))
 
 (defun set-x-v (v x)
   (make-v x (y v)))
@@ -423,7 +426,7 @@ This can be abused with the machine gun in TAS."
 (def-entity-constructor create-particle #'make-default-particle
   :drawable)
 
-(defmethod draw ((p particle))
+(defun particle-drawing (p)
   (let ((sp (estate (particle-single-loop-sprite p))))
     (let ((cycle-current (cycle-current
 			  (timed-cycle-cycle (aval (single-loop-sprite-timers sp) :cycle)))))
@@ -432,6 +435,9 @@ This can be abused with the machine gun in TAS."
 			   :src-rect
 			   (tile-rect (tile-v cycle-current (single-loop-sprite-tile-y sp)))
 			   :pos (particle-pos p)))))
+
+(defmethod draw ((p particle))
+  (particle-drawing p))
 
 (defmethod dead? ((p particle))
   (dead? (estate (particle-single-loop-sprite p))))
@@ -513,11 +519,14 @@ This can be abused with the machine gun in TAS."
 (def-entity-constructor create-floating-number #'make-default-floating-number
   :timers :drawable :physics)
 
-(defmethod draw ((fn floating-number))
+(defun floating-number-drawing (fn)
   (number-drawing (+v (origin (estate (floating-number-entity fn)))
 		      (physics-pos fn))
 		  (floating-number-amt fn)
 		  :layer :floating-text))
+
+(defmethod draw ((fn floating-number))
+  (floating-number-drawing fn))
 
 (defun floating-number-ai (fn ticks)
   (let ((dead? (not (timer-active? (aval (floating-number-timers fn) :life)))))
@@ -679,7 +688,7 @@ This can be abused with the machine gun in TAS."
 (defmethod ai ((td text-display) ticks)
   (text-display-ai td ticks))
 
-(defmethod draw ((td text-display))
+(defun text-display-drawing (td)
   (list* (make-text-line-drawing
 	  :pos (text-display-pos td)
 	  :text (subseq (text-display-text td)
@@ -687,6 +696,9 @@ This can be abused with the machine gun in TAS."
 			(text-display-num-chars td))
 	  :layer :text)
 	 (draw-textbox 5 21 30 8)))
+
+(defmethod draw ((td text-display))
+  (text-display-drawing td))
 
 (defmethod dead? ((td text-display))
   (text-display-dead? td))
@@ -709,7 +721,7 @@ This can be abused with the machine gun in TAS."
 (def-entity-constructor create-hud #'make-default-hud
   :timers :drawable)
 
-(defmethod draw ((hud hud))
+(defun hud-drawing (hud)
   (let ((bar-tile/2-w 5)
 	(bar-tile/2-x 5)
 	(drawings))
@@ -809,6 +821,9 @@ This can be abused with the machine gun in TAS."
 
 	  (appendf drawings (draw-hud-number 3 (1+ current-level))))))
     drawings))
+
+(defmethod draw ((hud hud))
+  (hud-drawing hud))
 
 (defmethod dead? ((h hud))
   (dead? (estate (hud-player h))))
@@ -1152,7 +1167,7 @@ This can be abused with the machine gun in TAS."
   :timers :damage-collision :damageable :drawable
   :physics)
 
-(defmethod damageable-hit-react ((b bat) amt)
+(defun bat-hit-react (b amt)
   (let ((physics (aset (bat-physics b)
 		       (make-wave-motion :dir :left :amp 2 :speed 0.1 :rads 0)
 		       :shake))
@@ -1188,13 +1203,16 @@ This can be abused with the machine gun in TAS."
 		       :id id
 		       :dead? t))))))
 
+(defmethod damageable-hit-react ((b bat) amt)
+  (bat-hit-react b amt))
+
 (defmethod dead? ((b bat))
   (bat-dead? b))
 
 (defmethod origin ((b bat))
   (physics-tile-origin b))
 
-(defmethod draw ((b bat))
+(defun bat-drawing (b)
   (make-sprite-drawing :layer :enemy
 		       :sheet-key :npc-cemet
 		       :src-rect
@@ -1203,8 +1221,8 @@ This can be abused with the machine gun in TAS."
 				      (facing-offset (bat-facing b))))
 		       :pos (physics-pos b)))
 
-(defmacro ai-face-player (e)
-  `(setf facing (face-player (physics-pos ,e) player)))
+(defmethod draw ((b bat))
+  (bat-drawing b))
 
 (defun bat-ai (b ticks)
   (make-bat :physics (bat-physics b)
@@ -1275,9 +1293,12 @@ This can be abused with the machine gun in TAS."
 (def-entity-constructor create-death-cloud-particle #'make-default-death-cloud-particle
   :drawable :physics :stage-collision)
 
-(defmethod draw ((d death-cloud-particle))
+(defun death-cloud-particle-drawing (d)
   (single-loop-sprite-drawing (estate (death-cloud-particle-single-loop-sprite d))
 			      (physics-pos d)))
+
+(defmethod draw ((d death-cloud-particle))
+  (death-cloud-particle-drawing d))
 
 (defmethod dead? ((d death-cloud-particle))
   (dead? (estate (death-cloud-particle-single-loop-sprite d))))
@@ -1400,7 +1421,7 @@ This can be abused with the machine gun in TAS."
 (defmethod ai ((c critter) ticks)
   (critter-ai c ticks))
 
-(defmethod draw ((c critter))
+(defun critter-drawing (c)
   (let ((sprite-tile-x (cond
 			 ((aand (aval (critter-timers c) :sleep) (timer-active? it))
 			  0)
@@ -1414,39 +1435,13 @@ This can be abused with the machine gun in TAS."
 						  (facing-offset (critter-facing c))))
 			 :pos (physics-pos c))))
 
+(defmethod draw ((c critter))
+  (critter-drawing c))
+
 (defmethod damageable-rect ((c critter))
   (physics-tile-rect c))
 
-(defmacro enemy-hurt-react (e num-death-clouds)
-  `(if (< amt health-amt)
-       (progn
-	 (update-damage-number-amt damage-numbers id amt)
-	 (push-sound :enemy-hurt)
-	 (decf health-amt amt))
-       (let ((origin (origin ,e)))
-	 (push-sound :enemy-explode)
-	 (create-dorito origin (polar-vec->v (rand-angle) 0.07) :small)
-	 (create-dorito origin (polar-vec->v (rand-angle) 0.07) :small)
-	 (create-death-cloud-particles ,num-death-clouds origin)
-	 (tf dead?))))
-
-(defmacro enemy-damageable-hit-react (e num-death-clouds)
-  `(progn
-     (asetf physics
-	    (make-wave-motion :dir :left
-			      :amp 2
-			      :speed 0.1
-			      :rads 0)
-	    :shake)
-     (asetf timers (create-expiring-timer (s->ms 1/3) t) :shake)
-     (enemy-hurt-react ,e ,num-death-clouds)))
-
-(defmacro enemy-damageable-hit-react-method (name num-death-clouds)
-  (with-gensyms (obj)
-    `(,(symbolicate name '-methodf) damageable-hit-react (,obj amt)
-       (enemy-damageable-hit-react ,obj ,num-death-clouds))))
-
-(defmethod damageable-hit-react ((c critter) amt)
+(defun critter-hit-react (c amt)
   (let ((physics (critter-physics c))
 	(timers (critter-timers c))
 	(health-amt (critter-health-amt c))
@@ -1473,6 +1468,9 @@ This can be abused with the machine gun in TAS."
 		  :id (critter-id c)
 		  :player (critter-player c)
 		  :damage-numbers (critter-damage-numbers c))))
+
+(defmethod damageable-hit-react ((c critter) amt)
+  (critter-hit-react c amt))
 
 (defmethod damage-collision-rect ((c critter))
   (physics-tile-rect c))
@@ -1577,10 +1575,13 @@ This can be abused with the machine gun in TAS."
 (defgeneric inertia-vel (obj))
 
 (defun stage-vel (physics)
-  (kin-2d-vel (cdr (assoc :stage physics))))
+  (kin-2d-vel (aval physics :stage)))
 
-(defmethod inertia-vel (c)
-  (stage-vel (critter-physics c)))
+(defun critter-inertia-vel (c)
+  (stage-vel (entity-state-physics c)))
+
+(defmethod inertia-vel ((c critter))
+  (critter-inertia-vel c))
 
 (defparameter *elephant-speed* 0.08)
 (defstruct (elephant (:include entity-state))
@@ -1617,7 +1618,7 @@ This can be abused with the machine gun in TAS."
   :damageable :damage-collision :dynamic-collision)
 
 (defparameter *elephant-dims* (make-v (tiles 2) (tiles 3/2)))
-(defmethod draw ((e elephant))
+(defun elephant-drawing (e)
   (let ((src-pos
 	 (cond
 	   ((timer-active? (aval (elephant-timers e) :recover))
@@ -1633,17 +1634,29 @@ This can be abused with the machine gun in TAS."
 				      *elephant-dims*)
 			 :pos (physics-pos e))))
 
-(defmethod origin ((e elephant))
+(defmethod draw ((e elephant))
+  (elephant-drawing e))
+
+(defun elephant-origin (e)
   (+v (physics-pos e)
       (scale-v *elephant-dims* 1/2)))
 
-(defmethod inertia-vel ((e elephant))
-  (scale-v (stage-vel (elephant-physics e)) 1/3))
+(defmethod origin ((e elephant))
+  (elephant-origin e))
 
-(defmethod damageable-rect ((e elephant))
+(defun elephant-inertia-vel (e)
+  (scale-v (stage-vel (entity-state-physics e)) 1/3))
+
+(defmethod inertia-vel ((e elephant))
+  (elephant-inertia-vel e))
+
+(defun elephant-damageable-rect (e)
   (create-rect (physics-pos e) *elephant-dims*))
 
-(defmethod damageable-hit-react ((e elephant) amt)
+(defmethod damageable-rect ((e elephant))
+  (elephant-damageable-rect e))
+
+(defun elephant-hit-react (e amt)
   (let ((timers (elephant-timers e))
 	(physics (elephant-physics e))
 	(health-amt (elephant-health-amt e))
@@ -1682,6 +1695,9 @@ This can be abused with the machine gun in TAS."
 		   :player (elephant-player e)
 		   :camera (elephant-camera e)
 		   :damage-numbers (elephant-damage-numbers e))))
+
+(defmethod damageable-hit-react ((e elephant) amt)
+  (elephant-hit-react e amt))
 
 (defmethod dead? ((e elephant)) (elephant-dead? e))
 
