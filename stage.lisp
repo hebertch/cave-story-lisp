@@ -66,10 +66,13 @@
 	    collecting
 	      (list (make-v col row) (car (aref stage row col)))))))
 
-(defmacro collision-lambda (&rest forms)
-  `(lambda (tile-type)
-     (declare (ignorable tile-type))
-     ,@forms))
+(defmacro collision-lambda ((&optional tile-type-name) &body forms)
+  (let ((tile-type-name (if tile-type-name
+			    tile-type-name
+			    (gensym))))
+    `(lambda (,tile-type-name)
+       (declare (ignorable ,tile-type-name))
+       ,@forms)))
 
 (defun stage-check/resolve-collision
     (stage rect offset-dir &key (ground-tile nil ground-tile-supplied-p))

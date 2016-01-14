@@ -392,37 +392,37 @@
 	      stage
 	      collision-rects
 	      (let ((stop-x
-		     (collision-lambda
-		      (setf (kin-2d-vel kin-2d)
-			    (zero-v :y
-				    (y
-				     (kin-2d-vel
-				      kin-2d)))))))
+		     (collision-lambda (tile-type)
+		       (setf (kin-2d-vel kin-2d)
+			     (zero-v :y
+				     (y
+				      (kin-2d-vel
+				       kin-2d)))))))
 		(alist :bottom
-		       (collision-lambda
-			(setf (kin-2d-vel kin-2d)
-			      (zero-v :x
-				      (x
-				       (kin-2d-vel
-					kin-2d))))
-			(unless (player-ground-tile p)
-			  (push-sound :land))
-			(setf new-ground-tile
-			      tile-type))
+		       (collision-lambda (tile-type)
+			 (setf (kin-2d-vel kin-2d)
+			       (zero-v :x
+				       (x
+					(kin-2d-vel
+					 kin-2d))))
+			 (unless (player-ground-tile p)
+			   (push-sound :land))
+			 (setf new-ground-tile
+			       tile-type))
 		       :left stop-x :right stop-x :top
-		       (collision-lambda
-			(when
-			    (minusp
-			     (y (kin-2d-vel kin-2d)))
-			  (push-sound :head-bump))
-			(setf (kin-2d-vel kin-2d)
-			      (make-v
-			       (x
-				(kin-2d-vel kin-2d))
-			       (max
-				(y
+		       (collision-lambda (tile-type)
+			 (when
+			     (minusp
+			      (y (kin-2d-vel kin-2d)))
+			   (push-sound :head-bump))
+			 (setf (kin-2d-vel kin-2d)
+			       (make-v
+				(x
 				 (kin-2d-vel kin-2d))
-				0))))))
+				(max
+				 (y
+				  (kin-2d-vel kin-2d))
+				 0))))))
 	      (player-ground-tile p)))
        kin-2d)
      '(:stage))

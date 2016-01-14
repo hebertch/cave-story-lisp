@@ -285,29 +285,29 @@ This can be abused with the machine gun in TAS."
 		       stage
 		       collision-rects
 		       (alist :bottom
-			      (collision-lambda
-			       (setf (kin-2d-vel kin-2d)
-				     (set-y-v (kin-2d-vel kin-2d)
-					      (- *dorito-bounce-speed*)))
-			       (push-sound :dorito-bounce))
+			      (collision-lambda (tile-type)
+				(setf (kin-2d-vel kin-2d)
+				      (set-y-v (kin-2d-vel kin-2d)
+					       (- *dorito-bounce-speed*)))
+				(push-sound :dorito-bounce))
 			      :right
-			      (collision-lambda
-			       (when
-				   (plusp
-				    (x (kin-2d-vel kin-2d)))
-				 (setf (kin-2d-vel kin-2d)
-				       (reverse-x-v (kin-2d-vel kin-2d)))))
+			      (collision-lambda (tile-type)
+				(when
+				    (plusp
+				     (x (kin-2d-vel kin-2d)))
+				  (setf (kin-2d-vel kin-2d)
+					(reverse-x-v (kin-2d-vel kin-2d)))))
 			      :left
-			      (collision-lambda
-			       (when
-				   (minusp
-				    (x (kin-2d-vel kin-2d)))
-				 (setf (kin-2d-vel kin-2d)
-				       (reverse-x-v (kin-2d-vel kin-2d)))))
+			      (collision-lambda (tile-type)
+				(when
+				    (minusp
+				     (x (kin-2d-vel kin-2d)))
+				  (setf (kin-2d-vel kin-2d)
+					(reverse-x-v (kin-2d-vel kin-2d)))))
 			      :top
-			      (collision-lambda
-			       (setf (kin-2d-vel kin-2d)
-				     (max-y-v (kin-2d-vel kin-2d) 0))))))
+			      (collision-lambda (tile-type)
+				(setf (kin-2d-vel kin-2d)
+				      (max-y-v (kin-2d-vel kin-2d) 0))))))
 		kin-2d)
 	      '(:stage)))))
 
@@ -1314,15 +1314,15 @@ This can be abused with the machine gun in TAS."
 				stage
 				collision-rects
 				(let ((stop-x
-				       (collision-lambda
-					(setf (kin-2d-vel kin-2d)
-					      (set-x-v
-					       (kin-2d-vel kin-2d) 0))))
+				       (collision-lambda (tile-type)
+					 (setf (kin-2d-vel kin-2d)
+					       (set-x-v
+						(kin-2d-vel kin-2d) 0))))
 				      (stop-y
-				       (collision-lambda
-					(setf (kin-2d-vel kin-2d)
-					      (set-y-v
-					       (kin-2d-vel kin-2d) 0)))))
+				       (collision-lambda (tile-type)
+					 (setf (kin-2d-vel kin-2d)
+					       (set-y-v
+						(kin-2d-vel kin-2d) 0)))))
 				  (alist :bottom stop-y :left
 					 stop-x :right stop-x :top
 					 stop-y))))
@@ -1526,22 +1526,22 @@ This can be abused with the machine gun in TAS."
 			      collision-rects
 			      (alist
 			       :bottom
-			       (collision-lambda
-				(setf ground-tile
-				      tile-type)
-				(unless last-tile
-				  (setf timers
-					(aset timers
-					      (create-expiring-timer
-					       (s->ms 1/3)
-					       t)
-					      :sleep)))
-				(setf (kin-2d-vel kin-2d)
-				      (zero-v :x 0 :y 0)))
+			       (collision-lambda (tile-type)
+				 (setf ground-tile
+				       tile-type)
+				 (unless last-tile
+				   (setf timers
+					 (aset timers
+					       (create-expiring-timer
+						(s->ms 1/3)
+						t)
+					       :sleep)))
+				 (setf (kin-2d-vel kin-2d)
+				       (zero-v :x 0 :y 0)))
 			       :top
-			       (collision-lambda
-				(setf (kin-2d-vel kin-2d)
-				      (max-y-v (kin-2d-vel kin-2d) 0))))))
+			       (collision-lambda (tile-type)
+				 (setf (kin-2d-vel kin-2d)
+				       (max-y-v (kin-2d-vel kin-2d) 0))))))
 		       kin-2d)
 		     '(:stage)))
       (make-critter :physics physics
@@ -1810,14 +1810,15 @@ This can be abused with the machine gun in TAS."
 				     (stage-collisions
 				      (kin-2d-pos kin-2d) stage
 				      collision-rects
-				      (alist :left
-					     (collision-lambda
-					      (when (eq facing :left)
-						(setf facing :right)))
-					     :right
-					     (collision-lambda
-					      (when (eq facing :right)
-						(setf facing :left))))))
+				      (alist
+				       :left
+				       (collision-lambda (tile-type)
+					 (when (eq facing :left)
+					   (setf facing :right)))
+				       :right
+				       (collision-lambda (tile-type)
+					 (when (eq facing :right)
+					   (setf facing :left))))))
 			       kin-2d)
 			     '(:stage))))
       (make-elephant
