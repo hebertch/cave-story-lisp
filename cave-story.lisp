@@ -217,10 +217,6 @@ This can be abused with the machine gun in TAS."
 (def-entity-constructor create-dorito #'make-default-dorito
   :timers :physics :stage-collision :drawable :pickup)
 
-(defmacro ai-life-timer ()
-  `(unless (timer-active? (aval timers :life))
-     (tf dead?)))
-
 (defun dorito-ai (d ticks)
   (cond ((timer-active? (aval (dorito-timers d) :life))
 	 d)
@@ -263,28 +259,19 @@ This can be abused with the machine gun in TAS."
 
 (defun set-x-v (v x)
   (make-v x (y v)))
-(defmacro set-x-vf (v x)
-  `(setf ,v (set-x-v ,v ,x)))
+
 (defun set-y-v (v y)
   (make-v (x v) y))
-(defmacro set-y-vf (v y)
-  `(setf ,v (set-y-v ,v ,y)))
 
 (defun reverse-x-v (v)
   (make-v (- (x v)) (y v)))
-(defmacro reverse-x-vf (v)
-  `(setf ,v (reverse-x-v ,v)))
 
 (defun max-y-v (v max-y)
   (make-v (x v) (max (y v) max-y)))
-(defmacro max-y-vf (v max-y)
-  `(setf ,v (max-y-v ,v ,max-y)))
-
-(defmacro zero-vf (place &key (x 0) (y 0))
-  `(setf ,place (zero-v :x ,x :y ,y)))
 
 (defun dorito-stage-collision (d stage)
-  (let ((collision-rects (rect->collision-rects (dorito-collision-rect (dorito-size d)))))
+  (let ((collision-rects (rect->collision-rects
+			  (dorito-collision-rect (dorito-size d)))))
     (make-dorito
      :timers (dorito-timers d)
      :dead? (dorito-dead? d)
@@ -299,28 +286,28 @@ This can be abused with the machine gun in TAS."
 		       collision-rects
 		       (alist :bottom
 			      (collision-lambda
-			       (set-y-vf (kin-2d-vel kin-2d)
-					 (-
-					  *dorito-bounce-speed*))
+			       (setf (kin-2d-vel kin-2d)
+				     (set-y-v (kin-2d-vel kin-2d)
+					      (- *dorito-bounce-speed*)))
 			       (push-sound :dorito-bounce))
 			      :right
 			      (collision-lambda
 			       (when
 				   (plusp
 				    (x (kin-2d-vel kin-2d)))
-				 (reverse-x-vf
-				  (kin-2d-vel kin-2d))))
+				 (setf (kin-2d-vel kin-2d)
+				       (reverse-x-v (kin-2d-vel kin-2d)))))
 			      :left
 			      (collision-lambda
 			       (when
 				   (minusp
 				    (x (kin-2d-vel kin-2d)))
-				 (reverse-x-vf
-				  (kin-2d-vel kin-2d))))
+				 (setf (kin-2d-vel kin-2d)
+				       (reverse-x-v (kin-2d-vel kin-2d)))))
 			      :top
 			      (collision-lambda
-			       (max-y-vf (kin-2d-vel kin-2d)
-					 0)))))
+			       (setf (kin-2d-vel kin-2d)
+				     (max-y-v (kin-2d-vel kin-2d) 0))))))
 		kin-2d)
 	      '(:stage)))))
 
@@ -490,7 +477,7 @@ This can be abused with the machine gun in TAS."
 		 :src-rect (create-rect src-pos (tile-dims/2))
 		 :pos pos)
 		drawings))
-	(+vf pos (tiles/2-v 1 0))))
+	(setf pos (+v pos (tiles/2-v 1 0)))))
     drawings))
 
 (defun fixnum->digits (number)
@@ -911,7 +898,7 @@ This can be abused with the machine gun in TAS."
 		     :input (next-playback-input))))
   (handle-input *global-game*)
 
-  (nilf *render-list* *screen-render-list*)
+  (nilf *render-list*)
   (update-parameter-subsystem *entity-systems*)
 
   (case *input-playback*
@@ -1328,12 +1315,14 @@ This can be abused with the machine gun in TAS."
 				collision-rects
 				(let ((stop-x
 				       (collision-lambda
-					(set-x-vf
-					 (kin-2d-vel kin-2d) 0)))
+					(setf (kin-2d-vel kin-2d)
+					      (set-x-v
+					       (kin-2d-vel kin-2d) 0))))
 				      (stop-y
 				       (collision-lambda
-					(set-y-vf
-					 (kin-2d-vel kin-2d) 0))))
+					(setf (kin-2d-vel kin-2d)
+					      (set-y-v
+					       (kin-2d-vel kin-2d) 0)))))
 				  (alist :bottom stop-y :left
 					 stop-x :right stop-x :top
 					 stop-y))))
@@ -1382,24 +1371,8 @@ This can be abused with the machine gun in TAS."
   :timers :drawable :physics :damageable
   :damage-collision :dynamic-collision :stage-collision)
 
-(defmacro ai-jump (x-speed y-speed)
-  `(when ground-tile
-     (aupdatef
-      physics
-      (lambda (kin-2d)
-	(setf (kin-2d-vel kin-2d)
-	      (make-v (* ,x-speed (if (eq facing :left) -1 1)) (- ,y-speed)))
-	kin-2d) '(:stage))))
-
 (defun origin-dist (a b)
   (dist (origin a) (origin b)))
-
-(defmacro sleeping? ()
-  `(aand (aval timers :sleep) (timer-active? it)))
-
-(defmacro ai-shake ()
-  `(unless (aand (aval timers :shake) (timer-active? it))
-     (removef physics :shake :key #'car :test #'eq)))
 
 (defun critter-ai (c ticks)
   (declare (ignore ticks))
@@ -1409,7 +1382,8 @@ This can be abused with the machine gun in TAS."
     (unless (aand (aval timers :shake) (timer-active? it))
       (removef physics :shake :key #'car :test #'eq))
     (setf facing (face-player (physics-pos c) (critter-player c)))
-    (when (and (not (sleeping?)) (< (origin-dist c (estate (critter-player c))) (tiles 4)))
+    (when (and (not (aand (aval timers :sleep) (timer-active? it)))
+	       (< (origin-dist c (estate (critter-player c))) (tiles 4)))
       (when (critter-ground-tile c)
 	(setf physics
 	      (aupdate physics
@@ -1550,22 +1524,24 @@ This can be abused with the machine gun in TAS."
 			     (stage-collisions
 			      (kin-2d-pos kin-2d) stage
 			      collision-rects
-			      (alist :bottom
-				     (collision-lambda
-				      (setf ground-tile
-					    tile-type)
-				      (unless last-tile
-					(setf timers
-					      (aset timers
-						    (create-expiring-timer (s->ms 1/3) t)
-						    :sleep)))
-				      (zero-vf
-				       (kin-2d-vel kin-2d)))
-				     :top
-				     (collision-lambda
-				      (max-y-vf
-				       (kin-2d-vel kin-2d)
-				       0)))))
+			      (alist
+			       :bottom
+			       (collision-lambda
+				(setf ground-tile
+				      tile-type)
+				(unless last-tile
+				  (setf timers
+					(aset timers
+					      (create-expiring-timer
+					       (s->ms 1/3)
+					       t)
+					      :sleep)))
+				(setf (kin-2d-vel kin-2d)
+				      (zero-v :x 0 :y 0)))
+			       :top
+			       (collision-lambda
+				(setf (kin-2d-vel kin-2d)
+				      (max-y-v (kin-2d-vel kin-2d) 0))))))
 		       kin-2d)
 		     '(:stage)))
       (make-critter :physics physics
@@ -1726,9 +1702,10 @@ This can be abused with the machine gun in TAS."
   (let ((pos (physics-pos e)))
     (cond
       ((timer-active? (aval (elephant-timers e) :recover))
-       (+vf pos (make-v 0 (tiles 1/4))))
-      ((= 1 (cycle-idx (timed-cycle-cycle (aval (elephant-timers e) :anim-cycle))))
-       (+vf pos (make-v 0 (tiles 1/8)))))
+       (setf pos (+v pos (make-v 0 (tiles 1/4)))))
+      ((= 1 (cycle-idx (timed-cycle-cycle
+			(aval (elephant-timers e) :anim-cycle))))
+       (setf pos (+v pos (make-v 0 (tiles 1/8))))))
     (create-rect pos *elephant-dims*)))
 
 (defmethod dynamic-collision-rect ((e elephant))

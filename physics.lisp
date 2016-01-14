@@ -86,7 +86,7 @@ new (values DELTA-POS VEL)."
 (defun motion-set-pos (physics)
   (let ((pos (zero-v)))
     (doalist (k m physics)
-      (+vf pos (motion-pos m)))
+      (setf pos (+v pos (motion-pos m))))
     pos))
 
 (defun wave-physics (w)
@@ -121,10 +121,13 @@ new (values DELTA-POS VEL)."
 		     (kin-2d-accelerator-y m)
 		     :clamper-vx (kin-2d-clamper-vx m)
 		     :clamper-vy (kin-2d-clamper-vy m))
-    (+vf (kin-2d-pos m) dpos)
+    (setf (kin-2d-pos m) (+v (kin-2d-pos m) dpos))
     (awhen (kin-2d-inertia-vel m)
-      (+vf (kin-2d-pos m)
-	   (accelerate-2d it (const-accelerator 0) (const-accelerator 0))))
+      (setf (kin-2d-pos m)
+	    (+v (kin-2d-pos m)
+		(accelerate-2d it
+			       (const-accelerator 0)
+			       (const-accelerator 0)))))
     (setf (kin-2d-vel m) nvel))
   m)
 
@@ -181,7 +184,7 @@ new (values DELTA-POS VEL)."
 		       (const-accelerator (* (signum (x disp)) *camera-acc*))
 		       (const-accelerator (* (signum (y disp)) *camera-acc*))
 		       :clamper-vx clamper-x :clamper-vy clamper-y)
-      (+vf (target-kin-2d-pos m) pos)
+      (setf (target-kin-2d-pos m) (+v (target-kin-2d-pos m) pos))
       (setf (target-kin-2d-vel m) vel))
     m))
 

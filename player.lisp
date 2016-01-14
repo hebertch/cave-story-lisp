@@ -301,7 +301,8 @@
 	(aupdatef
 	 (player-physics p)
 	 (lambda (kin-2d)
-	   (+vf (kin-2d-vel kin-2d) (make-v 0 (- *player-jump-speed*)))
+	   (setf (kin-2d-vel kin-2d)
+		 (+v (kin-2d-vel kin-2d) (make-v 0 (- *player-jump-speed*))))
 	   kin-2d)
 	 '(:stage))
 

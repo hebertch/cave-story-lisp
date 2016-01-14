@@ -38,9 +38,6 @@
       (zero-v)
       (reduce #'add-v vs)))
 
-(defmacro +vf (v &rest vs)
-  `(setf ,v (+v ,v ,@vs)))
-
 (defun -v (v &rest vs)
   (if (null vs)
       (sub-v (zero-v) v)
@@ -205,10 +202,6 @@
    :paused? (timed-cycle-paused? tc)))
 
 ;; Clamps
-
-(defmacro clampf (number min max)
-  (once-only (number)
-    `(setf ,number (clamp ,number ,min ,max))))
 
 (defun clamp+- (val amt)
   "Clamp between +/- amt."

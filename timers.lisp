@@ -65,6 +65,3 @@
 		   (cons k tr))))
 	     ts)
 	    ticks)))
-
-(defmacro timer-set-updatef (ts)
-  `(setf ,ts (timer-set-update ,ts)))

@@ -51,7 +51,8 @@
     :npc-regu "NpcRegu"
     :npc-eggs1 "NpcEggs1"))
 
-(defmacro def-resource-type (name (load-args &body load-forms) fnames-form destruct-fn)
+(defmacro def-resource-type
+    (name (load-args &body load-forms) fnames-form destruct-fn)
   "Introduces Anaphora of FNAME into the load definition. This is to keep consistent args with
 the get- function that is produced."
   (with-gensyms (hash-table rt)

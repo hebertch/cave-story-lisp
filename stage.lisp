@@ -68,6 +68,7 @@
 
 (defmacro collision-lambda (&rest forms)
   `(lambda (tile-type)
+     (declare (ignorable tile-type))
      ,@forms))
 
 (defun stage-check/resolve-collision
