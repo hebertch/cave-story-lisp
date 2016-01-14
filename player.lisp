@@ -1,6 +1,8 @@
 (in-package :cave-story)
 
 (defstruct (player (:include entity-state))
+  dead?
+  
   h-facing
   v-facing
   interacting?
@@ -138,7 +140,7 @@
 	   (lambda (kin-2d) (player-kin-2d-physics p kin-2d))
 	   '(:stage)))
 
-(defmethod ai ((p player) ticks)
+(defun player-ai (p ticks)
   (when (and (find :walk-cycle ticks)
 	     (/= 0 (timed-cycle-current (aval (player-timers p) :walk-cycle))))
     (push-sound :step))
@@ -163,8 +165,11 @@
    :projectile-groups (player-projectile-groups p)
    :acc-dir (player-acc-dir p)))
 
+(defmethod ai ((p player) ticks)
+  (player-ai p ticks))
+
 (defmethod dead? ((p player))
-  (<= (player-health-amt p) 0))
+  (player-dead? p))
 
 (defun player-fire-gun! (p)
   (let ((gun-name (player-current-gun-name p)))
@@ -197,6 +202,7 @@
 			       #'active-systems-switch-to-dialog)
 
 	 (setf (player-health-amt p) 0)
+	 (setf (player-dead? p) t)
 	 (let ((*entity-system-type* :dialog))
 	   (comment-code
 	     (create-callback-timer

@@ -45,7 +45,7 @@
    (asetfn (make-shake) :shake-h)
    (asetfn (make-shake) :shake-v)))
 
-(defmethod ai ((c camera) ticks)
+(defun camera-ai (c ticks)
   (let ((physics (aupdate
 		  (camera-physics c)
 		  (lambda (m)
@@ -64,6 +64,9 @@
 		 (arem (camera-timers c) :shake)
 		 (camera-timers c))
      :player (camera-player c))))
+
+(defmethod ai ((c camera) ticks)
+  (camera-ai c ticks))
 
 (defun timed-camera-shake (c time)
   (make-camera :physics (funcall (add-camera-shake)

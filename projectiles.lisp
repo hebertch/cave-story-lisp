@@ -12,7 +12,8 @@
 	 (if (vertical? dir)
 	     :left
 	     :up)))
-    (make-missile-projectile :lvl lvl :dir dir :timers
+    (make-missile-projectile :lvl lvl :dir dir
+			     :timers
 			     (alist :life
 				    (create-expiring-timer
 				     (s->ms 3/2) t))
@@ -141,9 +142,17 @@
    :sprite-rect (missile-projectile-sprite-rect p)
    :dead? t))
 
+(defun missile-projectile-ai (p ticks)
+  (cond ((member :life ticks)
+	 (make-missile-projectile
+	  :dead? t))
+	(t p)))
+
+(defmethod ai ((p missile-projectile) ticks)
+  (missile-projectile-ai p ticks))
+
 (defmethod dead? ((p missile-projectile))
-  (or (not (timer-active? (aval (missile-projectile-timers p) :life)))
-      (missile-projectile-dead? p)))
+  (missile-projectile-dead? p))
 
 (defun make-missile-projectile-group (lvl dir nozzle-pos)
   (let ((pos (sub-v nozzle-pos
@@ -193,7 +202,7 @@
     #'make-default-polar-star-projectile
   :timers :physics :drawable :bullet :stage-collision)
 
-(defmethod ai ((p polar-star-projectile) ticks)
+(defun polar-star-projectile-ai (p ticks)
   (cond ((not (timer-active? (aval (polar-star-projectile-timers p) :life)))
 	 (push-sound :dissipate)
 	 (make-projectile-star-particle
@@ -209,6 +218,9 @@
 	  :sprite-rect (polar-star-projectile-sprite-rect p)
 	  :dead? t))
 	(t p)))
+
+(defmethod ai ((p polar-star-projectile) ticks)
+  (polar-star-projectile-ai p ticks))
 
 (defmethod draw ((p polar-star-projectile))
   (polar-star-projectile-drawing (physics-pos p)
@@ -247,7 +259,8 @@
 	     pos
 	     stage))))
 
-(defmethod dead? ((p polar-star-projectile)) (polar-star-projectile-dead? p))
+(defmethod dead? ((p polar-star-projectile))
+  (polar-star-projectile-dead? p))
 
 (defun make-polar-star-projectile-group (lvl dir nozzle-pos)
   (push-sound :polar-star-shoot-3)

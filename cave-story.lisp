@@ -221,13 +221,16 @@ This can be abused with the machine gun in TAS."
   `(unless (timer-active? (aval timers :life))
      (tf dead?)))
 
-(defmethod ai ((d dorito) ticks)
+(defun dorito-ai (d ticks)
   (cond ((timer-active? (aval (dorito-timers d) :life))
 	 d)
 	(t (make-dorito :physics (dorito-physics d)
 			::timers (dorito-timers d)
 			:dead? t
 			:size (dorito-size d)))))
+
+(defmethod ai ((d dorito) ticks)
+  (dorito-ai d ticks))
 
 (defun dorito-pos (d)
   (physics-pos d))
@@ -386,7 +389,7 @@ This can be abused with the machine gun in TAS."
 					  (single-loop-sprite-tile-y s)))
 		       :pos pos))
 
-(defmethod ai ((p single-loop-sprite) ticks)
+(defun single-loop-sprite-ai (p ticks)
   (cond ((and (find :cycle ticks)
 	      (zerop (cycle-idx
 		      (timed-cycle-cycle (aval (single-loop-sprite-timers p)
@@ -398,6 +401,9 @@ This can be abused with the machine gun in TAS."
 	  :tile-y (single-loop-sprite-tile-y p)
 	  :layer (single-loop-sprite-layer p)))
 	(t p)))
+
+(defmethod ai ((p single-loop-sprite) ticks)
+  (single-loop-sprite-ai p ticks))
 
 (defmethod dead? ((p single-loop-sprite))
   (single-loop-sprite-dead? p))
@@ -485,9 +491,14 @@ This can be abused with the machine gun in TAS."
 	    (cons :negative digits)
 	    (cons :positive digits)))))
 
-(defstruct (floating-number (:include entity-state)) entity amt)
+(defstruct (floating-number (:include entity-state))
+  dead?
+  entity
+  amt)
+
 (defun make-default-floating-number (entity amt)
-  (make-floating-number :entity entity :amt amt
+  (make-floating-number :entity entity
+			:amt amt
 			:timers
 			(alist :life
 			       (create-expiring-timer
@@ -508,21 +519,31 @@ This can be abused with the machine gun in TAS."
 		  (floating-number-amt fn)
 		  :layer :floating-text))
 
+(defun floating-number-ai (fn ticks)
+  (let ((dead? (not (timer-active? (aval (floating-number-timers fn) :life)))))
+    (cond ((< (y (motion-pos (cdr (assoc :offset (floating-number-physics fn)))))
+	      (- (tiles 1)))
+	   (make-floating-number
+	    :dead? dead?
+	    :physics
+	    (aset (floating-number-physics fn)
+		  (make-offset-motion (zero-v :y (- (tiles 1))) :up 0)
+		  :offset)
+	    :timers (floating-number-timers fn)
+	    :entity (floating-number-entity fn)
+	    :amt (floating-number-amt fn)))
+	  (t (make-floating-number
+	      :dead? dead?
+	      :physics (floating-number-physics fn)
+	      :timers (floating-number-timers fn)
+	      :entity (floating-number-entity fn)
+	      :amt (floating-number-amt fn))))))
+
 (defmethod ai ((fn floating-number) ticks)
-  (cond ((< (y (motion-pos (cdr (assoc :offset (floating-number-physics fn)))))
-	    (- (tiles 1)))
-	 (make-floating-number
-	  :physics
-	  (aset (floating-number-physics fn)
-		(make-offset-motion (zero-v :y (- (tiles 1))) :up 0)
-		:offset)
-	  :timers (floating-number-timers fn)
-	  :entity (floating-number-entity fn)
-	  :amt (floating-number-amt fn)))
-	(t fn)))
+  (floating-number-ai fn ticks))
 
 (defmethod dead? ((fn floating-number))
-  (not (timer-active? (aval (floating-number-timers fn) :life))))
+  (floating-number-dead? fn))
 
 (defun floating-number-add-amt (fn amount)
   (make-floating-number
@@ -621,7 +642,7 @@ This can be abused with the machine gun in TAS."
 (def-entity-constructor create-text-display #'make-default-text-display
   :timers :drawable)
 
-(defmethod ai ((td text-display) ticks)
+(defun text-display-ai (td ticks)
   (cond
     ((= (text-display-num-chars td) (length (text-display-text td)))
      (when (and (text-display-wait-for-input? td)
@@ -655,6 +676,9 @@ This can be abused with the machine gun in TAS."
       :dead? (text-display-dead? td)))
     (t td)))
 
+(defmethod ai ((td text-display) ticks)
+  (text-display-ai td ticks))
+
 (defmethod draw ((td text-display))
   (list* (make-text-line-drawing
 	  :pos (text-display-pos td)
@@ -667,7 +691,11 @@ This can be abused with the machine gun in TAS."
 (defmethod dead? ((td text-display))
   (text-display-dead? td))
 
-(defstruct (hud (:include entity-state)) player gun-exps last-health-amt)
+(defstruct (hud (:include entity-state))
+  player
+  gun-exps
+  last-health-amt)
+
 (defun make-default-hud  (player gun-exps id)
   (values
    (make-hud :player player :gun-exps gun-exps :timers
@@ -1178,7 +1206,7 @@ This can be abused with the machine gun in TAS."
 (defmacro ai-face-player (e)
   `(setf facing (face-player (physics-pos ,e) player)))
 
-(defmethod ai ((b bat) ticks)
+(defun bat-ai (b ticks)
   (make-bat :physics (bat-physics b)
 	    :timers (bat-timers b)
 	    :player (bat-player b)
@@ -1187,6 +1215,9 @@ This can be abused with the machine gun in TAS."
 	    :damage-numbers (bat-damage-numbers b)
 	    :id (bat-id b)
 	    :dead? (bat-dead? b)))
+
+(defmethod ai ((b bat) ticks)
+  (bat-ai b ticks))
 
 (defun facing-offset (facing)
   (tile-v 0 (if (eq facing :left) 0 1)))
@@ -1334,7 +1365,8 @@ This can be abused with the machine gun in TAS."
   `(unless (aand (aval timers :shake) (timer-active? it))
      (removef physics :shake :key #'car :test #'eq)))
 
-(defmethod ai ((c critter) ticks)
+(defun critter-ai (c ticks)
+  (declare (ignore ticks))
   (let ((physics (critter-physics c))
 	(timers (critter-timers c))
 	(facing (critter-facing c)))
@@ -1364,6 +1396,9 @@ This can be abused with the machine gun in TAS."
 		  :id (critter-id c)
 		  :player (critter-player c)
 		  :damage-numbers (critter-damage-numbers c))))
+
+(defmethod ai ((c critter) ticks)
+  (critter-ai c ticks))
 
 (defmethod draw ((c critter))
   (let ((sprite-tile-x (cond
@@ -1682,7 +1717,7 @@ This can be abused with the machine gun in TAS."
    player-collision-rect
    (estate player)))
 
-(defmethod ai ((e elephant) ticks)
+(defun elephant-ai (e ticks)
   (let ((timers (elephant-timers e))
 	(physics (elephant-physics e)))
     (unless (aand (aval timers :shake) (timer-active? it))
@@ -1737,6 +1772,9 @@ This can be abused with the machine gun in TAS."
 		   :player (elephant-player e)
 		   :camera (elephant-camera e)
 		   :damage-numbers (elephant-damage-numbers e))))
+
+(defmethod ai ((e elephant) ticks)
+  (elephant-ai e ticks))
 
 (let ((collision-rects (rect->collision-rects
 			(centered-rect (scale-v *elephant-dims* 1/2) *elephant-dims*)
