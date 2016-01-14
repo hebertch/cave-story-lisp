@@ -136,10 +136,13 @@
 				     (missile-projectile-dir p)
 				     (missile-projectile-pos p)))
 
-(defmethod bullet-damage-amt ((p missile-projectile))
+(defun missile-projectile-damage-amt (p)
   3)
 
-(defmethod bullet-hit-react ((p missile-projectile))
+(defmethod bullet-damage-amt ((p missile-projectile))
+  (missile-projectile-damage-amt p))
+
+(defun missile-projectile-hit-react (p)
   (make-missile-projectile
    :physics (missile-projectile-physics p)
    :timers (missile-projectile-timers p)
@@ -147,6 +150,9 @@
    :dir (missile-projectile-dir p)
    :sprite-rect (missile-projectile-sprite-rect p)
    :dead? t))
+
+(defmethod bullet-hit-react ((p missile-projectile))
+  (missile-projectile-hit-react p))
 
 (defun missile-projectile-ai (p ticks)
   (cond ((member :life ticks)
@@ -237,7 +243,7 @@
 					(polar-star-projectile-dir p)
 					(physics-pos p)))
 
-(defmethod bullet-hit-react ((p polar-star-projectile))
+(defun polar-star-projectile-hit-react (p)
   (make-polar-star-projectile
    :physics (polar-star-projectile-physics p)
    :timers (polar-star-projectile-timers p)
@@ -246,8 +252,14 @@
    :sprite-rect (polar-star-projectile-sprite-rect p)
    :dead? t))
 
-(defmethod bullet-damage-amt ((p polar-star-projectile))
+(defmethod bullet-hit-react ((p polar-star-projectile))
+  (polar-star-projectile-hit-react p))
+
+(defun polar-star-projectile-damage-amt (p)
   (elt '(1 2 4) (polar-star-projectile-lvl p)))
+
+(defmethod bullet-damage-amt ((p polar-star-projectile))
+  (polar-star-projectile-damage-amt p))
 
 (defun polar-star-projectile-stage-collision (p stage)
   (let ((pos (physics-pos p))

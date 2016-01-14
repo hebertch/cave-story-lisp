@@ -20,7 +20,8 @@
 
 (defgeneric update-timer (tr))
 
-(defmethod update-timer ((tr timer))
+(defun timer-update (tr)
+  ;; TODO: Admittedly the naming here sucks.
   (cond ((timer-active? tr)
 	 (let* ((tr2 (make-timer :length (timer-length tr)
 				 :ms-remaining (- (timer-ms-remaining tr) *frame-time*)
@@ -35,6 +36,9 @@
 		  (t tr2))
 	    ticked?)))
 	(t tr)))
+
+(defmethod update-timer ((tr timer))
+  (timer-update tr))
 
 (defun chunk-time-period (tm length-ms &optional (chunks-per-period 2))
   "Chunks the time remaining into chunks of LENGTH-MS. Returns the idx of the chunk in the period."

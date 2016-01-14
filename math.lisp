@@ -167,7 +167,7 @@
 		    :cycle (create-cycle seq)
 		    :paused? start-paused?))
 
-(defmethod update-timer ((tc timed-cycle))
+(defun update-timed-cycle (tc)
   (cond
     ((timed-cycle-paused? tc) tc)
     (t
@@ -179,6 +179,9 @@
 			   (timed-cycle-cycle tc))
 		:paused? nil)
 	       tick?)))))
+
+(defmethod update-timer ((tc timed-cycle))
+  (update-timed-cycle tc))
 
 (defun timed-cycle-current (tc)
   (cycle-current (timed-cycle-cycle tc)))

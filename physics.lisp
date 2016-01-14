@@ -114,7 +114,7 @@ new (values DELTA-POS VEL)."
 
   inertia-vel)
 
-(defmethod motion-physics ((m kin-2d))
+(defun kin-2d-motion-physics (m)
   (mvbind (dpos nvel)
       (accelerate-2d (kin-2d-vel m)
 		     (kin-2d-accelerator-x m)
@@ -127,6 +127,9 @@ new (values DELTA-POS VEL)."
 	   (accelerate-2d it (const-accelerator 0) (const-accelerator 0))))
     (setf (kin-2d-vel m) nvel))
   m)
+
+(defmethod motion-physics ((m kin-2d))
+  (kin-2d-motion-physics m))
 
 (defmethod motion-pos ((m kin-2d))
   (kin-2d-pos m))
@@ -143,7 +146,7 @@ new (values DELTA-POS VEL)."
 	  (target-kin-2d-target-vel m) targ-vel)
     m))
 
-(defmethod motion-physics ((m target-kin-2d))
+(defun target-kin-2d-motion-physics (m)
   (let* ((m (copy-structure m))
 	 (disp (sub-v (target-kin-2d-target m)
 		      (target-kin-2d-pos m)))
@@ -181,6 +184,9 @@ new (values DELTA-POS VEL)."
       (+vf (target-kin-2d-pos m) pos)
       (setf (target-kin-2d-vel m) vel))
     m))
+
+(defmethod motion-physics ((m target-kin-2d))
+  (target-kin-2d-motion-physics m))
 
 (defmethod motion-pos ((m target-kin-2d))
   (target-kin-2d-pos m))

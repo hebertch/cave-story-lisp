@@ -327,10 +327,13 @@ This can be abused with the machine gun in TAS."
 (defmethod stage-collision ((d dorito) stage)
   (dorito-stage-collision d stage))
 
-(defmethod pickup-rect ((d dorito))
+(defun dorito-pickup-rect (d)
   (rect-offset (dorito-collision-rect (dorito-size d)) (physics-pos d)))
 
-(defmethod pickup-kill ((d dorito))
+(defmethod pickup-rect ((d dorito))
+  (dorito-pickup-rect d))
+
+(defun dorito-pickup-kill (d)
   (push-sound :pickup)
   (make-dorito
    :timers (dorito-timers d)
@@ -338,12 +341,18 @@ This can be abused with the machine gun in TAS."
    :size (dorito-size d)
    :physics (dorito-physics d)))
 
-(defmethod pickup-data ((d dorito))
+(defmethod pickup-kill ((d dorito))
+  (dorito-pickup-kill d))
+
+(defun dorito-pickup-data (d)
   (make-pickup :type :dorito
 	       :amt (ecase (dorito-size d)
 		      (:small 1)
 		      (:medium 10)
 		      (:large 20))))
+
+(defmethod pickup-data ((d dorito))
+  (dorito-pickup-data d))
 
 (defmethod dead? ((d dorito))
   (dorito-dead? d))
@@ -1484,8 +1493,11 @@ This can be abused with the machine gun in TAS."
 (defmethod damage-collision-amt ((c critter))
   1)
 
-(defmethod dynamic-collision-rect ((c critter))
+(defun critter-damage-collision-rect (c)
   (rect-offset *critter-dynamic-collision-rect* (physics-pos c)))
+
+(defmethod dynamic-collision-rect ((c critter))
+  (critter-damage-collision-rect c))
 
 (defun dynamic-collision-enemy-react
     (pos origin id dynamic-collision-rect side player-collision-rect player-state)
@@ -1710,7 +1722,7 @@ This can be abused with the machine gun in TAS."
 
 (defmethod dead? ((e elephant)) (elephant-dead? e))
 
-(defmethod dynamic-collision-rect ((e elephant))
+(defun elephant-dynamic-collision-rect (e)
   (let ((pos (physics-pos e)))
     (cond
       ((timer-active? (aval (elephant-timers e) :recover))
@@ -1719,18 +1731,27 @@ This can be abused with the machine gun in TAS."
        (+vf pos (make-v 0 (tiles 1/8)))))
     (create-rect pos *elephant-dims*)))
 
-(defmethod damage-collision-amt ((e elephant))
+(defmethod dynamic-collision-rect ((e elephant))
+  (elephant-dynamic-collision-rect e))
+
+(defun elephant-damage-collision-amt (e)
   (if (timer-active? (aval (elephant-timers e) :rage))
       5
       1))
 
-(defmethod damage-collision-rect ((e elephant))
+(defmethod damage-collision-amt ((e elephant))
+  (elephant-damage-collision-amt e))
+
+(defun elephant-damage-collision-rect (e)
   (let* ((dims (make-v (tiles 1) (tiles 3/4)))
 	 (y (tiles 3/4))
 	 (pos (if (eq (elephant-facing e) :left)
 		  (make-v 0 y)
 		  (make-v (tiles 1) y))))
     (create-rect (+v (physics-pos e) pos) dims)))
+
+(defmethod damage-collision-rect ((e elephant))
+  (elephant-damage-collision-rect e))
 
 (defmethod dynamic-collision-react ((c elephant) side player-collision-rect player)
   (dynamic-collision-enemy-react
