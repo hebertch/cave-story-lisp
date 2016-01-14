@@ -1,7 +1,7 @@
 (in-package :cave-story)
 
 (defmethod draw ((s array))
-  (draw-stage! s))
+  (draw-stage s))
 
 (defun create-stage! (stage-data)
   (create-entity
@@ -135,10 +135,15 @@ Returns the TILE-TYPE of the colliding tile."
 		    :debug-stage-collision))))
   position)
 
-(defun draw-stage! (stage)
-  (dotimes (row (array-dimension stage 0))
-    (dotimes (col (array-dimension stage 1))
-      (when (aref stage row col)
-	(draw-sprite! :foreground :prt-cave
-		      (tile-rect (tile-pos (cdr (aref stage row col))))
-		      (tile-v col row))))))
+(defun draw-stage (stage)
+  (let ((drawings nil))
+    (dotimes (row (array-dimension stage 0))
+      (dotimes (col (array-dimension stage 1))
+	(when (aref stage row col)
+	  (push
+	   (make-sprite-drawing :layer :foreground :sheet-key :prt-cave
+				:src-rect
+				(tile-rect (tile-pos (cdr (aref stage row col))))
+				:pos (tile-v col row))
+	   drawings))))
+    drawings))

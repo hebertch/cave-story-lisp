@@ -112,10 +112,11 @@
 			nozzle-offsets))))
     nozzle-offsets))
 
-(defun player-draw-gun (pos gun-name h-facing actual-v-facing walking? walk-idx)
-  (draw-sprite! :gun :arms
-	       (gun-sprite-rect gun-name h-facing actual-v-facing)
-	       (gun-pos pos h-facing actual-v-facing walking? walk-idx)))
+(defun player-gun-drawing (pos gun-name h-facing actual-v-facing walking? walk-idx)
+  (make-sprite-drawing :layer :gun
+		       :sheet-key :arms
+		       :src-rect (gun-sprite-rect gun-name h-facing actual-v-facing)
+		       :pos (gun-pos pos h-facing actual-v-facing walking? walk-idx)))
 
 (defparameter *gun-nozzle-offsets*
   (loop for gun-name across *gun-names*

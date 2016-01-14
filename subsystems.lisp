@@ -18,7 +18,7 @@ REGISTER-name is the interface to add to name-REGISTRY.
 DEF-ENTITY-name is the interface to be used with DEF-ENTITY.
 UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 
-  (let ((registry (symbolicate '*- name '-registry*))
+  (let ((registry (symbolicate '* name '-registry*))
 	(register-name (symbolicate 'register- name))
 	(update-name (symbolicate 'update- name '-subsystem)))
     (with-gensyms (entry-name)
@@ -56,7 +56,7 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 
 (defgeneric draw (obj))
 (def-subsystem drawable ()
-  (draw (estate entity-id)))
+  (appendf *render-list* (alexandria:ensure-list (draw (estate entity-id)))))
 
 (defgeneric stage-collision (obj stage))
 (def-subsystem stage-collision (stage)

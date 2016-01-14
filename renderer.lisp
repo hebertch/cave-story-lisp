@@ -31,10 +31,6 @@
   "Whether to render the DEBUG-RENDER-LIST")
 (defvar *render-list* nil
   "The list of drawings to be rendered once per frame.")
-(defparameter *screen-render-list* nil
-  "The list of drawings to be rendered once per frame.
-These are drawn relative to the SCREEN and not relative to the camera position.")
-
 (defparameter *debug-layers*
   (list :debug
 	:debug-damage-collision
@@ -51,9 +47,12 @@ These are drawn relative to the SCREEN and not relative to the camera position."
 	:projectile
 	:foreground
 	:particle
+	:floating-text
+	
 	:hud-bg :hud :hud-fg
 	:text-box :text))
 (defparameter *layers* (append *game-layers* *debug-layers*))
+(defparameter *screen-layers* (member :hud-bg *layers*))
 (defparameter *visible-layers* *game-layers*)
 (defparameter *parallax-scale* 1/8)
 (defparameter *character-textures* (make-hash-table))
@@ -109,10 +108,6 @@ These are drawn relative to the SCREEN and not relative to the camera position."
   "Interface to the *RENDER-LIST*"
   (push r *render-list*))
 
-(defun push-screen-render! (r)
-  "Interface to the *SCREEN-RENDER-LIST*"
-  (push r *screen-render-list*))
-
 (defun draw-slope! (tile-pos tile-type)
   "Pushes a slope to the DEBUG-RENDER-LIST"
   (let ((pos (tile-pos->pos tile-pos)))
@@ -165,9 +160,9 @@ These are drawn relative to the SCREEN and not relative to the camera position."
 
 (defun draw-point! (pos color &key (layer :debug) (size 5))
   (draw-rect! (centered-rect pos (both-v size))
-	     color
-	     :layer layer
-	     :filled? t))
+	      color
+	      :layer layer
+	      :filled? t))
 
 (defun draw-line! (a b color &key (layer :debug))
   (push-render!
@@ -180,10 +175,10 @@ These are drawn relative to the SCREEN and not relative to the camera position."
 				     :pos pos)))
 
 (defun draw-hud-sprite! (layer sheet-key src-rect pos)
-  (push-screen-render! (make-sprite-drawing :layer layer
-					   :sheet-key sheet-key
-					   :src-rect src-rect
-					   :pos pos)))
+  (push-render! (make-sprite-drawing :layer layer
+				     :sheet-key sheet-key
+				     :src-rect src-rect
+				     :pos pos)))
 
 (defun get-text-size (font text)
   (destructuring-bind (w h) (sdl.ttf:get-text-size font text)
@@ -208,12 +203,12 @@ These are drawn relative to the SCREEN and not relative to the camera position."
        it
        (setf (gethash char *character-textures*)
 	     (mvlist (create-text-texture! *renderer*
-					  font
-					  (string char)
-					  (color->hex *white*))))))
+					   font
+					   (string char)
+					   (color->hex *white*))))))
 
 (defun draw-text-line! (pos text)
-  (push-screen-render!
+  (push-render!
    (make-text-line-drawing :pos pos :text text :layer :text)))
 
 (defun render! (renderer font render-list camera-pos)
@@ -222,47 +217,53 @@ These are drawn relative to the SCREEN and not relative to the camera position."
 
   (setf render-list (sort-by-layers render-list))
 
-  (let ((len (tiles 4)))
-    (dotimes (x (1+ (floor (x *window-dims*) len)))
-      (dotimes (y (+ 2 (floor (y *window-dims*) len)))
-	(render-sprite! renderer
-			(make-sprite-drawing
-			 :layer :foreground
-			 :sheet-key :bk-blue
-			 :src-rect (create-rect (zero-v) (both-v len))
-			 :pos
-			 (make-v (+ (* (1- x) len)
-				    (mod (* *parallax-scale* (- (x camera-pos))) len))
-				 (+ (* (1- y) len)
-				    (mod (* *parallax-scale* (y camera-pos)) len))))
-			(zero-v)))))
+  (let ((render-list
+	 (remove-if
+	  (lambda (x) (member (drawing-layer x) *screen-layers*))
+	  render-list))
+	(screen-render-list
+	 (remove-if
+	  (lambda (x) (not (member (drawing-layer x) *screen-layers*)))
+	  render-list)))
+    (let ((len (tiles 4)))
+      (dotimes (x (1+ (floor (x *window-dims*) len)))
+	(dotimes (y (+ 2 (floor (y *window-dims*) len)))
+	  (render-sprite! renderer
+			  (make-sprite-drawing
+			   :layer :foreground
+			   :sheet-key :bk-blue
+			   :src-rect (create-rect (zero-v) (both-v len))
+			   :pos
+			   (make-v (+ (* (1- x) len)
+				      (mod (* *parallax-scale* (- (x camera-pos))) len))
+				   (+ (* (1- y) len)
+				      (mod (* *parallax-scale* (y camera-pos)) len))))
+			  (zero-v)))))
 
 
-  (dolist (r render-list)
-    (cond
-      ((sprite-drawing-p r) (render-sprite! renderer r camera-pos))
-      ((rect-drawing-p r) (render-rect! renderer r camera-pos))
-      ((line-drawing-p r) (render-line! renderer r camera-pos))))
+    (dolist (r render-list)
+      (cond
+	((sprite-drawing-p r) (render-sprite! renderer r camera-pos))
+	((rect-drawing-p r) (render-rect! renderer r camera-pos))
+	((line-drawing-p r) (render-line! renderer r camera-pos))))
 
-  (setf *screen-render-list* (sort-by-layers *screen-render-list*))
-
-  (dolist (r *screen-render-list*)
-    (cond
-      ((sprite-drawing-p r) (render-sprite! renderer r (zero-v)))
-      ((rect-drawing-p r) (render-rect! renderer r (zero-v)))
-      ((line-drawing-p r) (render-line! renderer r (zero-v)))
-      ((text-line-drawing-p r)
-       (let ((start-pos (text-line-drawing-pos r))
-	     (text (text-line-drawing-text r)))
-	 (loop for c across text
-	    for i from 0
-	    do
-	      (dbind (texture dims) (get-character-texture! c font)
-		(sdl:render-texture
-		 renderer
-		 texture
-		 (rect->sdl-rect (create-rect (zero-v) dims))
-		 (rect->sdl-rect (create-rect (+v start-pos (zero-v :x (* i (x dims))))
-					      dims)))))))))
+    (dolist (r screen-render-list)
+      (cond
+	((sprite-drawing-p r) (render-sprite! renderer r (zero-v)))
+	((rect-drawing-p r) (render-rect! renderer r (zero-v)))
+	((line-drawing-p r) (render-line! renderer r (zero-v)))
+	((text-line-drawing-p r)
+	 (let ((start-pos (text-line-drawing-pos r))
+	       (text (text-line-drawing-text r)))
+	   (loop for c across text
+	      for i from 0
+	      do
+		(dbind (texture dims) (get-character-texture! c font)
+		  (sdl:render-texture
+		   renderer
+		   texture
+		   (rect->sdl-rect (create-rect (zero-v) dims))
+		   (rect->sdl-rect (create-rect (+v start-pos (zero-v :x (* i (x dims))))
+						dims))))))))))
 
   (sdl:render-present renderer))

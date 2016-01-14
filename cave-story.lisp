@@ -104,11 +104,11 @@
 		      (draw-text-line! (zero-v) "PAUSED")
 		      (setf *global-game* (update-and-render *renderer* *global-game*)))
 		  (render! *renderer*
-			  *font*
-			  *render-list*
-			  (camera-pos
-			   (estate (game-camera *global-game*))
-			   (stage-dims->camera-bounds (stage-dims (game-stage *global-game*)))))
+			   *font*
+			   *render-list*
+			   (camera-pos
+			    (estate (game-camera *global-game*))
+			    (stage-dims->camera-bounds (stage-dims (game-stage *global-game*)))))
 		  (decf frame-timer (* *update-period* *frame-time*)))
 
 		(let ((dt (- (sdl:get-ticks) last-update-time)))
@@ -242,16 +242,18 @@ This can be abused with the machine gun in TAS."
 
 (defmethod draw ((d dorito))
   (unless (death-flash? (dorito-timers d))
-    (draw-sprite!
-     :pickup :npc-sym
+    (make-sprite-drawing
+     :layer :pickup
+     :sheet-key :npc-sym
 
+     :src-rect
      (create-rect
       (+v
        (anim-cycle-offset (dorito-timers d))
        (tile-v 0 (1+ (position (dorito-size d) '(:small :medium :large)))))
       (make-v (tiles 1) (1- (tiles 1))))
 
-     (physics-pos d))))
+     :pos (physics-pos d))))
 
 (defun set-x-v (v x)
   (make-v x (y v)))
@@ -374,14 +376,15 @@ This can be abused with the machine gun in TAS."
 (def-entity-constructor create-single-loop-sprite #'make-default-single-loop-sprite
   :timers)
 
-(defun single-loop-sprite-draw (s pos)
-  (draw-sprite! (single-loop-sprite-layer s)
-	       (single-loop-sprite-sheet-key s)
-	       (tile-rect (tile-v (cycle-current
-				   (timed-cycle-cycle
-				    (aval (single-loop-sprite-timers s) :cycle)))
-				  (single-loop-sprite-tile-y s)))
-	       pos))
+(defun single-loop-sprite-drawing (s pos)
+  (make-sprite-drawing :layer (single-loop-sprite-layer s)
+		       :sheet-key (single-loop-sprite-sheet-key s)
+		       :src-rect
+		       (tile-rect (tile-v (cycle-current
+					   (timed-cycle-cycle
+					    (aval (single-loop-sprite-timers s) :cycle)))
+					  (single-loop-sprite-tile-y s)))
+		       :pos pos))
 
 (defmethod ai ((p single-loop-sprite) ticks)
   (cond ((and (find :cycle ticks)
@@ -418,9 +421,11 @@ This can be abused with the machine gun in TAS."
   (let ((sp (estate (particle-single-loop-sprite p))))
     (let ((cycle-current (cycle-current
 			  (timed-cycle-cycle (aval (single-loop-sprite-timers sp) :cycle)))))
-      (draw-sprite! :particle (single-loop-sprite-sheet-key sp)
-		   (tile-rect (tile-v cycle-current (single-loop-sprite-tile-y sp)))
-		   (particle-pos p)))))
+      (make-sprite-drawing :layer :particle
+			   :sheet-key (single-loop-sprite-sheet-key sp)
+			   :src-rect
+			   (tile-rect (tile-v cycle-current (single-loop-sprite-tile-y sp)))
+			   :pos (particle-pos p)))))
 
 (defmethod dead? ((p particle))
   (dead? (estate (particle-single-loop-sprite p))))
@@ -439,12 +444,14 @@ This can be abused with the machine gun in TAS."
 		   :tile-y 0
 		   :pos (sub-v center-pos (tile-dims/2))))
 
-(defun draw-number (pos number &key (push-fn #'push-render!) (layer :hud) (centered? t) (show-sign? t))
+(defun number-drawing
+    (pos number &key (layer :hud) (centered? t) (show-sign? t))
   (let* ((neg? (minusp number))
 	 (digits (fixnum->digits number))
 	 (pos (if centered?
 		  (sub-v pos (tiles/2-v (/ (length digits) 2) 1/2))
-		  pos)))
+		  pos))
+	 (drawings nil))
 
     (dolist (digit digits)
       (when (or show-sign? (numberp digit))
@@ -453,12 +460,14 @@ This can be abused with the machine gun in TAS."
 		 (:positive (tiles/2-v 4 6))
 		 (:negative (tiles/2-v 5 6))
 		 (t (tiles/2-v digit (if neg? 8 7))))))
-	  (funcall push-fn (make-sprite-drawing
-			    :layer layer
-			    :sheet-key :text-box
-			    :src-rect (create-rect src-pos (tile-dims/2))
-			    :pos pos)))
-	(+vf pos (tiles/2-v 1 0))))))
+	  (push (make-sprite-drawing
+		 :layer layer
+		 :sheet-key :text-box
+		 :src-rect (create-rect src-pos (tile-dims/2))
+		 :pos pos)
+		drawings))
+	(+vf pos (tiles/2-v 1 0))))
+    drawings))
 
 (defun fixnum->digits (number)
   (if (zerop number)
@@ -494,10 +503,10 @@ This can be abused with the machine gun in TAS."
   :timers :drawable :physics)
 
 (defmethod draw ((fn floating-number))
-  (draw-number (+v (origin (estate (floating-number-entity fn)))
-		   (physics-pos fn))
-	       (floating-number-amt fn))
-  (values))
+  (number-drawing (+v (origin (estate (floating-number-entity fn)))
+		      (physics-pos fn))
+		  (floating-number-amt fn)
+		  :layer :floating-text))
 
 (defmethod ai ((fn floating-number) ticks)
   (cond ((< (y (motion-pos (cdr (assoc :offset (floating-number-physics fn)))))
@@ -529,18 +538,17 @@ This can be abused with the machine gun in TAS."
 
 (defun draw-bat (pos facing cycle-idx)
   (draw-sprite! :enemy
-	       :npc-cemet
-	       (tile-rect (tile-v (+ 2 cycle-idx)
-				  (if (eq facing :left) 2 3)))
-	       pos))
+		:npc-cemet
+		(tile-rect (tile-v (+ 2 cycle-idx)
+				   (if (eq facing :left) 2 3)))
+		pos))
 
 (defun draw-hud-number (tile/2-y number)
-  (draw-number (tiles/2-v (+ (if (< number 10) 1 0) 3)
-			  tile/2-y)
-	       number
-	       :centered? nil
-	       :show-sign? nil
-	       :push-fn #'push-screen-render!))
+  (number-drawing (tiles/2-v (+ (if (< number 10) 1 0) 3)
+			     tile/2-y)
+		  number
+		  :centered? nil
+		  :show-sign? nil))
 
 (defun exp-for-gun-level (gun-name lvl)
   (when (eq lvl :max)
@@ -622,12 +630,11 @@ This can be abused with the machine gun in TAS."
 					5)))
        (let ((char-dims (get-text-size *font* " "))
 	     (w (x (get-text-size *font* (text-display-text td)))))
-	 (push-screen-render!
-	  (make-rect-drawing
-	   :rect (create-rect (+v (text-display-pos td) (make-v w 0)) char-dims)
-	   :color *white*
-	   :layer :text
-	   :filled? t))))
+	 (draw-rect!
+	  (create-rect (+v (text-display-pos td) (make-v w 0)) char-dims)
+	  *white*
+	  :layer :text
+	  :filled? t)))
      (make-text-display
       :timers (text-display-timers td)
       :pos (text-display-pos td)
@@ -649,11 +656,13 @@ This can be abused with the machine gun in TAS."
     (t td)))
 
 (defmethod draw ((td text-display))
-  (draw-textbox 5 21 30 8)
-  (draw-text-line! (text-display-pos td) (subseq (text-display-text td)
-						 0
-						 (text-display-num-chars td)))
-  (values))
+  (list* (make-text-line-drawing
+	  :pos (text-display-pos td)
+	  :text (subseq (text-display-text td)
+			0
+			(text-display-num-chars td))
+	  :layer :text)
+	 (draw-textbox 5 21 30 8)))
 
 (defmethod dead? ((td text-display))
   (text-display-dead? td))
@@ -674,74 +683,104 @@ This can be abused with the machine gun in TAS."
 
 (defmethod draw ((hud hud))
   (let ((bar-tile/2-w 5)
-	(bar-tile/2-x 5))
-    (draw-hud-sprite!
-     :hud-bg :text-box
-     (create-rect-cmpts 0 (tiles/2 5) (tiles/2 8) (tiles/2 1))
-     (tile-v 1 2))
+	(bar-tile/2-x 5)
+	(drawings))
+    (push
+     (make-sprite-drawing :layer
+			  :hud-bg :sheet-key :text-box
+			  :src-rect
+			  (create-rect-cmpts 0 (tiles/2 5) (tiles/2 8) (tiles/2 1))
+			  :pos (tile-v 1 2))
+     drawings)
 
     (let ((health (player-health-amt (player-state (hud-player hud)))))
       (when (timer-active? (aval (hud-timers hud) :health-change))
-	(draw-hud-sprite!
-	 :hud :text-box
-	 (create-rect-cmpts 0 (tiles/2 4)
-			    (floor (* (tiles/2 bar-tile/2-w)
-				      (/ (hud-last-health-amt hud)
-					 (player-max-health-amt
-					  (player-state (hud-player hud))))))
-			    (tiles/2 1))
-	 (tiles/2-v bar-tile/2-x 4)))
-      (draw-hud-sprite!
-       :hud-fg :text-box
-       (create-rect-cmpts 0 (tiles/2 3)
-			  (floor (* (tiles/2 bar-tile/2-w)
-				    (/ health
-				       (player-max-health-amt
-					(player-state (hud-player hud))))))
-			  (tiles/2 1))
-       (tiles/2-v bar-tile/2-x 4))
-      (draw-hud-number 4 health))
+	(push
+	 (make-sprite-drawing
+	  :layer :hud
+	  :sheet-key :text-box
+	  :src-rect
+	  (create-rect-cmpts 0 (tiles/2 4)
+			     (floor (* (tiles/2 bar-tile/2-w)
+				       (/ (hud-last-health-amt hud)
+					  (player-max-health-amt
+					   (player-state (hud-player hud))))))
+			     (tiles/2 1))
+	  :pos (tiles/2-v bar-tile/2-x 4))
+	 drawings))
+      (push
+       (make-sprite-drawing :layer :hud-fg
+			    :sheet-key :text-box
+			    :src-rect
+			    (create-rect-cmpts 0 (tiles/2 3)
+					       (floor (* (tiles/2 bar-tile/2-w)
+							 (/ health
+							    (player-max-health-amt
+							     (player-state (hud-player hud))))))
+					       (tiles/2 1))
+			    :pos (tiles/2-v bar-tile/2-x 4))
+       drawings)
+      (appendf drawings (draw-hud-number 4 health)))
 
     (let ((exp-pos (tiles/2-v bar-tile/2-x 3)))
-      (draw-hud-sprite!
-       :hud-bg :text-box
-       (create-rect-cmpts 0 (tiles/2 9) (tiles/2 5) (tiles/2 1))
-       exp-pos)
+      (push
+       (make-sprite-drawing :layer :hud-bg
+			    :sheet-key :text-box
+			    :src-rect
+			    (create-rect-cmpts 0 (tiles/2 9) (tiles/2 5) (tiles/2 1))
+			    :pos exp-pos)
+       drawings)
 
       (when (flash-time? (aval (hud-timers hud) :exp-change))
-	(draw-hud-sprite! :hud-fg
-			 :text-box
-			 (create-rect (tiles/2-v 5 10)
-				      (tiles/2-v bar-tile/2-w 1))
-			 exp-pos))
+	(push
+	 (make-sprite-drawing :layer :hud-fg
+			      :sheet-key :text-box
+			      :src-rect
+			      (create-rect (tiles/2-v 5 10)
+					   (tiles/2-v bar-tile/2-w 1))
+			      :pos exp-pos)
+	 drawings))
 
       (mvbind (exp gun-name) (current-gun-exp (hud-player hud) (hud-gun-exps hud))
 	(let* ((current-level (gun-level exp (cdr (assoc gun-name *gun-level-exps*))))
 	       (next-lvl-exp (exp-for-gun-level gun-name current-level))
-	       (current-lvl-exp (if (zerop current-level) 0 (exp-for-gun-level gun-name (1- current-level)))))
+	       (current-lvl-exp (if (zerop current-level)
+				    0
+				    (exp-for-gun-level gun-name (1- current-level)))))
 	  (if (= exp (exp-for-gun-level gun-name :max))
-	      (draw-hud-sprite! :hud-fg :text-box
-			       (create-rect (tiles/2-v 5 9)
-					    (tiles/2-v bar-tile/2-w 1))
-			       exp-pos)
+	      (push
+	       (make-sprite-drawing :layer :hud-fg :sheet-key :text-box
+				    :src-rect
+				    (create-rect (tiles/2-v 5 9)
+						 (tiles/2-v bar-tile/2-w 1))
+				    :pos exp-pos)
+	       drawings)
 
-	      (draw-hud-sprite!
-	       :hud :text-box
-	       (create-rect-cmpts 0 (tiles/2 10)
-				  (floor (* (tiles/2 bar-tile/2-w)
-					    (/ (- exp current-lvl-exp)
-					       (- next-lvl-exp current-lvl-exp))))
-				  (tiles/2 1))
-	       exp-pos))
+	      (push
+	       (make-sprite-drawing
+		:layer :hud
+		:sheet-key :text-box
+		:src-rect
+		(create-rect-cmpts 0 (tiles/2 10)
+				   (floor (* (tiles/2 bar-tile/2-w)
+					     (/ (- exp current-lvl-exp)
+						(- next-lvl-exp current-lvl-exp))))
+				   (tiles/2 1))
+		:pos exp-pos)
+	       drawings))
 
-	  (draw-hud-sprite!
-	   :hud :text-box
-	   (create-rect-cmpts (tiles/2 10) (tiles/2 10)
-			      (tiles/2 2) (tiles/2 1))
-	   (make-v (tiles/2 2) (y exp-pos)))
+	  (push
+	   (make-sprite-drawing
+	    :layer :hud
+	    :sheet-key :text-box
+	    :src-rect
+	    (create-rect-cmpts (tiles/2 10) (tiles/2 10)
+			       (tiles/2 2) (tiles/2 1))
+	    :pos (make-v (tiles/2 2) (y exp-pos)))
+	   drawings)
 
-	  (draw-hud-number 3 (1+ current-level))))))
-  (values))
+	  (appendf drawings (draw-hud-number 3 (1+ current-level))))))
+    drawings))
 
 (defmethod dead? ((h hud))
   (dead? (estate (hud-player h))))
@@ -760,12 +799,12 @@ This can be abused with the machine gun in TAS."
    :gun-exps (hud-gun-exps hud)
    :last-health-amt (player-health-amt (player-state (hud-player hud)))))
 
-(defun draw-textbox-tile (src-pos pos)
+(defun textbox-tile-drawing (src-pos pos)
   (let ((size (both-v (tiles/2 1))))
-    (draw-hud-sprite! :text-box :text-box
-		     (create-rect src-pos size)
-		     pos))
-  (values))
+    (make-sprite-drawing :layer :text-box :sheet-key :text-box
+			 :src-rect
+			 (create-rect src-pos size)
+			 :pos pos)))
 
 (defun draw-textbox (text-x text-y text-width text-height)
   (let ((right 30)
@@ -774,27 +813,35 @@ This can be abused with the machine gun in TAS."
 	(mid 1)
 	(bottom 2)
 	(top-y text-y)
-	(bottom-y (+ text-y text-height -1)))
+	(bottom-y (+ text-y text-height -1))
+	(drawings nil))
 
-    (draw-textbox-tile (tiles/2-v left top) (tiles/2-v text-x top-y))
-    (draw-textbox-tile (tiles/2-v left bottom) (tiles/2-v text-x bottom-y))
+    (push (textbox-tile-drawing (tiles/2-v left top) (tiles/2-v text-x top-y)) drawings)
+    (push (textbox-tile-drawing (tiles/2-v left bottom) (tiles/2-v text-x bottom-y)) drawings)
 
     (dotimes (i (- text-height 2))
-      (draw-textbox-tile (tiles/2-v left mid) (tiles/2-v text-x (+ i text-y 1))))
+      (push (textbox-tile-drawing (tiles/2-v left mid) (tiles/2-v text-x (+ i text-y 1)))
+	    drawings))
 
     (dotimes (i (- text-width 2))
       (let ((x (+ 1 i text-x)))
 	(dotimes (j (- text-height 2))
-	  (draw-textbox-tile (tiles/2-v mid mid) (tiles/2-v x (+ j text-y 1))))
-	(draw-textbox-tile (tiles/2-v mid top) (tiles/2-v x top-y))
-	(draw-textbox-tile (tiles/2-v mid bottom) (tiles/2-v x bottom-y))))
+	  (push (textbox-tile-drawing (tiles/2-v mid mid) (tiles/2-v x (+ j text-y 1)))
+		drawings))
+	(push (textbox-tile-drawing (tiles/2-v mid top) (tiles/2-v x top-y))
+	      drawings)
+	(push (textbox-tile-drawing (tiles/2-v mid bottom) (tiles/2-v x bottom-y))
+	      drawings)))
 
     (let ((x (+ -1 text-width text-x)))
-      (draw-textbox-tile (tiles/2-v right top) (tiles/2-v x top-y))
+      (push (textbox-tile-drawing (tiles/2-v right top) (tiles/2-v x top-y))
+	    drawings)
       (dotimes (i (- text-height 2))
-	(draw-textbox-tile (tiles/2-v right mid) (tiles/2-v x (+ 1 text-y i))))
-      (draw-textbox-tile (tiles/2-v right bottom) (tiles/2-v x bottom-y))))
-  (values))
+	(push (textbox-tile-drawing (tiles/2-v right mid) (tiles/2-v x (+ 1 text-y i)))
+	      drawings))
+      (push (textbox-tile-drawing (tiles/2-v right bottom) (tiles/2-v x bottom-y))
+	    drawings))
+    drawings))
 
 (defun update-and-render (renderer game)
   "The Main Loop, called once per *FRAME-TIME*."
@@ -1119,14 +1166,14 @@ This can be abused with the machine gun in TAS."
 (defmethod origin ((b bat))
   (physics-tile-origin b))
 
-(defmethod draw (b)
-  (draw-sprite! :enemy
-	       :npc-cemet
-	       (tile-rect (+v (tile-v 2 2)
-			      (anim-cycle-offset (bat-timers b))
-			      (facing-offset (bat-facing b))))
-	       (physics-pos b))
-  (values))
+(defmethod draw ((b bat))
+  (make-sprite-drawing :layer :enemy
+		       :sheet-key :npc-cemet
+		       :src-rect
+		       (tile-rect (+v (tile-v 2 2)
+				      (anim-cycle-offset (bat-timers b))
+				      (facing-offset (bat-facing b))))
+		       :pos (physics-pos b)))
 
 (defmacro ai-face-player (e)
   `(setf facing (face-player (physics-pos ,e) player)))
@@ -1198,9 +1245,8 @@ This can be abused with the machine gun in TAS."
   :drawable :physics :stage-collision)
 
 (defmethod draw ((d death-cloud-particle))
-  (single-loop-sprite-draw (estate (death-cloud-particle-single-loop-sprite d))
-			   (physics-pos d))
-  (values))
+  (single-loop-sprite-drawing (estate (death-cloud-particle-single-loop-sprite d))
+			      (physics-pos d)))
 
 (defmethod dead? ((d death-cloud-particle))
   (dead? (estate (death-cloud-particle-single-loop-sprite d))))
@@ -1327,11 +1373,11 @@ This can be abused with the machine gun in TAS."
 			  1)
 			 (t
 			  0))))
-    (draw-sprite! :enemy :npc-cemet
-		 (tile-rect (+v (tile-v sprite-tile-x 0)
-				(facing-offset (critter-facing c))))
-		 (physics-pos c)))
-  (values))
+    (make-sprite-drawing :layer :enemy
+			 :sheet-key :npc-cemet
+			 :src-rect (tile-rect (+v (tile-v sprite-tile-x 0)
+						  (facing-offset (critter-facing c))))
+			 :pos (physics-pos c))))
 
 (defmethod damageable-rect ((c critter))
   (physics-tile-rect c))
@@ -1542,15 +1588,15 @@ This can be abused with the machine gun in TAS."
 	   ((timer-active? (aval (elephant-timers e) :recover))
 	    (make-v (tiles (* 2 3)) 0))
 	   (t (anim-cycle-offset (elephant-timers e))))))
-    (draw-sprite! :enemy
-		 :npc-eggs1
-		 (create-rect (+v src-pos
-				  (make-v 0 (if (eq (elephant-facing e) :left)
-						0
-						(tiles 3/2))))
-			      *elephant-dims*)
-		 (physics-pos e)))
-  (values))
+    (make-sprite-drawing :layer :enemy
+			 :sheet-key :npc-eggs1
+			 :src-rect
+			 (create-rect (+v src-pos
+					  (make-v 0 (if (eq (elephant-facing e) :left)
+							0
+							(tiles 3/2))))
+				      *elephant-dims*)
+			 :pos (physics-pos e))))
 
 (defmethod origin ((e elephant))
   (+v (physics-pos e)

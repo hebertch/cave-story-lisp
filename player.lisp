@@ -98,9 +98,9 @@
 
 (defun player-kin-2d-physics (p kin-2d)
   (draw-line! (kin-2d-pos kin-2d)
-	     (+v (kin-2d-pos kin-2d)
-		 (*v (kin-2d-vel kin-2d) *debug-velocity-scale*))
-	     *magenta*)
+	      (+v (kin-2d-pos kin-2d)
+		  (*v (kin-2d-vel kin-2d) *debug-velocity-scale*))
+	      *magenta*)
 
   (make-kin-2d :pos (kin-2d-pos kin-2d)
 	       :vel (kin-2d-vel kin-2d)
@@ -419,30 +419,32 @@
       (nilf (player-ground-tile p)))
     p))
 
+(defun player-drawing (p)
+  (let ((kin-2d (cdr (assoc :stage (player-physics p)))))
+    (make-sprite-drawing :layer :player
+			 :sheet-key :my-char
+			 :src-rect (player-sprite-rect (player-h-facing p)
+						       (player-actual-v-facing p)
+						       (player-interacting? p)
+						       (player-walking? p)
+						       (player-walk-idx p)
+						       (y (kin-2d-vel kin-2d)))
+			 :pos (pixel-v (kin-2d-pos kin-2d)))))
+
 (defmethod draw ((p player))
   (let ((kin-2d (cdr (assoc :stage (player-physics p)))))
     (unless
 	(and (timer-active? (aval (player-timers p) :invincible))
 	     (plusp (chunk-timer-period
 		     (aval (player-timers p) :invincible) 50)))
-      (let* ((actual-v-facing (player-actual-v-facing p))
-	     (walking? (player-walking? p))
-	     (walk-idx (player-walk-idx p)))
-	(draw-sprite! :player :my-char
-		      (player-sprite-rect (player-h-facing p)
-					  actual-v-facing
-					  (player-interacting? p)
-					  walking?
-					  (player-walk-idx p)
-					  (y (kin-2d-vel kin-2d)))
-		      (pixel-v (kin-2d-pos kin-2d)))
-	(player-draw-gun (kin-2d-pos kin-2d)
-			 (player-current-gun-name p)
-			 (player-h-facing p)
-			 actual-v-facing
-			 walking?
-			 walk-idx))))
-  (values))
+      (list
+       (player-drawing p)
+       (player-gun-drawing (kin-2d-pos kin-2d)
+			   (player-current-gun-name p)
+			   (player-h-facing p)
+			   (player-actual-v-facing p)
+			   (player-walking? p)
+			   (player-walk-idx p))))))
 
 (defun player-vel (p)
   (kin-2d-vel (cdr (assoc :stage (player-physics p)))))

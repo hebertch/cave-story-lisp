@@ -102,10 +102,11 @@
   (motion-set-pos (missile-projectile-physics m)))
 
 (defmethod draw ((p missile-projectile))
-  (draw-sprite! :projectile
-	       :bullet
-	       (missile-projectile-sprite-rect p)
-	       (missile-projectile-pos p)))
+  (make-sprite-drawing :layer :projectile
+		       :sheet-key :bullet
+		       :src-rect
+		       (missile-projectile-sprite-rect p)
+		       :pos (missile-projectile-pos p)))
 
 (defmethod stage-collision ((p missile-projectile) stage)
   (let ((dir (missile-projectile-dir p))
@@ -210,8 +211,8 @@
 	(t p)))
 
 (defmethod draw ((p polar-star-projectile))
-  (polar-star-projectile-draw (physics-pos p)
-			      (polar-star-projectile-sprite-rect p)))
+  (polar-star-projectile-drawing (physics-pos p)
+				 (polar-star-projectile-sprite-rect p)))
 
 (defmethod bullet-rect ((p polar-star-projectile))
   (polar-star-projectile-collision-rect (polar-star-projectile-lvl p)
@@ -263,11 +264,11 @@
 	(incf (x tp)))
       (tile-rect (tile-pos tp)))))
 
-(defun polar-star-projectile-draw (pos sprite-rect)
-  (draw-sprite! :projectile :bullet
-	       sprite-rect
-	       pos)
-  (values))
+(defun polar-star-projectile-drawing (pos sprite-rect)
+  (make-sprite-drawing :layer :projectile :sheet-key :bullet
+		       :src-rect
+		       sprite-rect
+		       :pos pos))
 
 (defun polar-star-projectile-collision-rect (lvl dir pos)
   (let* ((short-side (ecase lvl
