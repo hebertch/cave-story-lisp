@@ -5,7 +5,7 @@
 
 (defun create-stage! (stage-data)
   (create-entity
-   stage
+   stage-data
    '(:drawable)))
 
 (defun basic-stage ()
