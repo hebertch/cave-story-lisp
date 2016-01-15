@@ -3,8 +3,7 @@
 (defstruct (missile-projectile (:include entity-state))
   lvl
   dir
-  sprite-rect
-  dead?)
+  sprite-rect)
 
 (defun make-default-missile-projectile 
     (lvl dir pos perp-offset-amt speed acc &optional oscillate?)
@@ -163,9 +162,6 @@
 (defmethod ai ((p missile-projectile) ticks)
   (missile-projectile-ai p ticks))
 
-(defmethod dead? ((p missile-projectile))
-  (missile-projectile-dead? p))
-
 (defun make-missile-projectile-group (lvl dir nozzle-pos)
   (let ((pos (sub-v nozzle-pos
 		    ;; Subtract the size of the sprite-rect to center it.
@@ -186,8 +182,7 @@
 (defstruct (polar-star-projectile (:include entity-state))
   dir
   lvl
-  sprite-rect
-  dead?)
+  sprite-rect)
 
 (defun make-default-polar-star-projectile (nozzle-pos dir lvl)
   (make-polar-star-projectile :dir dir :lvl lvl
@@ -279,9 +274,6 @@
 
 (defmethod stage-collision ((p polar-star-projectile) stage)
   (polar-star-projectile-stage-collision p stage))
-
-(defmethod dead? ((p polar-star-projectile))
-  (polar-star-projectile-dead? p))
 
 (defun make-polar-star-projectile-group (lvl dir nozzle-pos)
   (push-sound :polar-star-shoot-3)

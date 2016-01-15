@@ -1,8 +1,6 @@
 (in-package :cave-story)
 
 (defstruct (player (:include entity-state))
-  dead?
-  
   h-facing
   v-facing
   interacting?
@@ -184,9 +182,6 @@
 
 (defmethod ai ((p player) ticks)
   (player-ai p ticks))
-
-(defmethod dead? ((p player))
-  (player-dead? p))
 
 (defun player-fire-gun! (p)
   (let ((gun-name (player-current-gun-name p)))

@@ -1,15 +1,5 @@
 (in-package :cave-story)
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defvar *registry-syms* nil)
-
-  (defun interface-forms-name (interface)
-    (symbolicate interface '-forms))
-
-  (defun lambda-form (interface)
-    `(list* 'lambda (list ,@ (cdr interface))
-	    ,(interface-forms-name (car interface)))))
-
 (defgeneric origin (obj))
 (defgeneric inertia-vel (obj))
 (defgeneric ai (obj ticks))
@@ -17,7 +7,6 @@
 (defgeneric draw (obj))
 (defgeneric stage-collision (obj stage))
 (defgeneric input (obj input))
-(defgeneric dynamic-collision-vel (obj))
 (defgeneric dynamic-collision-react (obj side player-collision-rect player))
 (defgeneric damageable-rect (obj))
 (defgeneric damageable-hit-react (obj bullet-hit-amt))
@@ -34,8 +23,17 @@
 (defgeneric damage-collision-amt (obj))
 
 (defgeneric dead? (obj))
-(defgeneric set-parameters (obj))
 (defgeneric update-timer (tr))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defvar *registry-syms* nil)
+
+  (defun interface-forms-name (interface)
+    (symbolicate interface '-forms))
+
+  (defun lambda-form (interface)
+    `(list* 'lambda (list ,@ (cdr interface))
+	    ,(interface-forms-name (car interface)))))
 
 (defvar *entity-system-type* :game)
 
@@ -139,9 +137,16 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
     (draw-rect! rect *red* :layer :debug-damage-collision)
     (draw-rect! player-rect *blue* :layer :debug-damage-collision)
     (when (rects-collide? rect player-rect)
-      (replace-entity-state player (lambda (p) (player-take-damage p (damage-collision-amt (estate entity-id)))))
+      (replace-entity-state player (lambda (p)
+				     (player-take-damage
+				      p
+				      (damage-collision-amt
+				       (estate entity-id)))))
       (draw-rect! rect *magenta* :layer :debug-damage-collision :filled? t)
-      (draw-rect! player-rect *magenta* :layer :debug-damage-collision :filled? t))))
+      (draw-rect! player-rect
+		  *magenta*
+		  :layer :debug-damage-collision
+		  :filled? t))))
 
 (defstruct entity
   state
@@ -186,17 +191,11 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 (defmethod dead? (obj)
   (declare (ignore obj))
   nil)
-
-(defmethod set-parameters (obj)
-  (declare (ignore obj))
-  nil)
-
-(def-subsystem parameter ()
-  (set-parameters (estate entity-id)))
+(defmethod dead? ((obj entity-state))
+  (entity-state-dead? obj))
 
 (defun register-entity-subsystems (id entity)
   (let ((system-type (entity-system-type entity)))
-    (register-parameter system-type id)
     (dolist (s (entity-subsystems entity))
       (ecase s
 	((:ai :timers) (register-timers system-type id))
@@ -220,6 +219,7 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
     (register-entity id entity)))
 
 (defstruct entity-state
+  dead?
   physics
   timers)
 

@@ -35,7 +35,7 @@
     (((:key :n)) .
      ,(lambda ()
 	      (when *global-paused?*
-		(fnf *global-game* (curry #'update-and-render *renderer*)))))))
+		(fnf *global-game* #'update-and-render))))))
 
 (defstruct game
   player
@@ -54,8 +54,12 @@
       (loop for (bindings . action) in *debug-input-keybindings*
 	 do (loop for (type . b) in bindings
 	       do (when (ecase type
-			  (:key (any? (intersection pressed-keys b :test #'eq)))
-			  (:joy (any? (intersection pressed-joy (mapcar #'joy-key->num b) :test #'eq))))
+			  (:key (any? (intersection pressed-keys
+						    b
+						    :test #'eq)))
+			  (:joy (any? (intersection pressed-joy
+						    (mapcar #'joy-key->num b)
+						    :test #'eq))))
 		    (funcall action)
 		    (return))))
 
@@ -185,7 +189,7 @@ This can be abused with the machine gun in TAS."
 
 (defstruct pickup type amt)
 
-(defstruct (dorito (:include entity-state)) dead? size)
+(defstruct (dorito (:include entity-state)) size)
 (defun make-default-dorito (pos vel size)
   (make-dorito :timers
 	       (alist :life
@@ -341,9 +345,6 @@ This can be abused with the machine gun in TAS."
 (defmethod pickup-data ((d dorito))
   (dorito-pickup-data d))
 
-(defmethod dead? ((d dorito))
-  (dorito-dead? d))
-
 (defun dorito-draw (life-tr anim-cycle-current size pos)
   (unless (and (< (timer-ms-remaining life-tr) (s->ms 1))
 	       (zerop (chunk-timer-period life-tr 50)))
@@ -365,7 +366,6 @@ This can be abused with the machine gun in TAS."
 		   (:large (both-v (tiles 1))))))
 
 (defstruct (single-loop-sprite (:include entity-state))
-  dead?
   sheet-key
   tile-y
   layer)
@@ -407,9 +407,6 @@ This can be abused with the machine gun in TAS."
 (defmethod ai ((p single-loop-sprite) ticks)
   (single-loop-sprite-ai p ticks))
 
-(defmethod dead? ((p single-loop-sprite))
-  (single-loop-sprite-dead? p))
-
 (defstruct (particle (:include entity-state))
   single-loop-sprite
   pos)
@@ -439,7 +436,8 @@ This can be abused with the machine gun in TAS."
   (particle-drawing p))
 
 (defmethod dead? ((p particle))
-  (dead? (estate (particle-single-loop-sprite p))))
+  (single-loop-sprite-dead?
+   (estate (particle-single-loop-sprite p))))
 
 (defun make-projectile-star-particle (center-pos)
   (create-particle :seq (alexandria:iota 4)
@@ -497,7 +495,6 @@ This can be abused with the machine gun in TAS."
 	    (cons :positive digits)))))
 
 (defstruct (floating-number (:include entity-state))
-  dead?
   entity
   amt)
 
@@ -550,9 +547,6 @@ This can be abused with the machine gun in TAS."
 (defmethod ai ((fn floating-number) ticks)
   (floating-number-ai fn ticks))
 
-(defmethod dead? ((fn floating-number))
-  (floating-number-dead? fn))
-
 (defun floating-number-add-amt (fn amount)
   (make-floating-number
    :physics (floating-number-physics fn)
@@ -561,18 +555,13 @@ This can be abused with the machine gun in TAS."
    :amt (+ (floating-number-amt fn) amount)))
 
 (defun remove-all-dead (game)
-  (replace-entity-state (game-projectile-groups game) #'projectile-groups-remove-dead)
-  (replace-entity-state (game-damage-numbers game) #'damage-numbers-remove-dead)
+  (replace-entity-state (game-projectile-groups game)
+			#'projectile-groups-remove-dead)
+  (replace-entity-state (game-damage-numbers game)
+			#'damage-numbers-remove-dead)
   (values))
 
-(defun draw-bat (pos facing cycle-idx)
-  (draw-sprite! :enemy
-		:npc-cemet
-		(tile-rect (tile-v (+ 2 cycle-idx)
-				   (if (eq facing :left) 2 3)))
-		pos))
-
-(defun draw-hud-number (tile/2-y number)
+(defun hud-number-drawing (tile/2-y number)
   (number-drawing (tiles/2-v (+ (if (< number 10) 1 0) 3)
 			     tile/2-y)
 		  number
@@ -636,8 +625,7 @@ This can be abused with the machine gun in TAS."
   text
   num-chars
   wait-for-input?
-  blink-time
-  dead?)
+  blink-time)
 
 (defun make-default-text-display (pos text)
   (make-text-display :pos pos :text text :num-chars 0
@@ -699,9 +687,6 @@ This can be abused with the machine gun in TAS."
 (defmethod draw ((td text-display))
   (text-display-drawing td))
 
-(defmethod dead? ((td text-display))
-  (text-display-dead? td))
-
 (defstruct (hud (:include entity-state))
   player
   gun-exps
@@ -759,7 +744,7 @@ This can be abused with the machine gun in TAS."
 					       (tiles/2 1))
 			    :pos (tiles/2-v bar-tile/2-x 4))
        drawings)
-      (appendf drawings (draw-hud-number 4 health)))
+      (appendf drawings (hud-number-drawing 4 health)))
 
     (let ((exp-pos (tiles/2-v bar-tile/2-x 3)))
       (push
@@ -818,14 +803,14 @@ This can be abused with the machine gun in TAS."
 	    :pos (make-v (tiles/2 2) (y exp-pos)))
 	   drawings)
 
-	  (appendf drawings (draw-hud-number 3 (1+ current-level))))))
+	  (appendf drawings (hud-number-drawing 3 (1+ current-level))))))
     drawings))
 
 (defmethod draw ((hud hud))
   (hud-drawing hud))
 
 (defmethod dead? ((h hud))
-  (dead? (estate (hud-player h))))
+  (player-dead? (estate (hud-player h))))
 
 (defun hud-exp-changed (hud)
   (make-hud
@@ -899,7 +884,6 @@ This can be abused with the machine gun in TAS."
   (handle-input *global-game*)
 
   (nilf *render-list*)
-  (update-parameter-subsystem *entity-systems*)
 
   (case *input-playback*
     (:recording
@@ -995,7 +979,7 @@ This can be abused with the machine gun in TAS."
   (create-entity (make-active-systems) () :id id))
 
 (defun damage-numbers-remove-dead (d)
-  (remove-if (lambda (pair) (dead? (estate (cdr pair)))) d))
+  (remove-if (lambda (pair) (entity-state-dead? (estate (cdr pair)))) d))
 
 (defun damage-numbers-update-damage-amt (d e amt)
   (aif (assoc e d)
@@ -1026,7 +1010,9 @@ This can be abused with the machine gun in TAS."
   (remove-if #'null
 	     (loop for (name . g) in g
 		collecting
-		  (let ((new-g (remove-if (lambda (x) (dead? (estate x))) g)))
+		  (let ((new-g (remove-if
+				(lambda (x)
+				  (entity-state-dead? (estate x))) g)))
 		    (when new-g
 		      (list* name new-g))))))
 
@@ -1040,7 +1026,9 @@ This can be abused with the machine gun in TAS."
   (create-entity nil () :id id))
 
 (defun update-damage-number-amt (damage-numbers e amt)
-  (replace-entity-state damage-numbers (lambda (dn) (damage-numbers-update-damage-amt dn e amt))))
+  (replace-entity-state damage-numbers
+			(lambda (dn)
+			  (damage-numbers-update-damage-amt dn e amt))))
 
 (defun current-gun-exp (player gun-exps)
   (let* ((gun-name (player-current-gun-name (player-state player)))
@@ -1144,8 +1132,7 @@ This can be abused with the machine gun in TAS."
   facing
   health-amt
   damage-numbers
-  id
-  dead?)
+  id)
 
 (defun make-default-bat (tile-x tile-y player)
   (make-bat :physics
@@ -1204,9 +1191,6 @@ This can be abused with the machine gun in TAS."
 
 (defmethod damageable-hit-react ((b bat) amt)
   (bat-hit-react b amt))
-
-(defmethod dead? ((b bat))
-  (bat-dead? b))
 
 (defmethod origin ((b bat))
   (physics-tile-origin b))
@@ -1300,7 +1284,8 @@ This can be abused with the machine gun in TAS."
   (death-cloud-particle-drawing d))
 
 (defmethod dead? ((d death-cloud-particle))
-  (dead? (estate (death-cloud-particle-single-loop-sprite d))))
+  (single-loop-sprite-dead?
+   (estate (death-cloud-particle-single-loop-sprite d))))
 
 (let ((collision-rects (rect->collision-rects
 			(centered-rect (tile-dims/2) (both-v (tiles 2/5))))))
@@ -1348,7 +1333,6 @@ This can be abused with the machine gun in TAS."
 	       :clamper-vy (clamper+- *terminal-speed*)))
 
 (defstruct (critter (:include entity-state))
-  dead?
   health-amt
   ground-tile
   facing
@@ -1557,9 +1541,6 @@ This can be abused with the machine gun in TAS."
 (defmethod stage-collision ((c critter) stage)
   (critter-stage-collision c stage))
 
-(defmethod dead? ((c critter))
-  (critter-dead? c))
-
 (defun physics-tile-origin (c)
   (+v (physics-pos c) (tile-dims/2)))
 (defun physics-tile-rect (c)
@@ -1580,7 +1561,6 @@ This can be abused with the machine gun in TAS."
 
 (defparameter *elephant-speed* 0.08)
 (defstruct (elephant (:include entity-state))
-  dead?
   health-amt
   facing
   id
@@ -1694,8 +1674,6 @@ This can be abused with the machine gun in TAS."
 (defmethod damageable-hit-react ((e elephant) amt)
   (elephant-hit-react e amt))
 
-(defmethod dead? ((e elephant)) (elephant-dead? e))
-
 (defun elephant-dynamic-collision-rect (e)
   (let ((pos (physics-pos e)))
     (cond
@@ -1797,9 +1775,10 @@ This can be abused with the machine gun in TAS."
 (defmethod ai ((e elephant) ticks)
   (elephant-ai e ticks))
 
-(let ((collision-rects (rect->collision-rects
-			(centered-rect (scale-v *elephant-dims* 1/2) *elephant-dims*)
-			6)))
+(let ((collision-rects
+       (rect->collision-rects
+	(centered-rect (scale-v *elephant-dims* 1/2) *elephant-dims*)
+	6)))
   (defun elephant-stage-collision (e stage)
     (let* ((facing (elephant-facing e))
 	   (physics (aupdate (elephant-physics e)

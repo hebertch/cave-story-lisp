@@ -47,13 +47,13 @@
 	:projectile
 	:foreground
 	:particle
-	:floating-text
-	
-	:hud-bg :hud :hud-fg
+	:floating-text))
+(defparameter *hud-layers*
+  (list :hud-bg :hud :hud-fg
 	:text-box :text))
-(defparameter *layers* (append *game-layers* *debug-layers*))
-(defparameter *screen-layers* (member :hud-bg *layers*))
-(defparameter *visible-layers* *game-layers*)
+(defparameter *layers* (append *game-layers* *debug-layers* *hud-layers*))
+(defparameter *screen-layers* (member (first *hud-layers*) *layers*))
+(defparameter *visible-layers* (append *game-layers* *hud-layers*))
 (defparameter *parallax-scale* 1/8)
 (defparameter *character-textures* (make-hash-table))
 
