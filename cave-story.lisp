@@ -1054,15 +1054,25 @@ This can be abused with the machine gun in TAS."
 	(gun-exps (create-gun-exps))
 	(active-systems (create-active-systems)))
     (create-stage! stage)
-    (let* ((player (create-default-player hud projectile-groups damage-numbers gun-exps active-systems))
+    (let* ((player (create-default-player hud
+					  projectile-groups
+					  damage-numbers
+					  gun-exps
+					  active-systems))
 	   (camera (create-player-camera (v/2 *window-dims*) (zero-v) player)))
       (create-hud player gun-exps hud)
 
-      (create-critter (make-v (+ (tiles 14) (tiles 1/4)) (tiles 6)) player damage-numbers)
+      (create-critter (make-v (+ (tiles 14) (tiles 1/4))
+			      (tiles 6))
+		      player
+		      damage-numbers)
       (create-elephant (make-v (tiles 7) (tiles 6)) player camera damage-numbers)
       (dolist (x '(1 3 6 7))
 	(create-bat x 7 player))
-      (create-dorito (make-v (+ (tiles 14) (tiles 1/4)) (tiles 6)) (make-v 0 0) :medium)
+      (create-dorito (make-v (+ (tiles 14) (tiles 1/4))
+			     (tiles 6))
+		     (make-v 0 0)
+		     :medium)
       (make-game :player player
 		 :camera camera
 		 :stage stage
@@ -1131,8 +1141,7 @@ This can be abused with the machine gun in TAS."
   player
   facing
   health-amt
-  damage-numbers
-  id)
+  damage-numbers)
 
 (defun make-default-bat (tile-x tile-y player)
   (make-bat :physics
@@ -1336,7 +1345,6 @@ This can be abused with the machine gun in TAS."
   health-amt
   ground-tile
   facing
-  id
   player
   damage-numbers)
 
@@ -1563,7 +1571,6 @@ This can be abused with the machine gun in TAS."
 (defstruct (elephant (:include entity-state))
   health-amt
   facing
-  id
   player
   camera
   damage-numbers)

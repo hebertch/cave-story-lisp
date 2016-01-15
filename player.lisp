@@ -9,7 +9,6 @@
   gun-name-cycle
   health-amt
   max-health-amt
-  id
   hud
   active-systems
   ground-inertia-entity

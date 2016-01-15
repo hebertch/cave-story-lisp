@@ -219,6 +219,7 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
     (register-entity id entity)))
 
 (defstruct entity-state
+  (id (gen-entity-id))
   dead?
   physics
   timers)
