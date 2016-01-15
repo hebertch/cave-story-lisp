@@ -102,6 +102,38 @@
 (defun player-state (p)
   (estate p))
 
+(defun player-walk-acc (p)
+  (const-accelerator
+   (* (if (player-on-ground? p)
+	  *player-walk-acc*
+	  *player-air-acc*)
+      (case (player-acc-dir p)
+	(:left -1)
+	(:right 1)
+	(t 0)))))
+
+(defun player-friction-acc ()
+  (friction-accelerator *player-friction-acc*))
+
+(defun player-accelerator-x (p)
+  (cond
+    ((and (player-on-ground? p)
+	  (null (player-acc-dir p)))
+     (player-friction-acc))
+    (t (player-walk-acc p))))
+
+(defun player-accelerator-y (p kin-2d)
+  (const-accelerator
+   (if (and (minusp (y (kin-2d-vel kin-2d)))
+	    (player-jumping? p))
+       *player-jump-gravity-acc*
+       *gravity-acc*)))
+
+(defun player-inertia-vel (p ground-inertia-entity-state)
+  (if (eq (player-ground-tile p) :dynamic)
+      (inertia-vel ground-inertia-entity-state)
+      nil))
+
 (defun player-kin-2d-physics (p kin-2d)
   (draw-line! (kin-2d-pos kin-2d)
 	      (+v (kin-2d-pos kin-2d)
@@ -111,37 +143,18 @@
   (make-kin-2d :pos (kin-2d-pos kin-2d)
 	       :vel (kin-2d-vel kin-2d)
 	       :accelerator-x
-	       (cond
-		 ((and (player-on-ground? p)
-		       (null (player-acc-dir p)))
-		  ;; Not accelerating, apply friction.
-		  (friction-accelerator *player-friction-acc*))
-		 (t
-		  ;; Apply walking accelerations.
-		  (const-accelerator
-		   (* (if (player-on-ground? p)
-			  *player-walk-acc*
-			  *player-air-acc*)
-		      (case (player-acc-dir p)
-			(:left -1)
-			(:right 1)
-			(t 0))))))
+	       (player-accelerator-x p)
 	       :accelerator-y
-	       (const-accelerator
-		(if (and (minusp (y (kin-2d-vel kin-2d)))
-			 (player-jumping? p))
-		    *player-jump-gravity-acc*
-		    *gravity-acc*))
+	       (player-accelerator-y p kin-2d)
 	       :clamper-vx (kin-2d-clamper-vx kin-2d)
 	       :clamper-vy (kin-2d-clamper-vy kin-2d)
 	       :inertia-vel
-	       (if (eq (player-ground-tile p) :dynamic)
-		   (inertia-vel (estate (player-ground-inertia-entity p)))
-		   nil)))
+	       (player-inertia-vel p (estate (player-ground-inertia-entity p)))))
 
 (defun apply-player-physics (p)
   (aupdate (player-physics p)
-	   (lambda (kin-2d) (player-kin-2d-physics p kin-2d))
+	   (lambda (kin-2d)
+	     (player-kin-2d-physics p kin-2d))
 	   '(:stage)))
 
 (defun player-ai (p ticks)
