@@ -10,6 +10,33 @@
     `(list* 'lambda (list ,@ (cdr interface))
 	    ,(interface-forms-name (car interface)))))
 
+(defgeneric origin (obj))
+(defgeneric inertia-vel (obj))
+(defgeneric ai (obj ticks))
+
+(defgeneric draw (obj))
+(defgeneric stage-collision (obj stage))
+(defgeneric input (obj input))
+(defgeneric dynamic-collision-vel (obj))
+(defgeneric dynamic-collision-react (obj side player-collision-rect player))
+(defgeneric damageable-rect (obj))
+(defgeneric damageable-hit-react (obj bullet-hit-amt))
+
+(defgeneric bullet-rect (obj))
+(defgeneric bullet-hit-react (obj))
+(defgeneric bullet-damage-amt (obj))
+
+(defgeneric pickup-rect (obj))
+(defgeneric pickup-kill (obj))
+(defgeneric pickup-data (obj))
+
+(defgeneric damage-collision-rect (obj))
+(defgeneric damage-collision-amt (obj))
+
+(defgeneric dead? (obj))
+(defgeneric set-parameters (obj))
+(defgeneric update-timer (tr))
+
 (defvar *entity-system-type* :game)
 
 (defmacro def-subsystem (name update-args &body update-forms)
@@ -47,27 +74,18 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 (def-subsystem physics ()
   (replace-entity-state entity-id #'physics))
 
-(defgeneric ai (obj ticks))
 (defmethod ai (obj ticks)
   obj)
 
 (def-subsystem timers ()
   (replace-entity-state entity-id #'timers))
 
-(defgeneric draw (obj))
 (def-subsystem drawable ()
   (appendf *render-list* (alexandria:ensure-list (draw (estate entity-id)))))
-
-(defgeneric stage-collision (obj stage))
 (def-subsystem stage-collision (stage)
   (replace-entity-state entity-id (rcurry #'stage-collision stage)))
-
-(defgeneric input (obj input))
 (def-subsystem input (input)
   (replace-entity-state entity-id (rcurry #'input input)))
-
-(defgeneric dynamic-collision-vel (obj))
-(defgeneric dynamic-collision-react (obj side player-collision-rect player))
 
 (def-subsystem dynamic-collision (player)
   (dolist (side *collision-order*)
@@ -87,13 +105,6 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 						    player-collision-rect
 						    player))))))
 
-(defgeneric damageable-rect (obj))
-(defgeneric damageable-hit-react (obj bullet-hit-amt))
-
-(defgeneric bullet-rect (obj))
-(defgeneric bullet-hit-react (obj))
-(defgeneric bullet-damage-amt (obj))
-
 (def-subsystem damageable (bullet-id)
   ;; NOTE: UPDATE-DAMAGEABLE-SUBSYSTEM is designed to be called by UPDATE-BULLET-SUBSYSTEM
   (unless (dead? (estate bullet-id))
@@ -111,10 +122,6 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 (def-subsystem bullet ()
   (update-damageable-subsystem active-entity-systems entity-id))
 
-(defgeneric pickup-rect (obj))
-(defgeneric pickup-kill (obj))
-(defgeneric pickup-data (obj))
-
 (def-subsystem pickup (player)
   (let ((rect (pickup-rect (estate entity-id)))
 	(player-rect  (player-damage-collision-rect (player-state player))))
@@ -125,9 +132,6 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
       (draw-rect! player-rect *yellow* :layer :debug-pickup :filled? t)
       (player-pickup! (estate player) (pickup-data (estate entity-id)))
       (replace-entity-state entity-id #'pickup-kill))))
-
-(defgeneric damage-collision-rect (obj))
-(defgeneric damage-collision-amt (obj))
 
 (def-subsystem damage-collision (player)
   (let ((rect (damage-collision-rect (estate entity-id)))
@@ -169,7 +173,9 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
     id)
 
   (defun estate (id)
-    (entity-state (cdr (assoc id entity-registry))))
+    (let ((lookup (cdr (assoc id entity-registry))))
+      (when lookup
+	(entity-state lookup))))
 
   (defun estate-set (id obj)
     (setf entity-registry (copy-alist entity-registry))
@@ -177,12 +183,10 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
       (setf (entity-state e) obj)
       (setf (cdr (assoc id entity-registry)) e))))
 
-(defgeneric dead? (obj))
 (defmethod dead? (obj)
   (declare (ignore obj))
   nil)
 
-(defgeneric set-parameters (obj))
 (defmethod set-parameters (obj)
   (declare (ignore obj))
   nil)

@@ -215,8 +215,8 @@
 	((>= (abs dmg-amt) (player-health-amt p))
 	 (push-sound :player-die)
 	 (stop-music)
-	 (replace-entity-state (player-active-systems p)
-			       #'active-systems-switch-to-dialog)
+	 (estate-set (player-active-systems p)
+		     (active-systems-switch-to-dialog))
 
 	 (setf (player-health-amt p) 0)
 	 (setf (player-dead? p) t)

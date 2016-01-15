@@ -18,7 +18,7 @@
 (defun timer-expired? (tr)
   (not (timer-active? tr)))
 
-(defgeneric update-timer (tr))
+
 
 (defun timer-update (tr)
   ;; TODO: Admittedly the naming here sucks.

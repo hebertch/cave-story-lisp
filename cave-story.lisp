@@ -102,7 +102,7 @@
 		(when (>= frame-timer (* *update-period* *frame-time*))
 		  (if *global-paused?*
 		      (draw-text-line! (zero-v) "PAUSED")
-		      (setf *global-game* (update-and-render *renderer* *global-game*)))
+		      (setf *global-game* (update-and-render *global-game*)))
 		  (render! *renderer*
 			   *font*
 			   *render-list*
@@ -885,7 +885,7 @@ This can be abused with the machine gun in TAS."
 	    drawings))
     drawings))
 
-(defun update-and-render (renderer game)
+(defun update-and-render (game)
   "The Main Loop, called once per *FRAME-TIME*."
   (when (eq *input-playback* :playback)
     (setf *global-game*
@@ -985,7 +985,7 @@ This can be abused with the machine gun in TAS."
   (draw (list :game))
   (input (list :game)))
 
-(defun active-systems-switch-to-dialog (a)
+(defun active-systems-switch-to-dialog ()
   (make-active-systems
    :update (list :dialog)
    :draw (list :game :dialog)
@@ -1565,11 +1565,9 @@ This can be abused with the machine gun in TAS."
 (defun physics-tile-rect (c)
   (tile-rect (physics-pos c)))
 
-(defgeneric origin (obj))
+
 (defmethod origin ((c critter))
   (physics-tile-origin c))
-
-(defgeneric inertia-vel (obj))
 
 (defun stage-vel (physics)
   (kin-2d-vel (aval physics :stage)))

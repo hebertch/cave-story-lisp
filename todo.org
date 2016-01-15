@@ -1,0 +1,6 @@
+
+* play a sound
+* replace an entity
+* create an entity
+* return a drawing
+* kill an entity
