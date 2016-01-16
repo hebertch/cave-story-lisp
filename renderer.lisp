@@ -127,7 +127,7 @@
 	  (round (y v))))
 
 (defun remove-visible-layer! (layer)
-  (setf *visible-layers* (set-difference *visible-layers* (list layer))))
+  (setq *visible-layers* (set-difference *visible-layers* (list layer))))
 
 (defun add-visible-layer! (layer)
   (pushnew layer *visible-layers*))
@@ -215,7 +215,7 @@
   (sdl:set-render-draw-color renderer 128 128 128 255)
   (sdl:render-clear renderer)
 
-  (setf render-list (sort-by-layers render-list))
+  (setq render-list (sort-by-layers render-list))
 
   (let ((render-list
 	 (remove-if

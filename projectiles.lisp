@@ -17,24 +17,25 @@
 				    (create-expiring-timer
 				     (s->ms 3/2) t))
 			     :physics
-			     (let (physics)
-			       (asetf physics
-				      (make-offset-motion
-				       (offset-in-dir-pos
-					pos
-					perp-offset-amt
-					perp-dir)
-				       dir speed acc)
-				      :kin-2d)
+			     (let ((physics
+				    (aset nil
+					  (make-offset-motion
+					   (offset-in-dir-pos
+					    pos
+					    perp-offset-amt
+					    perp-dir)
+					   dir speed acc)
+					  :kin-2d)))
 			       (when oscillate?
-				 (asetf physics
-					(make-wave-motion
-					 :dir perp-dir
-					 :amp
-					 *missile-projectile-amplitude*
-					 :speed
-					 *missile-radial-speed*)
-					:wave-motion))
+				 (setq physics
+				       (aset physics
+					     (make-wave-motion
+					      :dir perp-dir
+					      :amp
+					      *missile-projectile-amplitude*
+					      :speed
+					      *missile-radial-speed*)
+					     :wave-motion)))
 			       physics)
 			     :sprite-rect
 			     (tile-rect
@@ -318,7 +319,7 @@
        (offset-in-dir-pos (+v pos (tile-dims/2))
 			  (tiles/2 1)
 			  dir))
-      (tf dead?))
+      (setq dead? t))
     dead?))
 
 (defun make-projectile-group (gun-name lvl dir nozzle-pos)

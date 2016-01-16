@@ -56,7 +56,7 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 	   (push (cons system-type id) ,registry))
 
 	 (defun ,update-name ,(cons 'active-entity-systems update-args)
-	   (setf ,registry (remove-if (lambda (p)
+	   (setq ,registry (remove-if (lambda (p)
 					(dead? (estate (cdr p))))
 				      ,registry))
 	   (dolist (,entry-name ,registry)
@@ -165,12 +165,12 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 	 (register-entity-subsystems id e)))
 
   (defun init-id-system ()
-    (setf id 0))
+    (setq id 0))
   (defun gen-entity-id ()
     (incf id))
 
   (defun init-entity-registry ()
-    (setf id 0
+    (setq id 0
 	  entity-registry nil))
 
   (defun register-entity (id entity)
@@ -183,7 +183,7 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 	(entity-state lookup))))
 
   (defun estate-set (id obj)
-    (setf entity-registry (copy-alist entity-registry))
+    (setq entity-registry (copy-alist entity-registry))
     (let ((e (copy-entity (cdr (assoc id entity-registry)))))
       (setf (entity-state e) obj)
       (setf (cdr (assoc id entity-registry)) e))))
@@ -211,7 +211,7 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 
 (defun create-entity (initial-state subsystems &key id)
   (unless id
-    (setf id (gen-entity-id)))
+    (setq id (gen-entity-id)))
   (let ((entity (make-entity :system-type *entity-system-type*
 			     :state initial-state
 			     :subsystems subsystems)))

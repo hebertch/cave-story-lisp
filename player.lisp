@@ -220,8 +220,9 @@
 	      (s->ms 1/2)
 	      (create-game-over-event)))))
 	(t
-	 (aupdatef (player-timers p) #'reset-timer '(:invincible))
-	 (nilf (player-ground-tile p))
+	 (setf (player-timers p)
+	       (aupdate (player-timers p) #'reset-timer '(:invincible)))
+	 (setf (player-ground-tile p) nil)
 	 (push-sound :hurt)
 	 (replace-entity-state (player-hud p) #'hud-health-changed)
 	 (decf (player-health-amt p) dmg-amt)
@@ -235,14 +236,16 @@
 	 (update-damage-number-amt (player-damage-numbers p)
 				   (player-id p)
 				   dmg-amt)
-	 (aupdatef
-	  (player-physics p)
-	  (lambda (kin-2d)
-	    (setf (kin-2d-vel kin-2d)
-		  (make-v (x (kin-2d-vel kin-2d))
-			  (min (y (kin-2d-vel kin-2d)) (- *player-hop-speed*))))
-	    kin-2d)
-	  '(:stage)))))
+	 (setf (player-physics p)
+	       (aupdate
+		(player-physics p)
+		(lambda (kin-2d)
+		  (setf (kin-2d-vel kin-2d)
+			(make-v (x (kin-2d-vel kin-2d))
+				(min (y (kin-2d-vel kin-2d))
+				     (- *player-hop-speed*))))
+		  kin-2d)
+		'(:stage))))))
     p))
 
 (defmethod origin ((p player))
@@ -305,30 +308,41 @@
   (let ((p (copy-structure p)))
     (unless (player-jumping? p)
       (when (player-on-ground? p)
-	(aupdatef
-	 (player-physics p)
-	 (lambda (kin-2d)
-	   (setf (kin-2d-vel kin-2d)
-		 (+v (kin-2d-vel kin-2d) (make-v 0 (- *player-jump-speed*))))
-	   kin-2d)
-	 '(:stage))
+	(setf (player-physics p)
+	      (aupdate
+	       (player-physics p)
+	       (lambda (kin-2d)
+		 (setf (kin-2d-vel kin-2d)
+		       (+v (kin-2d-vel kin-2d)
+			   (make-v 0 (- *player-jump-speed*))))
+		 kin-2d)
+	       '(:stage)))
 
 	(push-sound :jump))
-      (nilf (player-interacting? p) (player-ground-tile p))
-      (aupdatef (player-timers p) #'timed-cycle-pause '(:walk-cycle))
-      (tf (player-jumping? p)))
+      (setf (player-interacting? p) nil
+	    (player-ground-tile p) nil)
+      (setf (player-timers p)
+	    (aupdate (player-timers p) #'timed-cycle-pause '(:walk-cycle)))
+      (setf (player-jumping? p) t))
     p))
 
 (defun player-move (p dir)
   "Moves the player in a horizontal direction."
   (let ((p (copy-structure p)))
     (when (player-on-ground? p)
-      (aupdatef (player-timers p) #'timed-cycle-resume '(:walk-cycle))
+      (setf (player-timers p)
+	    (aupdate (player-timers p)
+		     #'timed-cycle-resume
+		     '(:walk-cycle)))
       (when (null (player-acc-dir p))
-	(aupdatef (player-timers p) #'timed-cycle-restart '(:walk-cycle))))
+	(setf (player-timers p)
+	      (aupdate (player-timers p)
+		       #'timed-cycle-restart
+		       '(:walk-cycle)))))
 
-    (nilf (player-interacting? p))
-    (allf dir (player-acc-dir p) (player-h-facing p))
+    (setf (player-interacting? p) nil)
+    (setf (player-acc-dir p) dir
+	  (player-h-facing p) dir)
     p))
 
 (defun player-input (p input)
@@ -347,16 +361,19 @@
       (cond
 	;; Look Up/Down or Interact
 	((and up? (not down?))
-	 (nilf (player-interacting? p))
+	 (setf (player-interacting? p) nil)
 	 (setf (player-v-facing p) :up))
 
 	((and down? (not up?))
 	 (unless (eq (player-v-facing p) :down)
 	   (setf (player-v-facing p) :down)
-	   (aupdatef (player-timers p) #'timed-cycle-pause '(:walk-cycle))
+	   (setf  (player-timers p)
+		  (aupdate (player-timers p)
+			   #'timed-cycle-pause
+			   '(:walk-cycle)))
 	   (setf (player-interacting? p) on-ground?)))
 
-	(t (nilf (player-v-facing p))))
+	(t (setf (player-v-facing p) nil)))
 
       (cond
 	;; Walk/Look based on horizontal direction
@@ -368,13 +385,16 @@
 
 	(t
 	 (when walking?
-	   (aupdatef (player-timers p) #'timed-cycle-pause '(:walk-cycle))
+	   (setf (player-timers p)
+		 (aupdate (player-timers p)
+			  #'timed-cycle-pause
+			  '(:walk-cycle)))
 	   (push-sound :step))
-	 (nilf (player-acc-dir p))))
+	 (setf (player-acc-dir p) nil)))
 
       (if (or (key-held? input :z) (joy-held? input :a))
 	  (fnf p #'player-jump)
-	  (nilf (player-jumping? p))))
+	  (setf (player-jumping? p) nil)))
 
     (when (or (key-pressed? input :a) (joy-pressed? input :y))
       (fnf (player-gun-name-cycle p) #'cycle-previous))
@@ -390,54 +410,58 @@
   (let (new-ground-tile
 	(collision-rects *player-collision-rectangles-alist*)
 	(p (copy-structure p)))
-    (aupdatef
-     (player-physics p)
-     (lambda (kin-2d)
-       (setf (kin-2d-pos kin-2d)
-	     (stage-collisions
-	      (kin-2d-pos kin-2d)
-	      stage
-	      collision-rects
-	      (let ((stop-x
-		     (collision-lambda (tile-type)
-		       (setf (kin-2d-vel kin-2d)
-			     (zero-v :y
-				     (y
-				      (kin-2d-vel
-				       kin-2d)))))))
-		(alist :bottom
-		       (collision-lambda (tile-type)
-			 (setf (kin-2d-vel kin-2d)
-			       (zero-v :x
-				       (x
-					(kin-2d-vel
-					 kin-2d))))
-			 (unless (player-ground-tile p)
-			   (push-sound :land))
-			 (setf new-ground-tile
-			       tile-type))
-		       :left stop-x :right stop-x :top
-		       (collision-lambda (tile-type)
-			 (when
-			     (minusp
-			      (y (kin-2d-vel kin-2d)))
-			   (push-sound :head-bump))
-			 (setf (kin-2d-vel kin-2d)
-			       (make-v
-				(x
-				 (kin-2d-vel kin-2d))
-				(max
-				 (y
-				  (kin-2d-vel kin-2d))
-				 0))))))
-	      (player-ground-tile p)))
-       kin-2d)
-     '(:stage))
+    (setf (player-physics p)
+	  (aupdate
+	   (player-physics p)
+	   (lambda (kin-2d)
+	     (setf (kin-2d-pos kin-2d)
+		   (stage-collisions
+		    (kin-2d-pos kin-2d)
+		    stage
+		    collision-rects
+		    (let ((stop-x
+			   (collision-lambda (tile-type)
+			     (setf (kin-2d-vel kin-2d)
+				   (zero-v :y
+					   (y
+					    (kin-2d-vel
+					     kin-2d)))))))
+		      (alist :bottom
+			     (collision-lambda (tile-type)
+			       (setf (kin-2d-vel kin-2d)
+				     (zero-v :x
+					     (x
+					      (kin-2d-vel
+					       kin-2d))))
+			       (unless (player-ground-tile p)
+				 (push-sound :land))
+			       (setf new-ground-tile
+				     tile-type))
+			     :left stop-x :right stop-x :top
+			     (collision-lambda (tile-type)
+			       (when
+				   (minusp
+				    (y (kin-2d-vel kin-2d)))
+				 (push-sound :head-bump))
+			       (setf (kin-2d-vel kin-2d)
+				     (make-v
+				      (x
+				       (kin-2d-vel kin-2d))
+				      (max
+				       (y
+					(kin-2d-vel kin-2d))
+				       0))))))
+		    (player-ground-tile p)))
+	     kin-2d)
+	   '(:stage)))
 
     (setf (player-ground-tile p) new-ground-tile)
     (unless (player-ground-tile p)
-      (aupdatef (player-timers p) #'timed-cycle-pause '(:walk-cycle))
-      (nilf (player-ground-tile p)))
+      (setf  (player-timers p)
+	     (aupdate (player-timers p)
+		      #'timed-cycle-pause
+		      '(:walk-cycle)))
+      (setf (player-ground-tile p) nil))
     p))
 
 (defmethod stage-collision ((p player) stage)

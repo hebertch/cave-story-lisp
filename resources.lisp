@@ -140,11 +140,11 @@ the get- function that is produced."
 
 (defun stop-music ()
   (sdl.mixer:halt-music)
-  (nilf *current-song*))
+  (setq *current-song* nil))
 
 (defun switch-to-new-song (song-key)
   (sdl.mixer:halt-music)
-  (setf *current-song* (get-song song-key))
+  (setq *current-song* (get-song song-key))
   (sdl.mixer:play-music (song-intro *current-song*) 0))
 
 (defun percent->volume (fixnum-percent)

@@ -15,13 +15,14 @@ new (values DELTA-POS VEL)."
 new (values DELTA-POS VEL)."
   (mvbind (px vx) (funcall accelerator-x (x vel))
     (mvbind (py vy) (funcall accelerator-y (y vel))
-      (when clamper-vx
-	(setf vx (funcall clamper-vx vx)))
-      (when clamper-vy
-	(setf vy (funcall clamper-vy vy)))
       (values
        (make-v px py)
-       (make-v vx vy)))))
+       (make-v (if clamper-vx
+		   (funcall clamper-vx vx)
+		   vx)
+	       (if clamper-vy
+		   (funcall clamper-vy vy)
+		   vy))))))
 
 (defun friction-accelerate (vel friction-acc)
   "Apply friction. Clamps to zero."
@@ -40,7 +41,7 @@ new (values DELTA-POS VEL)."
 	(when (or (and moving-left? (plusp vel))
 		  (and moving-right? (minusp vel)))
 	  ;; If so, clamp to zero.
-	  (setf vel 0))))
+	  (setq vel 0))))
 
     (values dpos vel)))
 
@@ -86,7 +87,7 @@ new (values DELTA-POS VEL)."
 (defun motion-set-pos (physics)
   (let ((pos (zero-v)))
     (doalist (k m physics)
-      (setf pos (+v pos (motion-pos m))))
+      (setq pos (+v pos (motion-pos m))))
     pos))
 
 (defun wave-physics (w)
@@ -175,9 +176,11 @@ new (values DELTA-POS VEL)."
 
     (setf (target-kin-2d-vel m) (copy-v2 (target-kin-2d-vel m)))
     (when (< (abs (x disp)) 1)
-      (allf 0 (x disp) (x (target-kin-2d-vel m))))
+      (setf (x disp) 0
+	    (x (target-kin-2d-vel m)) 0))
     (when (< (abs (y disp)) 1)
-      (allf 0 (y disp) (y (target-kin-2d-vel m))))
+      (setf (y disp) 0
+	    (y (target-kin-2d-vel m)) 0))
 
     (mvbind (pos vel)
 	(accelerate-2d (target-kin-2d-vel m)

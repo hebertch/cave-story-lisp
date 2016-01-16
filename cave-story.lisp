@@ -30,7 +30,7 @@
      ,(lambda ()
 	      (case *input-playback*
 		(:recording (begin-input-playback))
-		(:playback (nilf *input-playback*))
+		(:playback (setq *input-playback* nil))
 		(t (begin-input-recording)))))
     (((:key :n)) .
      ,(lambda ()
@@ -66,7 +66,7 @@
       (when (find :f1 pressed-keys)
 	(mapc (if debug-toggle-off?
 		  (progn
-		    (nilf debug-toggle-off?)
+		    (setq debug-toggle-off? nil)
 		    #'remove-visible-layer!)
 		  #'toggle-visible-layer!)
 	      *debug-layers*))
@@ -77,7 +77,7 @@
 	   (when (find key pressed-keys)
 	     (let ((layer (elt *debug-layers* (1+ i))))
 	       (print layer)
-	       (tf debug-toggle-off?)
+	       (setq debug-toggle-off? t)
 	       (toggle-visible-layer! layer)))))))
 
 (defun main ()
@@ -87,13 +87,13 @@
 	 (let ((frame-timer 0)
 	       last-update-time)
 	   (setq *global-game* (init))
-	   (setf last-update-time (sdl:get-ticks))
+	   (setq last-update-time (sdl:get-ticks))
 	   (loop do
 		(swank-tools:update)
 		(swank-tools:continuable
 		  (let ((transient-input (gather-transient-input!)))
 		    (handle-debug-input transient-input)
-		    (setf *global-game*
+		    (setq *global-game*
 			  (make-game :player (game-player *global-game*)
 				     :camera (game-camera *global-game*)
 				     :stage (game-stage *global-game*)
@@ -106,7 +106,7 @@
 		(when (>= frame-timer (* *update-period* *frame-time*))
 		  (if *global-paused?*
 		      (draw-text-line! (zero-v) "PAUSED")
-		      (setf *global-game* (update-and-render *global-game*)))
+		      (setq *global-game* (update-and-render *global-game*)))
 		  (render! *renderer*
 			   *font*
 			   *render-list*
@@ -118,28 +118,18 @@
 		(let ((dt (- (sdl:get-ticks) last-update-time)))
 		  ;; NOTE: if we are paused beyond our control, Don't play catchup.
 		  (incf frame-timer (min dt (* 2 *frame-time*))))
-		(setf last-update-time (sdl:get-ticks))
+		(setq last-update-time (sdl:get-ticks))
 		(music-update)
 		(sdl:delay 1)))
       (cleanup))))
 
-(defun copy-hash-table (hash-table)
-  (let ((ht (make-hash-table
-	     :test (hash-table-test hash-table)
-	     :rehash-size (hash-table-rehash-size hash-table)
-	     :rehash-threshold (hash-table-rehash-threshold hash-table)
-	     :size (hash-table-size hash-table))))
-    (loop for key being each hash-key of hash-table
-       using (hash-value value)
-       do (setf (gethash key ht) value)
-       finally (return ht))))
-
-(defun handle-input (game &aux input)
+(defun handle-input (game)
   "Handles input. Often called many times between updates.
 This can be abused with the machine gun in TAS."
 
-  (setf input (game-input game))
-  (let ((input-systems (active-systems-input (estate (game-active-systems game)))))
+  (let ((input (game-input game))
+	(input-systems
+	 (active-systems-input (estate (game-active-systems game)))))
     (update-input-subsystem input-systems input)
     (ecase (first input-systems)
       (:game
@@ -475,7 +465,7 @@ This can be abused with the machine gun in TAS."
 		 :src-rect (create-rect src-pos (tile-dims/2))
 		 :pos pos)
 		drawings))
-	(setf pos (+v pos (tiles/2-v 1 0)))))
+	(setq pos (+v pos (tiles/2-v 1 0)))))
     drawings))
 
 (defun fixnum->digits (number)
@@ -484,12 +474,12 @@ This can be abused with the machine gun in TAS."
       (let (digits
 	    neg?)
 	(when (minusp number)
-	  (tf neg?)
-	  (setf number (* -1 number)))
+	  (setq neg? t)
+	  (setq number (* -1 number)))
 	(while (plusp number)
 	  (mvbind (num rem) (floor number 10)
 	    (push rem digits)
-	    (setf number num)))
+	    (setq number num)))
 	(if neg?
 	    (cons :negative digits)
 	    (cons :positive digits)))))
@@ -569,9 +559,10 @@ This can be abused with the machine gun in TAS."
 		  :show-sign? nil))
 
 (defun exp-for-gun-level (gun-name lvl)
-  (when (eq lvl :max)
-    (setf lvl 2))
-  (elt (cdr (assoc gun-name *gun-level-exps*)) lvl))
+  (elt (cdr (assoc gun-name *gun-level-exps*))
+       (if (eq lvl :max)
+	   2
+	   lvl)))
 
 (comment-code
   ("If there are no more red flowers we can, hopefully, avoid the war."
@@ -615,9 +606,9 @@ This can be abused with the machine gun in TAS."
 
 (defparameter *text-speed* 100)
 (defun slow-text-speed ()
-  (setf *text-speed* 100))
+  (setq *text-speed* 100))
 (defun fast-text-speed ()
-  (setf *text-speed* 25))
+  (setq *text-speed* 25))
 (defparameter *cursor-blink-time* 100)
 
 (defstruct (text-display (:include entity-state))
@@ -873,17 +864,17 @@ This can be abused with the machine gun in TAS."
 (defun update-and-render (game)
   "The Main Loop, called once per *FRAME-TIME*."
   (when (eq *input-playback* :playback)
-    (setf *global-game*
-	  (make-game :player (game-player *global-game*)
-		     :camera (game-camera *global-game*)
-		     :stage (game-stage *global-game*)
-		     :projectile-groups (game-projectile-groups *global-game*)
-		     :damage-numbers (game-damage-numbers *global-game*)
-		     :active-systems (game-active-systems *global-game*)
+    (setq game
+	  (make-game :player (game-player game)
+		     :camera (game-camera game)
+		     :stage (game-stage game)
+		     :projectile-groups (game-projectile-groups game)
+		     :damage-numbers (game-damage-numbers game)
+		     :active-systems (game-active-systems game)
 		     :input (next-playback-input))))
-  (handle-input *global-game*)
+  (handle-input game)
 
-  (nilf *render-list*)
+  (setq *render-list* nil)
 
   (case *input-playback*
     (:recording
@@ -920,19 +911,18 @@ This can be abused with the machine gun in TAS."
   ;; End Debug Drawings.
 
   (play-sounds *sfx-play-list*)
-  (nilf *sfx-play-list*)
+  (setq *sfx-play-list* nil)
 
   (when (eq *input-playback* :recording)
-    (record-frame-input (game-input *global-game*)))
+    (record-frame-input (game-input game)))
 
-  (setf *global-game*
-	(make-game :player (game-player *global-game*)
-		   :camera (game-camera *global-game*)
-		   :stage (game-stage *global-game*)
-		   :projectile-groups (game-projectile-groups *global-game*)
-		   :damage-numbers (game-damage-numbers *global-game*)
-		   :active-systems (game-active-systems *global-game*)
-		   :input (reset-transient-input (game-input *global-game*)))))
+  (make-game :player (game-player game)
+	     :camera (game-camera game)
+	     :stage (game-stage game)
+	     :projectile-groups (game-projectile-groups game)
+	     :damage-numbers (game-damage-numbers game)
+	     :active-systems (game-active-systems game)
+	     :input (reset-transient-input (game-input game))))
 
 (defparameter *input-playback* nil)
 
@@ -945,20 +935,20 @@ This can be abused with the machine gun in TAS."
 	(elt inputs (decf playback-idx))
       (when (= 0 playback-idx)
 	(restore-state game-state)
-	(setf playback-idx (1- (length inputs))))))
+	(setq playback-idx (1- (length inputs))))))
 
   (defun end-input-playback ()
-    (nilf *input-playback*))
+    (setq *input-playback* nil))
 
   (defun begin-input-playback ()
     (restore-state game-state)
-    (setf playback-idx (1- (length inputs)))
-    (setf *input-playback* :playback))
+    (setq playback-idx (1- (length inputs)))
+    (setq *input-playback* :playback))
 
   (defun begin-input-recording ()
-    (setf *input-playback* :recording)
-    (nilf inputs)
-    (setf game-state (save-current-state))))
+    (setq *input-playback* :recording)
+    (setq inputs nil)
+    (setq game-state (save-current-state))))
 
 (defparameter *dialog-text-pos* (tiles/2-v 7 24))
 (defvar *global-paused?*)
@@ -1042,9 +1032,9 @@ This can be abused with the machine gun in TAS."
 
 (defun restore-state (state)
   (dolist (s *registry-syms*)
-    (nilf (symbol-value s)))
+    (set s nil))
   (restore-entity-states (first state))
-  (setf *global-game* (second state)))
+  (setq *global-game* (second state)))
 
 (defun create-game ()
   (let ((damage-numbers (create-damage-numbers))
@@ -1085,10 +1075,10 @@ This can be abused with the machine gun in TAS."
   (set-music-volume 20)
 
   (dolist (s *registry-syms*)
-    (nilf (symbol-value s)))
+    (set s nil))
   (init-entity-registry)
 
-  (nilf *global-paused?*)
+  (setq *global-paused?* nil)
 
   (create-game))
 
@@ -1096,7 +1086,7 @@ This can be abused with the machine gun in TAS."
   "Called at application startup."
   (sdl:init '(:audio :video :joystick))
   (sdl.ttf:init)
-  (setf *font* (sdl.ttf:open-font "./content/VeraMoBd.ttf" 19))
+  (setq *font* (sdl.ttf:open-font "./content/VeraMoBd.ttf" 19))
   (sdl.mixer:open-audio sdl.mixer:+default-frequency+
 			sdl.mixer:+default-format+
 			2
@@ -1106,7 +1096,7 @@ This can be abused with the machine gun in TAS."
   (sdl:show-cursor :disable)
 
   (put-all-resources)
-  (nilf *current-song*)
+  (setq *current-song* nil)
 
   (mvsetq
    (*window* *renderer*)
@@ -1122,13 +1112,14 @@ This can be abused with the machine gun in TAS."
   (cleanup-all-resources)
   (clrhash *character-textures*)
 
-  (nilf *input-playback*)
+  (setq *input-playback* nil)
   (sdl.mixer:close-audio)
   (sdl:destroy-renderer *renderer*)
   (sdl:destroy-window *window*)
   (sdl.ttf:quit)
   (sdl:quit)
-  (nilf *renderer* *window*))
+  (setq *renderer* nil
+	*window* nil))
 
 (defun quit ()
   "Quits the application."
@@ -1373,11 +1364,11 @@ This can be abused with the machine gun in TAS."
 	(facing (critter-facing c)))
     (unless (aand (aval timers :shake) (timer-active? it))
       (removef physics :shake :key #'car :test #'eq))
-    (setf facing (face-player (physics-pos c) (critter-player c)))
+    (setq facing (face-player (physics-pos c) (critter-player c)))
     (when (and (not (aand (aval timers :sleep) (timer-active? it)))
 	       (< (origin-dist c (estate (critter-player c))) (tiles 4)))
       (when (critter-ground-tile c)
-	(setf physics
+	(setq physics
 	      (aupdate physics
 		       (lambda (kin-2d)
 			 (setf (kin-2d-vel kin-2d)
@@ -1427,8 +1418,12 @@ This can be abused with the machine gun in TAS."
 	(timers (critter-timers c))
 	(health-amt (critter-health-amt c))
 	(dead? (critter-dead? c)))
-    (asetf physics (make-wave-motion :dir :left :amp 2 :speed 0.1 :rads 0) :shake)
-    (asetf timers (create-expiring-timer (s->ms 1/3) t) :shake)
+    (setq physics
+	  (aset physics
+		(make-wave-motion :dir :left :amp 2 :speed 0.1 :rads 0)
+		:shake))
+    (setq timers
+	  (aset timers (create-expiring-timer (s->ms 1/3) t) :shake))
     (if (< amt health-amt)
 	(progn
 	  (update-damage-number-amt (critter-damage-numbers c) (critter-id c) amt)
@@ -1439,7 +1434,7 @@ This can be abused with the machine gun in TAS."
 	  (create-dorito origin (polar-vec->v (rand-angle) 0.07) :small)
 	  (create-dorito origin (polar-vec->v (rand-angle) 0.07) :small)
 	  (create-death-cloud-particles 6 origin)
-	  (tf dead?)))
+	  (setq dead? t)))
     (make-critter :physics physics
 		  :timers timers
 		  :dead? dead?
@@ -1467,32 +1462,33 @@ This can be abused with the machine gun in TAS."
 
 (defun dynamic-collision-enemy-react
     (pos origin id dynamic-collision-rect side player-collision-rect player-state)
-  (aupdatef
-   (player-physics player-state)
-   (lambda (kin-2d)
-     (let ((player-rect (rect-offset player-collision-rect
-				     (kin-2d-pos kin-2d))))
-       (case side
-	 (:bottom
-	  (when (and (not (player-on-ground? player-state))
-		     (<= (y pos) (bottom player-rect) (+ (y origin))))
-	    (setf (player-ground-tile player-state) :dynamic)
-	    (setf (player-ground-inertia-entity player-state) id)
-	    (setf (kin-2d-vel kin-2d) (zero-v :x (x (kin-2d-vel kin-2d))))
+  (setf  (player-physics player-state)
+	 (aupdate
+	  (player-physics player-state)
+	  (lambda (kin-2d)
+	    (let ((player-rect (rect-offset player-collision-rect
+					    (kin-2d-pos kin-2d))))
+	      (case side
+		(:bottom
+		 (when (and (not (player-on-ground? player-state))
+			    (<= (y pos) (bottom player-rect) (+ (y origin))))
+		   (setf (player-ground-tile player-state) :dynamic)
+		   (setf (player-ground-inertia-entity player-state) id)
+		   (setf (kin-2d-vel kin-2d) (zero-v :x (x (kin-2d-vel kin-2d))))
 
-	    (setf (kin-2d-pos kin-2d)
-		  (-v
-		   (flush-rect-pos player-rect
-				   (y (rect-pos dynamic-collision-rect))
-				   :up)
-		   (rect-pos player-collision-rect)))))
-	 ((:left :right)
-	  (let ((disp (- (x (kin-2d-pos kin-2d)) (x pos))))
-	    (when (> (abs disp) (tiles 1/4))
-	      (setf (x (kin-2d-vel kin-2d))
-		    (* (/ *terminal-speed* 70) disp)))))))
-     kin-2d)
-   '(:stage))
+		   (setf (kin-2d-pos kin-2d)
+			 (-v
+			  (flush-rect-pos player-rect
+					  (y (rect-pos dynamic-collision-rect))
+					  :up)
+			  (rect-pos player-collision-rect)))))
+		((:left :right)
+		 (let ((disp (- (x (kin-2d-pos kin-2d)) (x pos))))
+		   (when (> (abs disp) (tiles 1/4))
+		     (setf (x (kin-2d-vel kin-2d))
+			   (* (/ *terminal-speed* 70) disp)))))))
+	    kin-2d)
+	  '(:stage)))
   player-state)
 
 (defmethod dynamic-collision-react ((c critter) side player-collision-rect player)
@@ -1508,8 +1504,8 @@ This can be abused with the machine gun in TAS."
 	   (timers (critter-timers c))
 	   (ground-tile (critter-ground-tile c))
 	   (last-tile ground-tile))
-      (nilf ground-tile)
-      (setf physics
+      (setq ground-tile nil)
+      (setq physics
 	    (aupdate physics
 		     (lambda (kin-2d)
 		       (setf (kin-2d-pos kin-2d)
@@ -1519,10 +1515,9 @@ This can be abused with the machine gun in TAS."
 			      (alist
 			       :bottom
 			       (collision-lambda (tile-type)
-				 (setf ground-tile
-				       tile-type)
+				 (setq ground-tile tile-type)
 				 (unless last-tile
-				   (setf timers
+				   (setq timers
 					 (aset timers
 					       (create-expiring-timer
 						(s->ms 1/3)
@@ -1643,11 +1638,11 @@ This can be abused with the machine gun in TAS."
 	(physics (elephant-physics e))
 	(health-amt (elephant-health-amt e))
 	(dead? (elephant-dead? e)))
-    (setf physics
+    (setq physics
 	  (aset physics
 		(make-wave-motion :dir :left :amp 2 :speed 0.1 :rads 0)
 		:shake))
-    (setf timers (aset timers (create-expiring-timer (s->ms 1/3) t) :shake))
+    (setq timers (aset timers (create-expiring-timer (s->ms 1/3) t) :shake))
     (if (< amt (elephant-health-amt e))
 	(progn
 	  (update-damage-number-amt (elephant-damage-numbers e) (elephant-id e) amt)
@@ -1660,13 +1655,13 @@ This can be abused with the machine gun in TAS."
 	  (create-dorito origin (polar-vec->v (rand-angle) 0.07) :small)
 	  (create-death-cloud-particles amt origin)
 
-	  (setf dead? t)))
+	  (setq dead? t)))
 
     (unless (timer-active? (aval timers :rage))
       (if (timer-active? (aval timers :recover))
 	  (when (< (timer-ms-remaining (aval timers :recover)) (s->ms 1/2))
-	    (setf timers (aset timers (create-expiring-timer (s->ms 3)) :rage)))
-	  (setf timers (aset timers (create-expiring-timer (s->ms 3/4) t) :recover))))
+	    (setq timers (aset timers (create-expiring-timer (s->ms 3)) :rage)))
+	  (setq timers (aset timers (create-expiring-timer (s->ms 3/4) t) :recover))))
     
     (make-elephant :physics physics
 		   :timers timers
@@ -1685,10 +1680,10 @@ This can be abused with the machine gun in TAS."
   (let ((pos (physics-pos e)))
     (cond
       ((timer-active? (aval (elephant-timers e) :recover))
-       (setf pos (+v pos (make-v 0 (tiles 1/4)))))
+       (setq pos (+v pos (make-v 0 (tiles 1/4)))))
       ((= 1 (cycle-idx (timed-cycle-cycle
 			(aval (elephant-timers e) :anim-cycle))))
-       (setf pos (+v pos (make-v 0 (tiles 1/8))))))
+       (setq pos (+v pos (make-v 0 (tiles 1/8))))))
     (create-rect pos *elephant-dims*)))
 
 (defmethod dynamic-collision-rect ((e elephant))
@@ -1731,12 +1726,12 @@ This can be abused with the machine gun in TAS."
     
     (when (member :recover ticks)
       (when (aval timers :rage)
-	(setf timers (aupdate timers #'reset-timer '(:rage)))
-	(setf timers (aset timers (create-timed-cycle 14 #(8 10)) :anim-cycle))))
+	(setq timers (aupdate timers #'reset-timer '(:rage)))
+	(setq timers (aset timers (create-timed-cycle 14 #(8 10)) :anim-cycle))))
 
     (when (member :rage ticks)
-      (setf timers (arem timers '(:rage)))
-      (setf timers (aset timers (create-timed-cycle 12 #(0 2 4)) :anim-cycle)))
+      (setq timers (arem timers '(:rage)))
+      (setq timers (aset timers (create-timed-cycle 12 #(0 2 4)) :anim-cycle)))
 
     (when (timer-active? (aval timers :rage))
       (when (and (member :anim-cycle ticks)
@@ -1750,7 +1745,7 @@ This can be abused with the machine gun in TAS."
 						      (tiles 1/2))
 						  (tiles 5/4))))))
 
-    (setf physics
+    (setq physics
 	  (aupdate physics
 		   (lambda (kin-2d)
 		     (let ((vel (copy-v2 (kin-2d-vel kin-2d))))
@@ -1798,11 +1793,11 @@ This can be abused with the machine gun in TAS."
 				       :left
 				       (collision-lambda (tile-type)
 					 (when (eq facing :left)
-					   (setf facing :right)))
+					   (setq facing :right)))
 				       :right
 				       (collision-lambda (tile-type)
 					 (when (eq facing :right)
-					   (setf facing :left))))))
+					   (setq facing :left))))))
 			       kin-2d)
 			     '(:stage))))
       (make-elephant

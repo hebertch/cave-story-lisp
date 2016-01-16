@@ -43,7 +43,7 @@
 	  (warn "Failed to Open Joystick at index ~A. ~A~%"
 		idx
 		(sdl:get-error))
-	  (nilf joystick))
+	  (setq joystick nil))
 	joystick))))
 
 (defun init-input! ()
@@ -52,11 +52,11 @@
 
 (defun cleanup-input! ()
   (sdl:destroy-event *event*)
-  (nilf *event*)
+  (setq *event* nil)
   (when *joystick*
     (when (sdl:joystick-get-attached *joystick*)
       (sdl:joystick-close *joystick*))
-    (nilf *joystick*)))
+    (setq *joystick* nil)))
 
 (defun gather-transient-input! ()
   "Gather all input for a frame into a transient-input object."

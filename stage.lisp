@@ -130,7 +130,7 @@ Returns the TILE-TYPE of the colliding tile."
 	      (appendf args (list :ground-tile ground-tile)))
 	    (apply #'stage-check/resolve-collision args))
 	(when new-pos
-	  (setf position (sub-v new-pos (rect-pos collision-rect)))
+	  (setq position (sub-v new-pos (rect-pos collision-rect)))
 	  (when fn
 	    (funcall fn tile-type)))
 	(draw-rect! (rect-offset collision-rect position)

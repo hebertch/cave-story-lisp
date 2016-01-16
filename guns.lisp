@@ -105,7 +105,7 @@
 		(r-off (sub-v (make-v (elt npp (incf i))
 				      (elt npp (incf i)))
 			      (rect-pos r-src))))
-	   (setf nozzle-offsets
+	   (setq nozzle-offsets
 		 (acons v-facing
 			(list (list (x l-off) (x r-off))
 			      (y l-off))
