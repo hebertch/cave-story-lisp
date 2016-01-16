@@ -378,10 +378,10 @@
       (cond
 	;; Walk/Look based on horizontal direction
 	((and left? (not right?))
-	 (fnf p (rcurry #'player-move :left)))
+	 (setq p (player-move p :left)))
 
 	((and right? (not left?))
-	 (fnf p (rcurry #'player-move :right)))
+	 (setq p (player-move p :right)))
 
 	(t
 	 (when walking?
@@ -393,14 +393,16 @@
 	 (setf (player-acc-dir p) nil)))
 
       (if (or (key-held? input :z) (joy-held? input :a))
-	  (fnf p #'player-jump)
+	  (setq p (player-jump p))
 	  (setf (player-jumping? p) nil)))
 
     (when (or (key-pressed? input :a) (joy-pressed? input :y))
-      (fnf (player-gun-name-cycle p) #'cycle-previous))
+      (setf (player-gun-name-cycle p) (cycle-previous
+				       (player-gun-name-cycle p))))
 
     (when (or (key-pressed? input :s) (joy-pressed? input :x))
-      (fnf (player-gun-name-cycle p) #'cycle-next))
+      (setf (player-gun-name-cycle p) (cycle-next
+				       (player-gun-name-cycle p))))
     p))
 
 (defmethod input ((p player) input)

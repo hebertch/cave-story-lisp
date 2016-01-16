@@ -226,7 +226,8 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 
 (defun physics (o)
   (let ((cpy (copy-structure o)))
-    (fnf (entity-state-physics cpy) #'motion-set-update)
+    (setf (entity-state-physics cpy) (motion-set-update
+				      (entity-state-physics cpy)))
     cpy))
 
 (defun physics-pos (o)

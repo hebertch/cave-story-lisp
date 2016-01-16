@@ -287,9 +287,10 @@
 			       (10 2)
 			       (8 3)))))
     (let ((tp (elt lvl-tile-positions lvl)))
-      (when (vertical? dir)
-	(setf (x tp) (1+ (x tp))))
-      (tile-rect (tile-pos tp)))))
+      (tile-rect
+       (tile-pos (if (vertical? dir)
+		     (make-v (1+ (x tp)) (y tp))
+		     tp))))))
 
 (defun polar-star-projectile-drawing (pos sprite-rect)
   (make-sprite-drawing :layer :projectile :sheet-key :bullet

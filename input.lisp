@@ -47,7 +47,7 @@
 	joystick))))
 
 (defun init-input! ()
-  (setf *event* (sdl:create-event)
+  (setq *event* (sdl:create-event)
 	*joystick* (open-joystick!)))
 
 (defun cleanup-input! ()

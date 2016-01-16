@@ -35,7 +35,8 @@
     (((:key :n)) .
      ,(lambda ()
 	      (when *global-paused?*
-		(fnf *global-game* #'update-and-render))))))
+		(setq *global-game*
+		      (update-and-render *global-game*)))))))
 
 (defstruct game
   player
@@ -987,11 +988,11 @@ This can be abused with the machine gun in TAS."
   (cdr (assoc gun-name gun-exps)))
 
 (defun incr-gun-exp (gun-exps gun-name amt)
-  (let ((g (copy-alist gun-exps)))
-    (let ((pair (assoc gun-name g)))
-      (setf (cdr pair) (min (max (+ (cdr pair) amt) 0)
-			    (exp-for-gun-level gun-name :max))))
-    g))
+  (aupdate gun-exps
+	   (lambda (gun-amt)
+	     (min (max (+ gun-amt amt) 0)
+		  (exp-for-gun-level gun-name :max)))
+	   gun-name))
 
 (defun create-gun-exps (&key (id (gen-entity-id)))
   (create-entity
@@ -1465,34 +1466,35 @@ This can be abused with the machine gun in TAS."
 
 (defun dynamic-collision-enemy-react
     (pos origin id dynamic-collision-rect side player-collision-rect player-state)
-  (setf  (player-physics player-state)
-	 (aupdate
-	  (player-physics player-state)
-	  (lambda (kin-2d)
-	    (let ((player-rect (rect-offset player-collision-rect
-					    (kin-2d-pos kin-2d))))
-	      (case side
-		(:bottom
-		 (when (and (not (player-on-ground? player-state))
-			    (<= (y pos) (bottom player-rect) (+ (y origin))))
-		   (setf (player-ground-tile player-state) :dynamic)
-		   (setf (player-ground-inertia-entity player-state) id)
-		   (setf (kin-2d-vel kin-2d) (zero-v :x (x (kin-2d-vel kin-2d))))
+  (let ((player-state (copy-structure player-state)))
+    (setf (player-physics player-state)
+	  (aupdate
+	   (player-physics player-state)
+	   (lambda (kin-2d)
+	     (let ((player-rect (rect-offset player-collision-rect
+					     (kin-2d-pos kin-2d))))
+	       (case side
+		 (:bottom
+		  (when (and (not (player-on-ground? player-state))
+			     (<= (y pos) (bottom player-rect) (+ (y origin))))
+		    (setf (player-ground-tile player-state) :dynamic)
+		    (setf (player-ground-inertia-entity player-state) id)
+		    (setf (kin-2d-vel kin-2d) (zero-v :x (x (kin-2d-vel kin-2d))))
 
-		   (setf (kin-2d-pos kin-2d)
-			 (-v
-			  (flush-rect-pos player-rect
-					  (y (rect-pos dynamic-collision-rect))
-					  :up)
-			  (rect-pos player-collision-rect)))))
-		((:left :right)
-		 (let ((disp (- (x (kin-2d-pos kin-2d)) (x pos))))
-		   (when (> (abs disp) (tiles 1/4))
-		     (setf (x (kin-2d-vel kin-2d))
-			   (* (/ *terminal-speed* 70) disp)))))))
-	    kin-2d)
-	  '(:stage)))
-  player-state)
+		    (setf (kin-2d-pos kin-2d)
+			  (-v
+			   (flush-rect-pos player-rect
+					   (y (rect-pos dynamic-collision-rect))
+					   :up)
+			   (rect-pos player-collision-rect)))))
+		 ((:left :right)
+		  (let ((disp (- (x (kin-2d-pos kin-2d)) (x pos))))
+		    (when (> (abs disp) (tiles 1/4))
+		      (setf (x (kin-2d-vel kin-2d))
+			    (* (/ *terminal-speed* 70) disp)))))))
+	     kin-2d)
+	   '(:stage)))
+    player-state))
 
 (defmethod dynamic-collision-react ((c critter) side player-collision-rect player)
   (dynamic-collision-enemy-react (physics-pos c) (origin c) (critter-id c)
@@ -1751,19 +1753,21 @@ This can be abused with the machine gun in TAS."
     (setq physics
 	  (aupdate physics
 		   (lambda (kin-2d)
-		     (let ((vel (copy-v2 (kin-2d-vel kin-2d))))
+		     (let ((x-vel 0))
 		       (cond
 			 ((timer-active? (aval timers :rage))
 			  (let ((*elephant-speed* (* 2 *elephant-speed*)))
 			    (if (eq (elephant-facing e) :right)
-				(setf (x vel) *elephant-speed*)
-				(setf (x vel) (- *elephant-speed*)))))
-			 ((timer-active? (aval timers :recover)) (setf (x vel) 0))
+				(setq x-vel *elephant-speed*)
+				(setq x-vel (- *elephant-speed*)))))
+			 ((timer-active? (aval timers :recover))
+			  (setq x-vel 0))
 			 (t
 			  (if (eq (elephant-facing e) :right)
-			      (setf (x vel) *elephant-speed*)
-			      (setf (x vel) (- *elephant-speed*)))))
-		       (setf (kin-2d-vel kin-2d) vel))
+			      (setq x-vel *elephant-speed*)
+			      (setq x-vel (- *elephant-speed*)))))
+		       (setf (kin-2d-vel kin-2d)
+			     (make-v x-vel (y (kin-2d-vel kin-2d)))))
 		     kin-2d)
 		   '(:stage)))
 

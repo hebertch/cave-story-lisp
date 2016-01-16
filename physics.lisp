@@ -123,15 +123,17 @@ new (values DELTA-POS VEL)."
 		     (kin-2d-accelerator-y m)
 		     :clamper-vx (kin-2d-clamper-vx m)
 		     :clamper-vy (kin-2d-clamper-vy m))
-    (setf (kin-2d-pos m) (+v (kin-2d-pos m) dpos))
-    (awhen (kin-2d-inertia-vel m)
-      (setf (kin-2d-pos m)
-	    (+v (kin-2d-pos m)
-		(accelerate-2d it
-			       (const-accelerator 0)
-			       (const-accelerator 0)))))
-    (setf (kin-2d-vel m) nvel))
-  m)
+    (let ((m (copy-structure m))
+	  (pos (+v (kin-2d-pos m) dpos)))
+      (when (kin-2d-inertia-vel m)
+	(setq pos
+	      (+v pos
+		  (accelerate-2d (kin-2d-inertia-vel m)
+				 (const-accelerator 0)
+				 (const-accelerator 0)))))
+      (setf (kin-2d-pos m) pos)
+      (setf (kin-2d-vel m) nvel)
+      m)))
 
 (defmethod motion-physics ((m kin-2d))
   (kin-2d-motion-physics m))
@@ -146,10 +148,10 @@ new (values DELTA-POS VEL)."
   target-vel)
 
 (defun target-kin-2d-update-target (m targ targ-vel)
-  (let ((m (copy-structure m)))
-    (setf (target-kin-2d-target m) targ
-	  (target-kin-2d-target-vel m) targ-vel)
-    m))
+  (make-target-kin-2d :pos (target-kin-2d-pos m)
+		      :vel (target-kin-2d-vel m)
+		      :target targ
+		      :target-vel targ-vel))
 
 (defun target-kin-2d-motion-physics (m)
   (let* ((m (copy-structure m))
