@@ -4,9 +4,7 @@
   (stage-drawing s))
 
 (defun create-stage! (stage-data)
-  (create-entity
-   stage-data
-   '(:drawable)))
+  (create-entity stage-data '(:drawable)))
 
 (defun basic-stage ()
   "Just a toy stage for debugging."
