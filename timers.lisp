@@ -59,7 +59,7 @@
 	     (lambda (pair)
 	       (let ((k (car pair))
 		     (v (cdr pair)))
-		 (mvbind (tr tick?) (update-timer v)
+		 (multiple-value-bind (tr tick?) (update-timer v)
 		   (when tick?
 		     (push k ticks))
 		   (cons k tr))))

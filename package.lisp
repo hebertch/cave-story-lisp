@@ -1,4 +1,4 @@
 ;;;; package.lisp
 
 (defpackage #:cave-story
-  (:use #:cl #:utilities #:alist-structure))
+  (:use #:cl #:alexandria #:alist-structure))

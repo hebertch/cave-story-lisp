@@ -188,9 +188,9 @@
 	   (projectile-groups-count (estate (player-projectile-groups p))
 				    gun-name))
 	  (nozzle-pos (player-nozzle-pos p))
-	  (dir (aif (player-actual-v-facing p)
-		    it
-		    (player-h-facing p)))
+	  (dir (if (player-actual-v-facing p)
+		   (player-actual-v-facing p)
+		   (player-h-facing p)))
 	  (lvl (gun-level (gun-exp-for (estate (player-gun-exps p)) gun-name)
 			  (cdr (assoc gun-name *gun-level-exps*))))
 	  (max-projectiles (cdr (assoc gun-name *max-projectile-groups*))))
@@ -215,10 +215,10 @@
 	 (setf (player-health-amt p) 0)
 	 (setf (player-dead? p) t)
 	 (let ((*entity-system-type* :dialog))
-	   (comment-code
-	     (create-callback-timer
-	      (s->ms 1/2)
-	      (create-game-over-event)))))
+	   #+nil
+	   (create-callback-timer
+	    (s->ms 1/2)
+	    (create-game-over-event))))
 	(t
 	 (setf (player-timers p)
 	       (aupdate (player-timers p) #'reset-timer '(:invincible)))

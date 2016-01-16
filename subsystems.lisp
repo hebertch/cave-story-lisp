@@ -237,8 +237,8 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
   (let ((cpy (copy-structure o))
 	ticks
 	timers)
-    (mvsetq (timers ticks)
-	    (timer-set-update (entity-state-timers cpy)))
+    (multiple-value-setq (timers ticks)
+      (timer-set-update (entity-state-timers cpy)))
     (setf (entity-state-timers cpy) timers)
     (ai cpy ticks)))
 

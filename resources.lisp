@@ -62,9 +62,10 @@ the get- function that is produced."
 		   (make-resource-type
 		    :cleanup-fn
 		    (lambda ()
-		      (dohash (k v) ,hash-table
-			(unless (typep v 'string)
-			  (funcall ,destruct-fn v)))
+		      (loop for k being the hash-key in ,hash-table
+			 using (hash-value v) do
+			   (unless (typep v 'string)
+			     (funcall ,destruct-fn v)))
 		      (clrhash ,hash-table))
 		    :fnames-fn
 		    (lambda ()

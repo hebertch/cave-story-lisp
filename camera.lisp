@@ -84,9 +84,10 @@
 	       (sub-v stage-dims *window-dims*)))
 
 (defun camera-pos (camera camera-bounds)
-  (let ((pos (clamp-pos (camera-focus camera) camera-bounds)))
-    (awhen (aval (camera-physics camera) :shake-h)
-      (setq pos (+v pos (wave-offset it))))
-    (awhen (aval (camera-physics camera) :shake-v)
-      (setq pos (+v pos (wave-offset it))))
-    (+v pos (scale-v *window-dims* -1/2))))
+  (let ((pos (clamp-pos (camera-focus camera) camera-bounds))
+	(shake-h (aval (camera-physics camera) :shake-h))
+	(shake-v (aval (camera-physics camera) :shake-v)))
+    (+v pos
+	(if shake-h (wave-offset shake-h) (zero-v))
+	(if shake-v (wave-offset shake-v) (zero-v))
+	(scale-v *window-dims* -1/2))))

@@ -19,9 +19,8 @@
     (setf (aref stage 9 14) (cons :rbt (make-v 5 1)))
     (setf (aref stage 9 13) (cons :rbs (make-v 4 1)))
 
-    (comment-code
-      (setf (aref stage 6 10) wall)
-      (setf (aref stage 7 12) wall))
+    #+nil((setf (aref stage 6 10) wall)
+	  (setf (aref stage 7 12) wall))
     (setf (aref stage 9 12) wall)
 
     (let ((x -1))
@@ -122,7 +121,7 @@ Returns the TILE-TYPE of the colliding tile."
   (dolist (side *collision-order*)
     (let* ((fn (cdr (assoc side collision-reactions)))
 	   (collision-rect (cdr (assoc side collision-rects))))
-      (mvbind (new-pos tile-type)
+      (multiple-value-bind (new-pos tile-type)
 	  (let ((args (list stage
 			    (rect-offset collision-rect position)
 			    (opposite-dir side))))

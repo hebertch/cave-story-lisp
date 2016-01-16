@@ -187,9 +187,9 @@
 (defun create-text-texture! (renderer font text color)
   ;; TODO: This should be a part of SDL.ttf at this point.
   (let ((surf (sdl.ttf:render-text-solid font text color)))
-    (mvprog1
-     (values (sdl:create-texture-from-surface renderer surf) (get-text-size font text))
-     (sdl:free-surface surf))))
+    (multiple-value-prog1
+	(values (sdl:create-texture-from-surface renderer surf) (get-text-size font text))
+      (sdl:free-surface surf))))
 
 (defun color->hex (color)
   (let ((byte 0))
@@ -199,13 +199,14 @@
     byte))
 
 (defun get-character-texture! (char font)
-  (aif (gethash char *character-textures*)
-       it
-       (setf (gethash char *character-textures*)
-	     (mvlist (create-text-texture! *renderer*
-					   font
-					   (string char)
-					   (color->hex *white*))))))
+  (let ((tex (gethash char *character-textures*)))
+    (if tex
+	tex
+	(setf (gethash char *character-textures*)
+	      (multiple-value-list (create-text-texture! *renderer*
+							 font
+							 (string char)
+							 (color->hex *white*)))))))
 
 (defun draw-text-line! (pos text)
   (push-render!
@@ -258,7 +259,7 @@
 	   (loop for c across text
 	      for i from 0
 	      do
-		(dbind (texture dims) (get-character-texture! c font)
+		(destructuring-bind (texture dims) (get-character-texture! c font)
 		  (sdl:render-texture
 		   renderer
 		   texture

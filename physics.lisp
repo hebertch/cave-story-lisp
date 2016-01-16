@@ -13,8 +13,8 @@ new (values DELTA-POS VEL)."
 (defun accelerate-2d (vel accelerator-x accelerator-y &key clamper-vx clamper-vy)
   "Vector Acceleration. Assuming constant acceleration calc a
 new (values DELTA-POS VEL)."
-  (mvbind (px vx) (funcall accelerator-x (x vel))
-    (mvbind (py vy) (funcall accelerator-y (y vel))
+  (multiple-value-bind (px vx) (funcall accelerator-x (x vel))
+    (multiple-value-bind (py vy) (funcall accelerator-y (y vel))
       (values
        (make-v px py)
        (make-v (if clamper-vx
@@ -35,7 +35,7 @@ new (values DELTA-POS VEL)."
       (let ((acc (if moving-left?
 		     friction-acc
 		     (- friction-acc))))
-	(mvsetq (dpos vel) (accelerate vel acc))
+	(multiple-value-setq (dpos vel) (accelerate vel acc))
 
 	;; Has friction overcompensated?
 	(when (or (and moving-left? (plusp vel))
@@ -86,8 +86,8 @@ new (values DELTA-POS VEL)."
 
 (defun motion-set-pos (physics)
   (let ((pos (zero-v)))
-    (doalist (k m physics)
-      (setq pos (+v pos (motion-pos m))))
+    (loop for (k . m) in physics do
+	 (setq pos (+v pos (motion-pos m))))
     pos))
 
 (defun wave-physics (w)
@@ -117,7 +117,7 @@ new (values DELTA-POS VEL)."
   inertia-vel)
 
 (defun kin-2d-motion-physics (m)
-  (mvbind (dpos nvel)
+  (multiple-value-bind (dpos nvel)
       (accelerate-2d (kin-2d-vel m)
 		     (kin-2d-accelerator-x m)
 		     (kin-2d-accelerator-y m)
@@ -185,7 +185,7 @@ new (values DELTA-POS VEL)."
       (setf (y disp) 0
 	    (y (target-kin-2d-vel m)) 0))
 
-    (mvbind (pos vel)
+    (multiple-value-bind (pos vel)
 	(accelerate-2d (target-kin-2d-vel m)
 		       (const-accelerator (* (signum (x disp)) *camera-acc*))
 		       (const-accelerator (* (signum (y disp)) *camera-acc*))

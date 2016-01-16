@@ -168,7 +168,7 @@
   (cond
     ((timed-cycle-paused? tc) tc)
     (t
-     (mvbind (timer tick?) (timer-update (timed-cycle-timer tc))
+     (multiple-value-bind (timer tick?) (timer-update (timed-cycle-timer tc))
        (values (make-timed-cycle
 		:timer timer
 		:cycle (if tick?

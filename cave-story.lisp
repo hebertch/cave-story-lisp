@@ -2,11 +2,11 @@
 
 (in-package #:cave-story)
 
-(comment-code
-  (progn
-    (ql:quickload :cave-story)
-    (in-package :cave-story)
-    (swank:set-default-directory "/home/chebert/Projects/lisp/cave-story-lisp")))
+#+nil
+(progn
+  (ql:quickload :cave-story)
+  (in-package :cave-story)
+  (swank:set-default-directory "/home/chebert/Projects/lisp/cave-story-lisp"))
 
 (defvar *window*)
 (defvar *renderer*)
@@ -480,10 +480,10 @@ This can be abused with the machine gun in TAS."
 	(when (minusp number)
 	  (setq neg? t)
 	  (setq number (* -1 number)))
-	(while (plusp number)
-	  (mvbind (num rem) (floor number 10)
-	    (push rem digits)
-	    (setq number num)))
+	(loop while (plusp number) do
+	     (multiple-value-bind (num rem) (floor number 10)
+	       (push rem digits)
+	       (setq number num)))
 	(if neg?
 	    (cons :negative digits)
 	    (cons :positive digits)))))
@@ -568,7 +568,8 @@ This can be abused with the machine gun in TAS."
 	   2
 	   lvl)))
 
-(comment-code
+#+nil
+(progn
   ("If there are no more red flowers we can, hopefully, avoid the war."
    :wait
    :clear-text
@@ -760,7 +761,7 @@ This can be abused with the machine gun in TAS."
 			      :pos exp-pos)
 	 drawings))
 
-      (mvbind (exp gun-name) (current-gun-exp (hud-player hud) (hud-gun-exps hud))
+      (multiple-value-bind (exp gun-name) (current-gun-exp (hud-player hud) (hud-gun-exps hud))
 	(let* ((current-level (gun-level exp (cdr (assoc gun-name *gun-level-exps*))))
 	       (next-lvl-exp (exp-for-gun-level gun-name current-level))
 	       (current-lvl-exp (if (zerop current-level)
@@ -976,9 +977,12 @@ This can be abused with the machine gun in TAS."
   (remove-if (lambda (pair) (entity-state-dead? (estate (cdr pair)))) d))
 
 (defun damage-numbers-update-damage-amt (d e amt)
-  (aif (assoc e d)
-       (replace-entity-state (cdr it) (lambda (fn) (floating-number-add-amt fn (- amt))))
-       (push (cons e (create-floating-number e (- amt))) d))
+  (let ((existing-dn-pair (assoc e d)))
+    (if existing-dn-pair
+	(replace-entity-state (cdr existing-dn-pair)
+			      (lambda (fn)
+				(floating-number-add-amt fn (- amt))))
+	(push (cons e (create-floating-number e (- amt))) d)))
   d)
 
 (defun create-damage-numbers (&key (id (gen-entity-id)))
@@ -1102,12 +1106,12 @@ This can be abused with the machine gun in TAS."
   (put-all-resources)
   (setq *current-song* nil)
 
-  (mvsetq
-   (*window* *renderer*)
-   (sdl:default-window-and-renderer
-       "Cave Story"
-       (x *window-dims*) (y *window-dims*)
-       0))
+  (multiple-value-setq
+      (*window* *renderer*)
+    (sdl:default-window-and-renderer
+	"Cave Story"
+	(x *window-dims*) (y *window-dims*)
+	0))
   (reset))
 
 (defun cleanup ()
@@ -1366,10 +1370,10 @@ This can be abused with the machine gun in TAS."
   (let ((physics (critter-physics c))
 	(timers (critter-timers c))
 	(facing (critter-facing c)))
-    (unless (aand (aval timers :shake) (timer-active? it))
+    (unless (timer-active? (aval timers :shake))
       (removef physics :shake :key #'car :test #'eq))
     (setq facing (face-player (physics-pos c) (critter-player c)))
-    (when (and (not (aand (aval timers :sleep) (timer-active? it)))
+    (when (and (not (timer-active? (aval timers :sleep)))
 	       (< (origin-dist c (estate (critter-player c))) (tiles 4)))
       (when (critter-ground-tile c)
 	(setq physics
@@ -1398,13 +1402,14 @@ This can be abused with the machine gun in TAS."
   (critter-ai c ticks))
 
 (defun critter-drawing (c)
-  (let ((sprite-tile-x (cond
-			 ((aand (aval (critter-timers c) :sleep) (timer-active? it))
-			  0)
-			 ((< (origin-dist c (estate (critter-player c))) (tiles 7))
-			  1)
-			 (t
-			  0))))
+  (let* ((sleep-timer (aval (critter-timers c) :sleep))
+	 (sprite-tile-x (cond
+			  ((and sleep-timer (timer-active? sleep-timer))
+			   0)
+			  ((< (origin-dist c (estate (critter-player c))) (tiles 7))
+			   1)
+			  (t
+			   0))))
     (make-sprite-drawing :layer :enemy
 			 :sheet-key :npc-cemet
 			 :src-rect (tile-rect (+v (tile-v sprite-tile-x 0)
@@ -1726,7 +1731,7 @@ This can be abused with the machine gun in TAS."
 (defun elephant-ai (e ticks)
   (let ((timers (elephant-timers e))
 	(physics (elephant-physics e)))
-    (unless (aand (aval timers :shake) (timer-active? it))
+    (unless (timer-active? (aval timers :shake))
       (removef physics :shake :key #'car :test #'eq))
     
     (when (member :recover ticks)
