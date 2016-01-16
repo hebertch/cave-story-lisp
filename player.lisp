@@ -152,7 +152,7 @@
   (aupdate (player-physics p)
 	   (lambda (kin-2d)
 	     (player-kin-2d-physics p kin-2d))
-	   '(:stage)))
+	   :stage))
 
 (defun player-ai (p ticks)
   (when (and (find :walk-cycle ticks)
@@ -221,7 +221,7 @@
 	    (create-game-over-event))))
 	(t
 	 (setf (player-timers p)
-	       (aupdate (player-timers p) #'reset-timer '(:invincible)))
+	       (aupdate (player-timers p) #'reset-timer :invincible))
 	 (setf (player-ground-tile p) nil)
 	 (push-sound :hurt)
 	 (replace-entity-state (player-hud p) #'hud-health-changed)
@@ -245,7 +245,7 @@
 				(min (y (kin-2d-vel kin-2d))
 				     (- *player-hop-speed*))))
 		  kin-2d)
-		'(:stage))))))
+		:stage)))))
     p))
 
 (defmethod origin ((p player))
@@ -316,13 +316,13 @@
 		       (+v (kin-2d-vel kin-2d)
 			   (make-v 0 (- *player-jump-speed*))))
 		 kin-2d)
-	       '(:stage)))
+	       :stage))
 
 	(push-sound :jump))
       (setf (player-interacting? p) nil
 	    (player-ground-tile p) nil)
       (setf (player-timers p)
-	    (aupdate (player-timers p) #'timed-cycle-pause '(:walk-cycle)))
+	    (aupdate (player-timers p) #'timed-cycle-pause :walk-cycle))
       (setf (player-jumping? p) t))
     p))
 
@@ -333,12 +333,12 @@
       (setf (player-timers p)
 	    (aupdate (player-timers p)
 		     #'timed-cycle-resume
-		     '(:walk-cycle)))
+		     :walk-cycle))
       (when (null (player-acc-dir p))
 	(setf (player-timers p)
 	      (aupdate (player-timers p)
 		       #'timed-cycle-restart
-		       '(:walk-cycle)))))
+		       :walk-cycle))))
 
     (setf (player-interacting? p) nil)
     (setf (player-acc-dir p) dir
@@ -370,7 +370,7 @@
 	   (setf  (player-timers p)
 		  (aupdate (player-timers p)
 			   #'timed-cycle-pause
-			   '(:walk-cycle)))
+			   :walk-cycle))
 	   (setf (player-interacting? p) on-ground?)))
 
 	(t (setf (player-v-facing p) nil)))
@@ -388,7 +388,7 @@
 	   (setf (player-timers p)
 		 (aupdate (player-timers p)
 			  #'timed-cycle-pause
-			  '(:walk-cycle)))
+			  :walk-cycle))
 	   (push-sound :step))
 	 (setf (player-acc-dir p) nil)))
 
@@ -455,14 +455,14 @@
 				       0))))))
 		    (player-ground-tile p)))
 	     kin-2d)
-	   '(:stage)))
+	   :stage))
 
     (setf (player-ground-tile p) new-ground-tile)
     (unless (player-ground-tile p)
       (setf  (player-timers p)
 	     (aupdate (player-timers p)
 		      #'timed-cycle-pause
-		      '(:walk-cycle)))
+		      :walk-cycle))
       (setf (player-ground-tile p) nil))
     p))
 

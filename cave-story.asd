@@ -4,9 +4,7 @@
   :description "Describe cave-story here"
   :author "Your Name <your.name@example.com>"
   :license "Specify license here"
-  :depends-on (#:utilities
-	       #:alist-structure
-	       #:swank-tools
+  :depends-on (#:swank-tools
 	       #:sdl)
   :serial t
   :components ((:file "package")

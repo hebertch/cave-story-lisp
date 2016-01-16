@@ -41,9 +41,9 @@
 		    :speed (rand-val-between 0.017 0.022)))
 
 (defun add-camera-shake ()
-  (compose
-   (asetfn (make-shake) :shake-h)
-   (asetfn (make-shake) :shake-v)))
+  (lambda (physics)
+    (aset (aset physics (make-shake) :shake-v)
+	  (make-shake) :shake-h)))
 
 (defun camera-ai (c ticks)
   (let ((physics (aupdate
@@ -53,7 +53,7 @@
 		     m
 		     (camera-target-from-player (estate (camera-player c)))
 		     (player-vel (estate (camera-player c)))))
-		  '(:target)))
+		  :target))
 	(shake-tick? (member :shake ticks)))
 
     (make-camera

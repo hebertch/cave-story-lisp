@@ -307,7 +307,7 @@ This can be abused with the machine gun in TAS."
 				(setf (kin-2d-vel kin-2d)
 				      (max-y-v (kin-2d-vel kin-2d) 0))))))
 		kin-2d)
-	      '(:stage)))))
+	      :stage))))
 
 (defmethod stage-collision ((d dorito) stage)
   (dorito-stage-collision d stage))
@@ -366,11 +366,10 @@ This can be abused with the machine gun in TAS."
 
 (defun make-default-single-loop-sprite (fps seq sheet-key tile-y layer)
   (make-single-loop-sprite :timers
-			   (alist :cycle
-				  (create-timed-cycle
-				   fps seq))
-			   :sheet-key sheet-key :layer
-			   layer :tile-y tile-y))
+			   (alist :cycle (create-timed-cycle fps seq))
+			   :sheet-key sheet-key
+			   :layer layer
+			   :tile-y tile-y))
 
 (def-entity-constructor create-single-loop-sprite #'make-default-single-loop-sprite
   :timers)
@@ -496,15 +495,13 @@ This can be abused with the machine gun in TAS."
   (make-floating-number :entity entity
 			:amt amt
 			:timers
-			(alist :life
-			       (create-expiring-timer
-				(s->ms 2) t))
+			(alist
+			 :life (create-expiring-timer (s->ms 2) t))
 			:physics
-			(alist :offset
-			       (make-offset-motion
-				(zero-v) :up
-				(/ (tiles 1/30)
-				   *frame-time*)))))
+			(alist
+			 :offset (make-offset-motion (zero-v)
+						     :up
+						     (/ (tiles 1/30) *frame-time*)))))
 
 (def-entity-constructor create-floating-number #'make-default-floating-number
   :timers :drawable :physics)
@@ -544,7 +541,7 @@ This can be abused with the machine gun in TAS."
 (defun floating-number-add-amt (fn amount)
   (make-floating-number
    :physics (floating-number-physics fn)
-   :timers (aupdate (floating-number-timers fn) #'reset-timer '(:life))
+   :timers (aupdate (floating-number-timers fn) #'reset-timer :life)
    :entity (floating-number-entity fn)
    :amt (+ (floating-number-amt fn) amount)))
 
@@ -624,13 +621,13 @@ This can be abused with the machine gun in TAS."
   blink-time)
 
 (defun make-default-text-display (pos text)
-  (make-text-display :pos pos :text text :num-chars 0
+  (make-text-display :pos pos
+		     :text text
+		     :num-chars 0
 		     :timers
-		     (alist :text
-			    (create-expiring-timer
-			     *text-speed* t))
-		     :wait-for-input? t :blink-time
-		     0))
+		     (alist :text (create-expiring-timer *text-speed* t))
+		     :wait-for-input? t
+		     :blink-time 0))
 (def-entity-constructor create-text-display #'make-default-text-display
   :timers :drawable)
 
@@ -691,11 +688,9 @@ This can be abused with the machine gun in TAS."
 (defun make-default-hud  (player gun-exps id)
   (values
    (make-hud :player player :gun-exps gun-exps :timers
-	     (alist :exp-change
-		    (create-expiring-timer (s->ms 1))
-		    :health-change
-		    (create-expiring-timer
-		     (s->ms 1/2))))
+	     (alist
+	      :exp-change (create-expiring-timer (s->ms 1))
+	      :health-change (create-expiring-timer (s->ms 1/2))))
    id))
 
 (def-entity-constructor create-hud #'make-default-hud
@@ -810,14 +805,14 @@ This can be abused with the machine gun in TAS."
 
 (defun hud-exp-changed (hud)
   (make-hud
-   :timers (aupdate  (hud-timers hud) #'reset-timer '(:exp-change))
+   :timers (aupdate  (hud-timers hud) #'reset-timer :exp-change)
    :player (hud-player hud)
    :gun-exps (hud-gun-exps hud)
    :last-health-amt (hud-last-health-amt hud)))
 
 (defun hud-health-changed (hud)
   (make-hud
-   :timers (aupdate (hud-timers hud) #'reset-timer '(:health-change))
+   :timers (aupdate (hud-timers hud) #'reset-timer :health-change)
    :player (hud-player hud)
    :gun-exps (hud-gun-exps hud)
    :last-health-amt (player-health-amt (player-state (hud-player hud)))))
@@ -1144,17 +1139,17 @@ This can be abused with the machine gun in TAS."
 
 (defun make-default-bat (tile-x tile-y player)
   (make-bat :physics
-	    (alist :wave
-		   (make-wave-motion :origin
-				     (tile-v tile-x
-					     tile-y)
-				     :dir :up :amp
-				     (tiles 2) :speed
-				     (/ 0.0325
-					*frame-time*)))
+	    (alist
+	     :wave (make-wave-motion
+		    :origin (tile-v tile-x
+				    tile-y)
+		    :dir :up
+		    :amp (tiles 2)
+		    :speed (/ 0.0325
+			      *frame-time*)))
 	    :timers
-	    (alist :anim-cycle
-		   (create-timed-cycle 14 #(0 2 1 2)))
+	    (alist
+	     :anim-cycle (create-timed-cycle 14 #(0 2 1 2)))
 	    :health-amt 1 :player player))
 
 (def-entity-constructor create-bat #'make-default-bat
@@ -1263,23 +1258,15 @@ This can be abused with the machine gun in TAS."
 				       7))
 			      :npc-sym 0 :particle)
 			     :physics
-			     (alist :stage
-				    (make-kin-2d :pos
-						 (-v
-						  pos
-						  (tile-dims/2))
-						 :vel
-						 (polar-vec->v
-						  (rand-angle)
-						  (rand-val-between
-						   0.1
-						   0.3))
-						 :clamper-vx
-						 (clamper+-
-						  *terminal-speed*)
-						 :clamper-vy
-						 (clamper+-
-						  *terminal-speed*)))))
+			     (alist
+			      :stage (make-kin-2d :pos (-v pos (tile-dims/2))
+						  :vel
+						  (polar-vec->v (rand-angle)
+								(rand-val-between 0.1 0.3))
+						  :clamper-vx
+						  (clamper+- *terminal-speed*)
+						  :clamper-vy
+						  (clamper+- *terminal-speed*)))))
 
 (def-entity-constructor create-death-cloud-particle #'make-default-death-cloud-particle
   :drawable :physics :stage-collision)
@@ -1320,7 +1307,7 @@ This can be abused with the machine gun in TAS."
 					 stop-x :right stop-x :top
 					 stop-y))))
 			 kin-2d)
-		       '(:stage))
+		       :stage)
      :single-loop-sprite (death-cloud-particle-single-loop-sprite d))))
 
 (defmethod stage-collision ((d death-cloud-particle) stage)
@@ -1350,12 +1337,12 @@ This can be abused with the machine gun in TAS."
 (defun make-default-critter (pos player damage-numbers)
   (let ((id (gen-entity-id)))
     (values
-     (make-critter :physics
-		   (alist :stage
-			  (gravity-kin-2d :pos pos))
-		   :player player :health-amt 2
-		   :damage-numbers damage-numbers :id
-		   id)
+     (make-critter :physics (alist
+			     :stage (gravity-kin-2d :pos pos))
+		   :player player
+		   :health-amt 2
+		   :damage-numbers damage-numbers
+		   :id id)
      id)))
 
 (def-entity-constructor create-critter #'make-default-critter
@@ -1387,7 +1374,7 @@ This can be abused with the machine gun in TAS."
 				       1))
 				(- 0.35)))
 			 kin-2d)
-		       '(:stage)))))
+		       :stage))))
     (make-critter :physics physics
 		  :timers timers
 		  :dead? (critter-dead? c)
@@ -1498,7 +1485,7 @@ This can be abused with the machine gun in TAS."
 		      (setf (x (kin-2d-vel kin-2d))
 			    (* (/ *terminal-speed* 70) disp)))))))
 	     kin-2d)
-	   '(:stage)))
+	   :stage))
     player-state))
 
 (defmethod dynamic-collision-react ((c critter) side player-collision-rect player)
@@ -1540,7 +1527,7 @@ This can be abused with the machine gun in TAS."
 				 (setf (kin-2d-vel kin-2d)
 				       (max-y-v (kin-2d-vel kin-2d) 0))))))
 		       kin-2d)
-		     '(:stage)))
+		     :stage))
       (make-critter :physics physics
 		    :timers timers
 		    :dead? (critter-dead? c)
@@ -1583,23 +1570,21 @@ This can be abused with the machine gun in TAS."
   (let ((id (gen-entity-id)))
     (values
      (make-elephant :physics
-		    (alist :stage
-			   (gravity-kin-2d :pos pos
-					   :vel
-					   (make-v
-					    (-
-					     *elephant-speed*)
-					    0)))
+		    (alist
+		     :stage
+		     (gravity-kin-2d :pos pos
+				     :vel (make-v (- *elephant-speed*) 0)))
 		    :timers
-		    (alist :anim-cycle
-			   (create-timed-cycle 12
-					       #(0 2
-						 4)))
-		    :health-amt 8 :facing :left
+		    (alist
+		     :anim-cycle (create-timed-cycle 12 #(0 2 4)))
+		    :health-amt 8
+		    :facing :left
 		    :damage-numbers damage-numbers
-		    :camera camera :player player :id
-		    id)
+		    :camera camera
+		    :player player
+		    :id id)
      id)))
+
 (def-entity-constructor create-elephant #'make-default-elephant
   :timers :drawable :physics :stage-collision
   :damageable :damage-collision :dynamic-collision)
@@ -1736,11 +1721,11 @@ This can be abused with the machine gun in TAS."
     
     (when (member :recover ticks)
       (when (aval timers :rage)
-	(setq timers (aupdate timers #'reset-timer '(:rage)))
+	(setq timers (aupdate timers #'reset-timer :rage))
 	(setq timers (aset timers (create-timed-cycle 14 #(8 10)) :anim-cycle))))
 
     (when (member :rage ticks)
-      (setq timers (arem timers '(:rage)))
+      (setq timers (arem timers :rage))
       (setq timers (aset timers (create-timed-cycle 12 #(0 2 4)) :anim-cycle)))
 
     (when (timer-active? (aval timers :rage))
@@ -1774,7 +1759,7 @@ This can be abused with the machine gun in TAS."
 		       (setf (kin-2d-vel kin-2d)
 			     (make-v x-vel (y (kin-2d-vel kin-2d)))))
 		     kin-2d)
-		   '(:stage)))
+		   :stage))
 
     (make-elephant :physics physics
 		   :timers timers
@@ -1811,7 +1796,7 @@ This can be abused with the machine gun in TAS."
 					 (when (eq facing :right)
 					   (setq facing :left))))))
 			       kin-2d)
-			     '(:stage))))
+			     :stage)))
       (make-elephant
        :physics physics
        :timers (elephant-timers e)

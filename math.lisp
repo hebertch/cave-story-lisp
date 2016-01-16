@@ -1,5 +1,26 @@
 (in-package :cave-story)
 
+;; Alist utilities
+(defun alist (&rest plist)
+  (plist-alist plist))
+
+(defun aval (alist key)
+  (assoc-value alist key))
+
+(defun anorm (alist)
+  (remove-duplicates alist :from-end t :key #'car))
+
+(defun aset (alist val key)
+  (anorm (acons key val alist)))
+
+(defun arem (alist &rest keys)
+  (remove-if (lambda (pair)
+	       (member (car pair) keys))
+	     alist))
+
+(defun aupdate (alist fn key)
+  (anorm (acons key (funcall fn (aval alist key)) alist)))
+
 (defstruct (v2 (:conc-name nil))
   x y)
 

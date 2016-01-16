@@ -82,7 +82,9 @@ new (values DELTA-POS VEL)."
   (rads (rand-angle)))
 
 (defun motion-set-update (physics)
-  (aupdate physics #'motion-physics))
+  (loop for asc in physics
+     collecting
+       (cons (car asc) (motion-physics (cdr asc)))))
 
 (defun motion-set-pos (physics)
   (let ((pos (zero-v)))
