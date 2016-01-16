@@ -288,7 +288,7 @@
 			       (8 3)))))
     (let ((tp (elt lvl-tile-positions lvl)))
       (when (vertical? dir)
-	(incf (x tp)))
+	(setf (x tp) (1+ (x tp))))
       (tile-rect (tile-pos tp)))))
 
 (defun polar-star-projectile-drawing (pos sprite-rect)

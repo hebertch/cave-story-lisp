@@ -92,7 +92,8 @@ new (values DELTA-POS VEL)."
 
 (defun wave-physics (w)
   (let ((w (copy-structure w)))
-    (incf (wave-motion-rads w) (* *frame-time* (wave-motion-speed w)))
+    (setf (wave-motion-rads w) (+ (wave-motion-rads w)
+				  (* *frame-time* (wave-motion-speed w))))
     w))
 
 (defun wave-offset (w)

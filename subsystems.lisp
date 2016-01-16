@@ -167,7 +167,7 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
   (defun init-id-system ()
     (setq id 0))
   (defun gen-entity-id ()
-    (incf id))
+    (setq id (1+ id)))
 
   (defun init-entity-registry ()
     (setq id 0

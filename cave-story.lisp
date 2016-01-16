@@ -113,11 +113,14 @@
 			   (camera-pos
 			    (estate (game-camera *global-game*))
 			    (stage-dims->camera-bounds (stage-dims (game-stage *global-game*)))))
-		  (decf frame-timer (* *update-period* *frame-time*)))
+		  (setq frame-timer (- frame-timer
+				       (* *update-period* *frame-time*))))
 
 		(let ((dt (- (sdl:get-ticks) last-update-time)))
 		  ;; NOTE: if we are paused beyond our control, Don't play catchup.
-		  (incf frame-timer (min dt (* 2 *frame-time*))))
+		  (setq frame-timer
+			(+ frame-timer
+			   (min dt (* 2 *frame-time*)))))
 		(setq last-update-time (sdl:get-ticks))
 		(music-update)
 		(sdl:delay 1)))
@@ -931,11 +934,11 @@ This can be abused with the machine gun in TAS."
     (push input inputs))
 
   (defun next-playback-input ()
-    (prog1
-	(elt inputs (decf playback-idx))
-      (when (= 0 playback-idx)
-	(restore-state game-state)
-	(setq playback-idx (1- (length inputs))))))
+    (setq playback-idx (- playback-idx 1))
+    (when (= 0 playback-idx)
+      (restore-state game-state)
+      (setq playback-idx (1- (length inputs))))
+    (elt inputs playback-idx))
 
   (defun end-input-playback ()
     (setq *input-playback* nil))
@@ -1428,7 +1431,7 @@ This can be abused with the machine gun in TAS."
 	(progn
 	  (update-damage-number-amt (critter-damage-numbers c) (critter-id c) amt)
 	  (push-sound :enemy-hurt)
-	  (decf health-amt amt))
+	  (setq health-amt (- health-amt amt)))
 	(let ((origin (origin c)))
 	  (push-sound :enemy-explode)
 	  (create-dorito origin (polar-vec->v (rand-angle) 0.07) :small)
@@ -1648,7 +1651,7 @@ This can be abused with the machine gun in TAS."
 	  (update-damage-number-amt (elephant-damage-numbers e) (elephant-id e) amt)
 	  (push-sound :enemy-hurt)
 
-	  (decf health-amt amt))
+	  (setq health-amt (- health-amt amt)))
 	(let ((origin (origin e)))
 	  (push-sound :enemy-explode)
 	  (create-dorito origin (polar-vec->v (rand-angle) 0.07) :small)

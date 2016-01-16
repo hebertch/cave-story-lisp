@@ -98,12 +98,12 @@
     (loop for v-facing in '(nil :up :down)
        do
 	 (let* ((l-src (gun-sprite-rect gun-name :left v-facing))
-		(l-off (sub-v (make-v (elt npp (incf i))
-				      (elt npp (incf i)))
+		(l-off (sub-v (make-v (elt npp (setq i (1+ i)))
+				      (elt npp (setq i (1+ i))))
 			      (rect-pos l-src)))
 		(r-src (gun-sprite-rect gun-name :right v-facing))
-		(r-off (sub-v (make-v (elt npp (incf i))
-				      (elt npp (incf i)))
+		(r-off (sub-v (make-v (elt npp (setq i (1+ i)))
+				      (elt npp (setq i (1+ i))))
 			      (rect-pos r-src))))
 	   (setq nozzle-offsets
 		 (acons v-facing

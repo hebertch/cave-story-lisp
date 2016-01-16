@@ -225,7 +225,7 @@
 	 (setf (player-ground-tile p) nil)
 	 (push-sound :hurt)
 	 (replace-entity-state (player-hud p) #'hud-health-changed)
-	 (decf (player-health-amt p) dmg-amt)
+	 (setf (player-health-amt p) (- (player-health-amt p) dmg-amt))
 	 (replace-entity-state
 	  (player-gun-exps p)
 	  (lambda (g)
