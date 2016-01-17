@@ -239,22 +239,28 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
   timers)
 
 (defun physics (o)
-  (let ((cpy (copy-structure o)))
-    (setf (entity-state-physics cpy) (motion-set-update
-				      (entity-state-physics cpy)))
-    cpy))
+  (if (typep o 'list)
+      (aupdate o #'motion-set-update :physics)
+      (let ((cpy (copy-structure o)))
+	(setf (entity-state-physics cpy) (motion-set-update
+					  (entity-state-physics cpy)))
+	cpy)))
 
 (defun physics-pos (o)
-  (motion-set-pos (entity-state-physics o)))
+  (if (typep o 'list)
+      (motion-set-pos (aval o :physics))
+      (motion-set-pos (entity-state-physics o))))
 
 (defun timers (o)
-  (let ((cpy (copy-structure o))
-	ticks
-	timers)
-    (multiple-value-setq (timers ticks)
-      (timer-set-update (entity-state-timers cpy)))
-    (setf (entity-state-timers cpy) timers)
-    (ai cpy ticks)))
+  (if (typep o 'list)
+      (multiple-value-bind (timers ticks)
+	  (timer-set-update (aval o :timers))
+	(ai (aset o timers :timers) ticks))
+      (let ((cpy (copy-structure o)))
+	(multiple-value-bind (timers ticks)
+	    (timer-set-update (entity-state-timers cpy))
+	  (setf (entity-state-timers cpy) timers)
+	  (ai cpy ticks)))))
 
 (defun entity-constructor (constructor subsystems)
   (lambda (&rest constructor-args)

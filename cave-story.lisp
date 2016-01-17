@@ -22,7 +22,7 @@
      ,(lambda () (quit)))
     (((:key :p)
       (:joy :start)) .
-     ,(lambda () (togglef *global-paused?*)))
+     ,(lambda () (setq *global-paused?* (not *global-paused?*))))
     (((:key :r)
       (:joy :select)) .
      ,(lambda () (setq *global-game* (reset))))
@@ -183,48 +183,51 @@ This can be abused with the machine gun in TAS."
 
 (defstruct pickup type amt)
 
-(defstruct (dorito (:include entity-state)) size)
+(defun dorito-fns-alist ()
+  (alist :ai-fn #'dorito-ai
+	 :draw-fn #'dorito-drawing
+	 :stage-collision-fn #'dorito-stage-collision
+	 :pickup-rect-fn #'dorito-pickup-rect
+	 :pickup-kill-fn #'dorito-pickup-kill
+	 :pickup-data-fn #'dorito-pickup-data))
+
 (defun make-default-dorito (pos vel size)
-  (make-dorito :timers
-	       (alist :life
-		      (create-expiring-timer (s->ms 8)
-					     t)
-		      :anim-cycle
-		      (create-timed-cycle 14
-					  (alexandria.0.dev:iota
-					   6)))
-	       :physics
-	       (alist :stage
-		      (make-kin-2d :pos
-				   (-v pos
-				       (rect-pos
-					(dorito-collision-rect
-					 size)))
-				   :vel vel
-				   :accelerator-x
-				   (friction-accelerator
-				    *dorito-friction-acc*)
-				   :accelerator-y
-				   (const-accelerator
-				    *gravity-acc*)
-				   :clamper-vy
-				   (clamper+-
-				    *terminal-speed*)))
-	       :size size))
+  (append
+   (alist :timers
+	  (alist :life
+		 (create-expiring-timer (s->ms 8)
+					t)
+		 :anim-cycle
+		 (create-timed-cycle 14
+				     (alexandria.0.dev:iota
+				      6)))
+	  :physics
+	  (alist :stage
+		 (make-kin-2d :pos
+			      (-v pos
+				  (rect-pos
+				   (dorito-collision-rect
+				    size)))
+			      :vel vel
+			      :accelerator-x
+			      (friction-accelerator
+			       *dorito-friction-acc*)
+			      :accelerator-y
+			      (const-accelerator
+			       *gravity-acc*)
+			      :clamper-vy
+			      (clamper+-
+			       *terminal-speed*)))
+	  :size size)
+   (dorito-fns-alist)))
 
 (def-entity-constructor create-dorito #'make-default-dorito
   :timers :physics :stage-collision :drawable :pickup)
 
 (defun dorito-ai (d ticks)
-  (cond ((timer-active? (aval (dorito-timers d) :life))
+  (cond ((timer-active? (aval (aval d :timers) :life))
 	 d)
-	(t (make-dorito :physics (dorito-physics d)
-			::timers (dorito-timers d)
-			:dead? t
-			:size (dorito-size d)))))
-
-(defmethod ai ((d dorito) ticks)
-  (dorito-ai d ticks))
+	(t (aset d t :dead?))))
 
 (defun dorito-pos (d)
   (physics-pos d))
@@ -238,7 +241,7 @@ This can be abused with the machine gun in TAS."
 	 (flash-time? tr))))
 
 (defun dorito-drawing (d)
-  (unless (death-flash? (dorito-timers d))
+  (unless (death-flash? (aval d :timers))
     (make-sprite-drawing
      :layer :pickup
      :sheet-key :npc-sym
@@ -246,14 +249,12 @@ This can be abused with the machine gun in TAS."
      :src-rect
      (create-rect
       (+v
-       (anim-cycle-offset (dorito-timers d))
-       (tile-v 0 (1+ (position (dorito-size d) '(:small :medium :large)))))
+       (anim-cycle-offset (aval d :timers))
+       (tile-v 0 (1+ (position (aval d :size) '(:small :medium :large)))))
       (make-v (tiles 1) (1- (tiles 1))))
 
      :pos (physics-pos d))))
 
-(defmethod draw ((d dorito))
-  (dorito-drawing d))
 
 (defun set-x-v (v x)
   (make-v x (y v)))
@@ -269,75 +270,57 @@ This can be abused with the machine gun in TAS."
 
 (defun dorito-stage-collision (d stage)
   (let ((collision-rects (rect->collision-rects
-			  (dorito-collision-rect (dorito-size d)))))
-    (make-dorito
-     :timers (dorito-timers d)
-     :dead? (dorito-dead? d)
-     :size (dorito-size d)
-     :physics
-     (aupdate (dorito-physics d)
-	      (lambda (kin-2d)
-		(setf (kin-2d-pos kin-2d)
-		      (stage-collisions
-		       (kin-2d-pos kin-2d)
-		       stage
-		       collision-rects
-		       (alist :bottom
-			      (collision-lambda (tile-type)
-				(setf (kin-2d-vel kin-2d)
-				      (set-y-v (kin-2d-vel kin-2d)
-					       (- *dorito-bounce-speed*)))
-				(push-sound :dorito-bounce))
-			      :right
-			      (collision-lambda (tile-type)
-				(when
-				    (plusp
-				     (x (kin-2d-vel kin-2d)))
-				  (setf (kin-2d-vel kin-2d)
-					(reverse-x-v (kin-2d-vel kin-2d)))))
-			      :left
-			      (collision-lambda (tile-type)
-				(when
-				    (minusp
-				     (x (kin-2d-vel kin-2d)))
-				  (setf (kin-2d-vel kin-2d)
-					(reverse-x-v (kin-2d-vel kin-2d)))))
-			      :top
-			      (collision-lambda (tile-type)
-				(setf (kin-2d-vel kin-2d)
-				      (max-y-v (kin-2d-vel kin-2d) 0))))))
-		kin-2d)
-	      :stage))))
+			  (dorito-collision-rect (aval d :size)))))
+    (aset d
+	  (aupdate (aval d :physics)
+		   (lambda (kin-2d)
+		     (setf (kin-2d-pos kin-2d)
+			   (stage-collisions
+			    (kin-2d-pos kin-2d)
+			    stage
+			    collision-rects
+			    (alist :bottom
+				   (collision-lambda (tile-type)
+				     (setf (kin-2d-vel kin-2d)
+					   (set-y-v (kin-2d-vel kin-2d)
+						    (- *dorito-bounce-speed*)))
+				     (push-sound :dorito-bounce))
+				   :right
+				   (collision-lambda (tile-type)
+				     (when
+					 (plusp
+					  (x (kin-2d-vel kin-2d)))
+				       (setf (kin-2d-vel kin-2d)
+					     (reverse-x-v (kin-2d-vel kin-2d)))))
+				   :left
+				   (collision-lambda (tile-type)
+				     (when
+					 (minusp
+					  (x (kin-2d-vel kin-2d)))
+				       (setf (kin-2d-vel kin-2d)
+					     (reverse-x-v (kin-2d-vel kin-2d)))))
+				   :top
+				   (collision-lambda (tile-type)
+				     (setf (kin-2d-vel kin-2d)
+					   (max-y-v (kin-2d-vel kin-2d) 0))))))
+		     kin-2d)
+		   :stage)
+	  :physics)))
 
-(defmethod stage-collision ((d dorito) stage)
-  (dorito-stage-collision d stage))
 
 (defun dorito-pickup-rect (d)
-  (rect-offset (dorito-collision-rect (dorito-size d)) (physics-pos d)))
-
-(defmethod pickup-rect ((d dorito))
-  (dorito-pickup-rect d))
+  (rect-offset (dorito-collision-rect (aval d :size)) (physics-pos d)))
 
 (defun dorito-pickup-kill (d)
   (push-sound :pickup)
-  (make-dorito
-   :timers (dorito-timers d)
-   :dead? t
-   :size (dorito-size d)
-   :physics (dorito-physics d)))
-
-(defmethod pickup-kill ((d dorito))
-  (dorito-pickup-kill d))
+  (aset d t :dead?))
 
 (defun dorito-pickup-data (d)
   (make-pickup :type :dorito
-	       :amt (ecase (dorito-size d)
+	       :amt (ecase (aval d :size)
 		      (:small 1)
 		      (:medium 10)
 		      (:large 20))))
-
-(defmethod pickup-data ((d dorito))
-  (dorito-pickup-data d))
 
 (defun dorito-draw (life-tr anim-cycle-current size pos)
   (unless (and (< (timer-ms-remaining life-tr) (s->ms 1))
