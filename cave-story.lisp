@@ -1310,22 +1310,34 @@ This can be abused with the machine gun in TAS."
 	       :accelerator-y (const-accelerator *gravity-acc*)
 	       :clamper-vy (clamper+- *terminal-speed*)))
 
-(defstruct (critter (:include entity-state))
-  health-amt
-  ground-tile
-  facing
-  player
-  damage-numbers)
+(defun critter-fns-alist ()
+  (alist :ai-fn #'critter-ai
+	 :draw-fn #'critter-drawing
+	 :damageable-rect-fn #'physics-tile-rect
+	 :damageable-hit-react-fn #'critter-hit-react
+	 :damage-collision-rect-fn #'physics-tile-rect
+	 :damage-collision-amt-fn (constantly 1)
+	 :dynamic-collision-rect-fn #'critter-damage-collision-rect
+	 :dynamic-collision-react-fn
+	 (lambda (c side player-collision-rect player)
+	   (dynamic-collision-enemy-react (physics-pos c) (origin c) (aval c :id)
+					  (dynamic-collision-rect c) side
+					  player-collision-rect (estate (aval c :player))))
+	 :stage-collision-fn #'critter-stage-collision
+	 :origin-fn #'physics-tile-origin
+	 :inertia-vel-fn #'critter-inertia-vel))
 
 (defun make-default-critter (pos player damage-numbers)
   (let ((id (gen-entity-id)))
     (values
-     (make-critter :physics (alist
-			     :stage (gravity-kin-2d :pos pos))
-		   :player player
-		   :health-amt 2
-		   :damage-numbers damage-numbers
-		   :id id)
+     (amerge
+      (critter-fns-alist)
+      (alist :physics (alist
+		       :stage (gravity-kin-2d :pos pos))
+	     :player player
+	     :health-amt 2
+	     :damage-numbers damage-numbers
+	     :id id))
      id)))
 
 (def-entity-constructor create-critter #'make-default-critter
@@ -1337,15 +1349,17 @@ This can be abused with the machine gun in TAS."
 
 (defun critter-ai (c ticks)
   (declare (ignore ticks))
-  (let ((physics (critter-physics c))
-	(timers (critter-timers c))
-	(facing (critter-facing c)))
+  (let ((physics (aval c :physics))
+	(timers (aval c :timers))
+	(facing (aval c :facing)))
     (unless (timer-active? (aval timers :shake))
-      (removef physics :shake :key #'car :test #'eq))
-    (setq facing (face-player (physics-pos c) (critter-player c)))
+      (setq physics (arem physics :shake)))
+
+    (setq facing (face-player (physics-pos c) (aval c :player)))
+
     (when (and (not (timer-active? (aval timers :sleep)))
-	       (< (origin-dist c (estate (critter-player c))) (tiles 4)))
-      (when (critter-ground-tile c)
+	       (< (origin-dist c (estate (aval c :player))) (tiles 4)))
+      (when (aval c :ground-tile)
 	(setq physics
 	      (aupdate physics
 		       (lambda (kin-2d)
@@ -1358,45 +1372,31 @@ This can be abused with the machine gun in TAS."
 				(- 0.35)))
 			 kin-2d)
 		       :stage))))
-    (make-critter :physics physics
-		  :timers timers
-		  :dead? (critter-dead? c)
-		  :health-amt (critter-health-amt c)
-		  :ground-tile (critter-ground-tile c)
-		  :facing facing
-		  :id (critter-id c)
-		  :player (critter-player c)
-		  :damage-numbers (critter-damage-numbers c))))
-
-(defmethod ai ((c critter) ticks)
-  (critter-ai c ticks))
+    (amerge (alist :physics physics
+		   :timers timers
+		   :facing facing)
+	    c)))
 
 (defun critter-drawing (c)
-  (let* ((sleep-timer (aval (critter-timers c) :sleep))
+  (let* ((sleep-timer (aval (aval c :timers) :sleep))
 	 (sprite-tile-x (cond
 			  ((and sleep-timer (timer-active? sleep-timer))
 			   0)
-			  ((< (origin-dist c (estate (critter-player c))) (tiles 7))
+			  ((< (origin-dist c (estate (aval c :player))) (tiles 7))
 			   1)
 			  (t
 			   0))))
     (make-sprite-drawing :layer :enemy
 			 :sheet-key :npc-cemet
 			 :src-rect (tile-rect (+v (tile-v sprite-tile-x 0)
-						  (facing-offset (critter-facing c))))
+						  (facing-offset (aval c :facing))))
 			 :pos (physics-pos c))))
 
-(defmethod draw ((c critter))
-  (critter-drawing c))
-
-(defmethod damageable-rect ((c critter))
-  (physics-tile-rect c))
-
 (defun critter-hit-react (c amt)
-  (let ((physics (critter-physics c))
-	(timers (critter-timers c))
-	(health-amt (critter-health-amt c))
-	(dead? (critter-dead? c)))
+  (let ((physics (aval c :physics))
+	(timers (aval c :timers))
+	(health-amt (aval c :health-amt))
+	(dead? (aval c :dead?)))
     (setq physics
 	  (aset physics
 		(make-wave-motion :dir :left :amp 2 :speed 0.1 :rads 0)
@@ -1405,7 +1405,7 @@ This can be abused with the machine gun in TAS."
 	  (aset timers (create-expiring-timer (s->ms 1/3) t) :shake))
     (if (< amt health-amt)
 	(progn
-	  (update-damage-number-amt (critter-damage-numbers c) (critter-id c) amt)
+	  (update-damage-number-amt (aval c :damage-numbers) (aval c :id) amt)
 	  (push-sound :enemy-hurt)
 	  (setq health-amt (- health-amt amt)))
 	(let ((origin (origin c)))
@@ -1414,30 +1414,14 @@ This can be abused with the machine gun in TAS."
 	  (create-dorito origin (polar-vec->v (rand-angle) 0.07) :small)
 	  (create-death-cloud-particles 6 origin)
 	  (setq dead? t)))
-    (make-critter :physics physics
-		  :timers timers
-		  :dead? dead?
-		  :health-amt health-amt
-		  :ground-tile (critter-ground-tile c)
-		  :facing (critter-facing c)
-		  :id (critter-id c)
-		  :player (critter-player c)
-		  :damage-numbers (critter-damage-numbers c))))
-
-(defmethod damageable-hit-react ((c critter) amt)
-  (critter-hit-react c amt))
-
-(defmethod damage-collision-rect ((c critter))
-  (physics-tile-rect c))
-
-(defmethod damage-collision-amt ((c critter))
-  1)
+    (amerge (alist :physics physics
+		   :timers timers
+		   :dead? dead?
+		   :health-amt health-amt)
+	    c)))
 
 (defun critter-damage-collision-rect (c)
   (rect-offset *critter-dynamic-collision-rect* (physics-pos c)))
-
-(defmethod dynamic-collision-rect ((c critter))
-  (critter-damage-collision-rect c))
 
 (defun dynamic-collision-enemy-react
     (pos origin id dynamic-collision-rect side player-collision-rect player-state)
@@ -1471,18 +1455,12 @@ This can be abused with the machine gun in TAS."
 	   :stage))
     player-state))
 
-(defmethod dynamic-collision-react ((c critter) side player-collision-rect player)
-  (dynamic-collision-enemy-react (physics-pos c) (origin c) (critter-id c)
-				 (dynamic-collision-rect c) side
-				 player-collision-rect (estate (critter-player c))))
-
-
 (let ((collision-rects (rect->collision-rects
 			(centered-rect (tile-dims/2) (both-v (tiles 3/4))) 6)))
   (defun critter-stage-collision (c stage)
-    (let* ((physics (critter-physics c))
-	   (timers (critter-timers c))
-	   (ground-tile (critter-ground-tile c))
+    (let* ((physics (aval c :physics))
+	   (timers (aval c :timers))
+	   (ground-tile (aval c :ground-tile))
 	   (last-tile ground-tile))
       (setq ground-tile nil)
       (setq physics
@@ -1499,9 +1477,7 @@ This can be abused with the machine gun in TAS."
 				 (unless last-tile
 				   (setq timers
 					 (aset timers
-					       (create-expiring-timer
-						(s->ms 1/3)
-						t)
+					       (create-expiring-timer (s->ms 1/3) t)
 					       :sleep)))
 				 (setf (kin-2d-vel kin-2d)
 				       (zero-v :x 0 :y 0)))
@@ -1511,18 +1487,10 @@ This can be abused with the machine gun in TAS."
 				       (max-y-v (kin-2d-vel kin-2d) 0))))))
 		       kin-2d)
 		     :stage))
-      (make-critter :physics physics
-		    :timers timers
-		    :dead? (critter-dead? c)
-		    :health-amt (critter-health-amt c)
-		    :ground-tile ground-tile
-		    :facing (critter-facing c)
-		    :id (critter-id c)
-		    :player (critter-player c)
-		    :damage-numbers (critter-damage-numbers c)))))
-
-(defmethod stage-collision ((c critter) stage)
-  (critter-stage-collision c stage))
+      (amerge (alist :physics physics
+		     :timers timers
+		     :ground-tile ground-tile)
+	      c))))
 
 (defun physics-tile-origin (c)
   (+v (physics-pos c) (tile-dims/2)))
@@ -1530,17 +1498,11 @@ This can be abused with the machine gun in TAS."
   (tile-rect (physics-pos c)))
 
 
-(defmethod origin ((c critter))
-  (physics-tile-origin c))
-
 (defun stage-vel (physics)
   (kin-2d-vel (aval physics :stage)))
 
 (defun critter-inertia-vel (c)
-  (stage-vel (entity-state-physics c)))
-
-(defmethod inertia-vel ((c critter))
-  (critter-inertia-vel c))
+  (stage-vel (aval c :physics)))
 
 (defparameter *elephant-speed* 0.08)
 (defstruct (elephant (:include entity-state))
