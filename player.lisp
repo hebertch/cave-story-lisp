@@ -44,17 +44,13 @@
 		  :physics
 		  (list
 		   (cons :stage
-			 (make-kin-2d :pos
-				      (scale-v
-				       *window-dims*
-				       1/2)
-				      :vel (zero-v)
-				      :clamper-vx
-				      (clamper+-
-				       *player-max-speed-x*)
-				      :clamper-vy
-				      (clamper+-
-				       *terminal-speed*)))))
+			 (alist
+			  :pos (scale-v *window-dims* 1/2)
+			  :vel (zero-v)
+			  :clamper-vx
+			  (clamper+- *player-max-speed-x*)
+			  :clamper-vy
+			  (clamper+- *terminal-speed*)))))
      id)))
 
 (def-entity-constructor create-default-player #'make-default-player
@@ -121,7 +117,7 @@
 
 (defun player-accelerator-y (p kin-2d)
   (const-accelerator
-   (if (and (minusp (y (kin-2d-vel kin-2d)))
+   (if (and (minusp (y (aval kin-2d :vel)))
 	    (player-jumping? p))
        *player-jump-gravity-acc*
        *gravity-acc*)))
@@ -132,21 +128,21 @@
       nil))
 
 (defun player-kin-2d-physics (p kin-2d)
-  (draw-line! (kin-2d-pos kin-2d)
-	      (+v (kin-2d-pos kin-2d)
-		  (*v (kin-2d-vel kin-2d) *debug-velocity-scale*))
+  (draw-line! (aval kin-2d :pos)
+	      (+v (aval kin-2d :pos)
+		  (*v (aval kin-2d :vel) *debug-velocity-scale*))
 	      *magenta*)
 
-  (make-kin-2d :pos (kin-2d-pos kin-2d)
-	       :vel (kin-2d-vel kin-2d)
-	       :accelerator-x
-	       (player-accelerator-x p)
-	       :accelerator-y
-	       (player-accelerator-y p kin-2d)
-	       :clamper-vx (kin-2d-clamper-vx kin-2d)
-	       :clamper-vy (kin-2d-clamper-vy kin-2d)
-	       :inertia-vel
-	       (player-inertia-vel p (estate (player-ground-inertia-entity p)))))
+  (alist :pos (aval kin-2d :pos)
+	 :vel (aval kin-2d :vel)
+	 :accelerator-x
+	 (player-accelerator-x p)
+	 :accelerator-y
+	 (player-accelerator-y p kin-2d)
+	 :clamper-vx (aval kin-2d :clamper-vx)
+	 :clamper-vy (aval kin-2d :clamper-vy)
+	 :inertia-vel
+	 (player-inertia-vel p (estate (player-ground-inertia-entity p)))))
 
 (defun apply-player-physics (p)
   (aupdate (player-physics p)
@@ -240,9 +236,9 @@
 	       (aupdate
 		(player-physics p)
 		(lambda (kin-2d)
-		  (setf (kin-2d-vel kin-2d)
-			(make-v (x (kin-2d-vel kin-2d))
-				(min (y (kin-2d-vel kin-2d))
+		  (setf (cdr (assoc :vel kin-2d))
+			(make-v (x (aval kin-2d :vel))
+				(min (y (aval kin-2d :vel))
 				     (- *player-hop-speed*))))
 		  kin-2d)
 		:stage)))))
@@ -312,8 +308,8 @@
 	      (aupdate
 	       (player-physics p)
 	       (lambda (kin-2d)
-		 (setf (kin-2d-vel kin-2d)
-		       (+v (kin-2d-vel kin-2d)
+		 (setf (cdr (assoc :vel kin-2d))
+		       (+v (aval kin-2d :vel)
 			   (make-v 0 (- *player-jump-speed*))))
 		 kin-2d)
 	       :stage))
@@ -416,25 +412,21 @@
 	  (aupdate
 	   (player-physics p)
 	   (lambda (kin-2d)
-	     (setf (kin-2d-pos kin-2d)
+	     (setf (cdr (assoc :pos kin-2d))
 		   (stage-collisions
-		    (kin-2d-pos kin-2d)
+		    (aval kin-2d :pos)
 		    stage
 		    collision-rects
 		    (let ((stop-x
 			   (collision-lambda (tile-type)
-			     (setf (kin-2d-vel kin-2d)
+			     (setf (cdr (assoc :vel kin-2d))
 				   (zero-v :y
-					   (y
-					    (kin-2d-vel
-					     kin-2d)))))))
+					   (y (aval kin-2d :vel)))))))
 		      (alist :bottom
 			     (collision-lambda (tile-type)
-			       (setf (kin-2d-vel kin-2d)
+			       (setf (cdr (assoc :vel kin-2d))
 				     (zero-v :x
-					     (x
-					      (kin-2d-vel
-					       kin-2d))))
+					     (x (aval kin-2d :vel))))
 			       (unless (player-ground-tile p)
 				 (push-sound :land))
 			       (setf new-ground-tile
@@ -443,15 +435,15 @@
 			     (collision-lambda (tile-type)
 			       (when
 				   (minusp
-				    (y (kin-2d-vel kin-2d)))
+				    (y (aval kin-2d :vel)))
 				 (push-sound :head-bump))
-			       (setf (kin-2d-vel kin-2d)
+			       (setf (cdr (assoc :vel kin-2d))
 				     (make-v
 				      (x
-				       (kin-2d-vel kin-2d))
+				       (aval kin-2d :vel))
 				      (max
 				       (y
-					(kin-2d-vel kin-2d))
+					(aval kin-2d :vel))
 				       0))))))
 		    (player-ground-tile p)))
 	     kin-2d)
@@ -478,8 +470,8 @@
 						       (player-interacting? p)
 						       (player-walking? p)
 						       (player-walk-idx p)
-						       (y (kin-2d-vel kin-2d)))
-			 :pos (pixel-v (kin-2d-pos kin-2d)))))
+						       (y (aval kin-2d :vel)))
+			 :pos (pixel-v (aval kin-2d :pos)))))
 
 (defun player-and-gun-drawing (p)
   (let ((kin-2d (cdr (assoc :stage (player-physics p)))))
@@ -489,7 +481,7 @@
 		     (aval (player-timers p) :invincible) 50)))
       (list
        (player-drawing p)
-       (player-gun-drawing (kin-2d-pos kin-2d)
+       (player-gun-drawing (aval kin-2d :pos)
 			   (player-current-gun-name p)
 			   (player-h-facing p)
 			   (player-actual-v-facing p)
@@ -500,7 +492,7 @@
   (player-and-gun-drawing p))
 
 (defun player-vel (p)
-  (kin-2d-vel (cdr (assoc :stage (player-physics p)))))
+  (aval (aval (player-physics p) :stage) :vel))
 
 (defun player-damage-collision-rect (p)
   (rect-offset *player-damage-rect* (physics-pos p)))

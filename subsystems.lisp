@@ -1,5 +1,9 @@
 (in-package :cave-story)
 
+(defgeneric motion-physics (obj))
+(defgeneric motion-pos (obj)
+  (:method ((obj list))
+    (aval obj :pos)))
 (defgeneric origin (obj)
   (:method ((obj list))
     (funcall (aval obj :origin-fn) obj)))

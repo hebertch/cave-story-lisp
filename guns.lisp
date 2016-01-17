@@ -143,7 +143,7 @@
 		       actual-v-facing
 		       (player-current-gun-name p))
 	(gun-pos
-	 (kin-2d-pos k)
+	 (aval k :pos)
 	 (player-h-facing p)
 	 actual-v-facing
 	 (player-walking? p)

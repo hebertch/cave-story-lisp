@@ -203,21 +203,15 @@ This can be abused with the machine gun in TAS."
 				      6)))
 	  :physics
 	  (alist :stage
-		 (make-kin-2d :pos
-			      (-v pos
-				  (rect-pos
-				   (dorito-collision-rect
-				    size)))
-			      :vel vel
-			      :accelerator-x
-			      (friction-accelerator
-			       *dorito-friction-acc*)
-			      :accelerator-y
-			      (const-accelerator
-			       *gravity-acc*)
-			      :clamper-vy
-			      (clamper+-
-			       *terminal-speed*)))
+		 (alist :pos (-v pos (rect-pos
+				      (dorito-collision-rect size)))
+			:vel vel
+			:accelerator-x
+			(friction-accelerator *dorito-friction-acc*)
+			:accelerator-y
+			(const-accelerator *gravity-acc*)
+			:clamper-vy
+			(clamper+- *terminal-speed*)))
 	  :size size)
    (dorito-fns-alist)))
 
@@ -274,35 +268,35 @@ This can be abused with the machine gun in TAS."
     (aset d
 	  (aupdate (aval d :physics)
 		   (lambda (kin-2d)
-		     (setf (kin-2d-pos kin-2d)
+		     (setf (cdr (assoc :pos kin-2d))
 			   (stage-collisions
-			    (kin-2d-pos kin-2d)
+			    (aval kin-2d :pos)
 			    stage
 			    collision-rects
 			    (alist :bottom
 				   (collision-lambda (tile-type)
-				     (setf (kin-2d-vel kin-2d)
-					   (set-y-v (kin-2d-vel kin-2d)
+				     (setf (cdr (assoc :vel kin-2d))
+					   (set-y-v (aval kin-2d :vel)
 						    (- *dorito-bounce-speed*)))
 				     (push-sound :dorito-bounce))
 				   :right
 				   (collision-lambda (tile-type)
 				     (when
 					 (plusp
-					  (x (kin-2d-vel kin-2d)))
-				       (setf (kin-2d-vel kin-2d)
-					     (reverse-x-v (kin-2d-vel kin-2d)))))
+					  (x (aval kin-2d :vel)))
+				       (setf (cdr (assoc :vel kin-2d))
+					     (reverse-x-v (aval kin-2d :vel)))))
 				   :left
 				   (collision-lambda (tile-type)
 				     (when
 					 (minusp
-					  (x (kin-2d-vel kin-2d)))
-				       (setf (kin-2d-vel kin-2d)
-					     (reverse-x-v (kin-2d-vel kin-2d)))))
+					  (x (aval kin-2d :vel)))
+				       (setf (cdr (assoc :vel kin-2d))
+					     (reverse-x-v (aval kin-2d :vel)))))
 				   :top
 				   (collision-lambda (tile-type)
-				     (setf (kin-2d-vel kin-2d)
-					   (max-y-v (kin-2d-vel kin-2d) 0))))))
+				     (setf (cdr (assoc :vel kin-2d))
+					   (max-y-v (aval kin-2d :vel) 0))))))
 		     kin-2d)
 		   :stage)
 	  :physics)))
@@ -1242,14 +1236,15 @@ This can be abused with the machine gun in TAS."
 			      :npc-sym 0 :particle)
 			     :physics
 			     (alist
-			      :stage (make-kin-2d :pos (-v pos (tile-dims/2))
-						  :vel
-						  (polar-vec->v (rand-angle)
-								(rand-val-between 0.1 0.3))
-						  :clamper-vx
-						  (clamper+- *terminal-speed*)
-						  :clamper-vy
-						  (clamper+- *terminal-speed*)))))
+			      :stage
+			      (alist
+			       :pos (-v pos (tile-dims/2))
+			       :vel (polar-vec->v (rand-angle)
+						  (rand-val-between 0.1 0.3))
+			       :clamper-vx
+			       (clamper+- *terminal-speed*)
+			       :clamper-vy
+			       (clamper+- *terminal-speed*)))))
 
 (def-entity-constructor create-death-cloud-particle #'make-default-death-cloud-particle
   :drawable :physics :stage-collision)
@@ -1271,21 +1266,21 @@ This can be abused with the machine gun in TAS."
     (make-death-cloud-particle
      :physics (aupdate (death-cloud-particle-physics d)
 		       (lambda (kin-2d)
-			 (setf (kin-2d-pos kin-2d)
+			 (setf (cdr (assoc :pos kin-2d))
 			       (stage-collisions
-				(kin-2d-pos kin-2d)
+				(aval kin-2d :pos)
 				stage
 				collision-rects
 				(let ((stop-x
 				       (collision-lambda (tile-type)
-					 (setf (kin-2d-vel kin-2d)
+					 (setf (cdr (assoc :vel kin-2d))
 					       (set-x-v
-						(kin-2d-vel kin-2d) 0))))
+						(aval kin-2d :vel) 0))))
 				      (stop-y
 				       (collision-lambda (tile-type)
-					 (setf (kin-2d-vel kin-2d)
+					 (setf (cdr (assoc :vel kin-2d))
 					       (set-y-v
-						(kin-2d-vel kin-2d) 0)))))
+						(aval kin-2d :vel) 0)))))
 				  (alist :bottom stop-y :left
 					 stop-x :right stop-x :top
 					 stop-y))))
@@ -1305,10 +1300,10 @@ This can be abused with the machine gun in TAS."
   (make-rect :pos (tile-v 0 1/4) :size (tile-v 1 3/4)))
 
 (defun gravity-kin-2d (&key (pos (zero-v)) (vel (zero-v)))
-  (make-kin-2d :pos pos
-	       :vel vel
-	       :accelerator-y (const-accelerator *gravity-acc*)
-	       :clamper-vy (clamper+- *terminal-speed*)))
+  (alist :pos pos
+	 :vel vel
+	 :accelerator-y (const-accelerator *gravity-acc*)
+	 :clamper-vy (clamper+- *terminal-speed*)))
 
 (defun critter-fns-alist ()
   (alist :ai-fn #'critter-ai
@@ -1361,7 +1356,7 @@ This can be abused with the machine gun in TAS."
 	(setq physics
 	      (aupdate physics
 		       (lambda (kin-2d)
-			 (setf (kin-2d-vel kin-2d)
+			 (setf (cdr (assoc :vel kin-2d))
 			       (make-v
 				(* 0.04
 				   (if (eq facing :left)
@@ -1423,25 +1418,25 @@ This can be abused with the machine gun in TAS."
 	   (player-physics player-state)
 	   (lambda (kin-2d)
 	     (let ((player-rect (rect-offset player-collision-rect
-					     (kin-2d-pos kin-2d))))
+					     (aval kin-2d :pos))))
 	       (case side
 		 (:bottom
 		  (when (and (not (player-on-ground? player-state))
 			     (<= (y pos) (bottom player-rect) (+ (y origin))))
 		    (setf (player-ground-tile player-state) :dynamic)
 		    (setf (player-ground-inertia-entity player-state) id)
-		    (setf (kin-2d-vel kin-2d) (zero-v :x (x (kin-2d-vel kin-2d))))
+		    (setf (cdr (assoc :vel kin-2d)) (zero-v :x (x (aval kin-2d :vel))))
 
-		    (setf (kin-2d-pos kin-2d)
+		    (setf (cdr (assoc :pos kin-2d))
 			  (-v
 			   (flush-rect-pos player-rect
 					   (y (rect-pos dynamic-collision-rect))
 					   :up)
 			   (rect-pos player-collision-rect)))))
 		 ((:left :right)
-		  (let ((disp (- (x (kin-2d-pos kin-2d)) (x pos))))
+		  (let ((disp (- (x (aval kin-2d :pos)) (x pos))))
 		    (when (> (abs disp) (tiles 1/4))
-		      (setf (x (kin-2d-vel kin-2d))
+		      (setf (x (aval kin-2d :vel))
 			    (* (/ *terminal-speed* 70) disp)))))))
 	     kin-2d)
 	   :stage))
@@ -1454,34 +1449,32 @@ This can be abused with the machine gun in TAS."
 	   (timers (aval c :timers))
 	   (ground-tile nil)
 	   (last-tile (aval c :ground-tile)))
-      (setq physics
-	    (aupdate physics
-		     (lambda (kin-2d)
-		       (setf (kin-2d-pos kin-2d)
-			     (stage-collisions
-			      (kin-2d-pos kin-2d) stage
-			      collision-rects
-			      (alist
-			       :bottom
-			       (collision-lambda (tile-type)
-				 (setq ground-tile tile-type)
-				 (unless last-tile
-				   (setq timers
-					 (aset timers
-					       (create-expiring-timer (s->ms 1/3) t)
-					       :sleep)))
-				 (setf (kin-2d-vel kin-2d)
-				       (zero-v :x 0 :y 0)))
-			       :top
-			       (collision-lambda (tile-type)
-				 (setf (kin-2d-vel kin-2d)
-				       (max-y-v (kin-2d-vel kin-2d) 0))))))
-		       kin-2d)
-		     :stage))
-      (amerge (alist :physics physics
-		     :timers timers
-		     :ground-tile ground-tile)
-	      c))))
+      (flet ((update-physics (kin-2d)
+	       (setf (cdr (assoc :pos kin-2d))
+		     (stage-collisions
+		      (aval kin-2d :pos) stage
+		      collision-rects
+		      (alist
+		       :bottom
+		       (collision-lambda (tile-type)
+			 (setq ground-tile tile-type)
+			 (unless last-tile
+			   (setq timers
+				 (aset timers
+				       (create-expiring-timer (s->ms 1/3) t)
+				       :sleep)))
+			 (setf (cdr (assoc :vel kin-2d))
+			       (zero-v :x 0 :y 0)))
+		       :top
+		       (collision-lambda (tile-type)
+			 (setf (cdr (assoc :vel kin-2d))
+			       (max-y-v (aval kin-2d :vel) 0))))))
+	       kin-2d))
+	(setq physics (aupdate physics #'update-physics :stage))
+	(amerge (alist :physics physics
+		       :timers timers
+		       :ground-tile ground-tile)
+		c)))))
 
 (defun physics-tile-origin (c)
   (+v (physics-pos c) (tile-dims/2)))
@@ -1489,7 +1482,7 @@ This can be abused with the machine gun in TAS."
   (tile-rect (physics-pos c)))
 
 (defun stage-vel (physics)
-  (kin-2d-vel (aval physics :stage)))
+  (aval (aval physics :stage) :vel))
 
 (defun critter-inertia-vel (c)
   (stage-vel (aval c :physics)))
@@ -1691,8 +1684,8 @@ This can be abused with the machine gun in TAS."
 			  (if (eq (elephant-facing e) :right)
 			      (setq x-vel *elephant-speed*)
 			      (setq x-vel (- *elephant-speed*)))))
-		       (setf (kin-2d-vel kin-2d)
-			     (make-v x-vel (y (kin-2d-vel kin-2d)))))
+		       (setf (cdr (assoc :vel kin-2d))
+			     (make-v x-vel (y (aval kin-2d :vel)))))
 		     kin-2d)
 		   :stage))
 
@@ -1717,9 +1710,9 @@ This can be abused with the machine gun in TAS."
     (let* ((facing (elephant-facing e))
 	   (physics (aupdate (elephant-physics e)
 			     (lambda (kin-2d)
-			       (setf (kin-2d-pos kin-2d)
+			       (setf (cdr (assoc :pos kin-2d))
 				     (stage-collisions
-				      (kin-2d-pos kin-2d) stage
+				      (aval kin-2d :pos) stage
 				      collision-rects
 				      (alist
 				       :left

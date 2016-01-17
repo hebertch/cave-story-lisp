@@ -13,6 +13,8 @@ new (values DELTA-POS VEL)."
 (defun accelerate-2d (vel accelerator-x accelerator-y &key clamper-vx clamper-vy)
   "Vector Acceleration. Assuming constant acceleration calc a
 new (values DELTA-POS VEL)."
+  (unless accelerator-x (setq accelerator-x (const-accelerator 0)))
+  (unless accelerator-y (setq accelerator-y (const-accelerator 0)))
   (multiple-value-bind (px vx) (funcall accelerator-x (x vel))
     (multiple-value-bind (py vy) (funcall accelerator-y (y vel))
       (values
@@ -62,7 +64,7 @@ new (values DELTA-POS VEL)."
   (+v origin (offset-in-dir dist dir)))
 
 (defun make-offset-motion (origin dir speed &optional (acc 0))
-  (make-kin-2d
+  (alist
    :pos origin
    :vel (offset-in-dir-pos (zero-v) speed dir)
    :accelerator-x (const-accelerator (case dir
@@ -108,40 +110,27 @@ new (values DELTA-POS VEL)."
 (defmethod motion-pos ((w wave-motion))
   (wave-offset w))
 
-(defstruct kin-2d
-  (pos (zero-v))
-  (vel (zero-v))
-  (accelerator-x (const-accelerator 0))
-  (accelerator-y (const-accelerator 0))
-  clamper-vx
-  clamper-vy
-
-  inertia-vel)
-
 (defun kin-2d-motion-physics (m)
   (multiple-value-bind (dpos nvel)
-      (accelerate-2d (kin-2d-vel m)
-		     (kin-2d-accelerator-x m)
-		     (kin-2d-accelerator-y m)
-		     :clamper-vx (kin-2d-clamper-vx m)
-		     :clamper-vy (kin-2d-clamper-vy m))
-    (let ((m (copy-structure m))
-	  (pos (+v (kin-2d-pos m) dpos)))
-      (when (kin-2d-inertia-vel m)
+      (accelerate-2d (aval m :vel)
+		     (aval m :accelerator-x)
+		     (aval m :accelerator-y)
+		     :clamper-vx (aval m :clamper-vx)
+		     :clamper-vy (aval m :clamper-vy))
+    (let ((m (copy-alist m))
+	  (pos (+v (aval m :pos) dpos)))
+      (when (aval m :inertia-vel)
 	(setq pos
 	      (+v pos
-		  (accelerate-2d (kin-2d-inertia-vel m)
+		  (accelerate-2d (aval m :inertia-vel)
 				 (const-accelerator 0)
 				 (const-accelerator 0)))))
-      (setf (kin-2d-pos m) pos)
-      (setf (kin-2d-vel m) nvel)
+      (setf (cdr (assoc :pos m)) pos)
+      (setf (cdr (assoc :vel m)) nvel)
       m)))
 
-(defmethod motion-physics ((m kin-2d))
+(defmethod motion-physics ((m list))
   (kin-2d-motion-physics m))
-
-(defmethod motion-pos ((m kin-2d))
-  (kin-2d-pos m))
 
 (defstruct target-kin-2d
   pos
