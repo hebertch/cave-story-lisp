@@ -268,7 +268,7 @@ This can be abused with the machine gun in TAS."
     (aset d
 	  (aupdate (aval d :physics)
 		   (lambda (kin-2d)
-		     (setf (cdr (assoc :pos kin-2d))
+		     (aset kin-2d
 			   (stage-collisions
 			    (aval kin-2d :pos)
 			    stage
@@ -296,8 +296,8 @@ This can be abused with the machine gun in TAS."
 				   :top
 				   (collision-lambda (tile-type)
 				     (setf (cdr (assoc :vel kin-2d))
-					   (max-y-v (aval kin-2d :vel) 0))))))
-		     kin-2d)
+					   (max-y-v (aval kin-2d :vel) 0)))))
+			   :pos))
 		   :stage)
 	  :physics)))
 
@@ -1266,7 +1266,7 @@ This can be abused with the machine gun in TAS."
     (make-death-cloud-particle
      :physics (aupdate (death-cloud-particle-physics d)
 		       (lambda (kin-2d)
-			 (setf (cdr (assoc :pos kin-2d))
+			 (aset kin-2d
 			       (stage-collisions
 				(aval kin-2d :pos)
 				stage
@@ -1283,7 +1283,8 @@ This can be abused with the machine gun in TAS."
 						(aval kin-2d :vel) 0)))))
 				  (alist :bottom stop-y :left
 					 stop-x :right stop-x :top
-					 stop-y))))
+					 stop-y)))
+			       :pos)
 			 kin-2d)
 		       :stage)
      :single-loop-sprite (death-cloud-particle-single-loop-sprite d))))
@@ -1450,7 +1451,7 @@ This can be abused with the machine gun in TAS."
 	   (ground-tile nil)
 	   (last-tile (aval c :ground-tile)))
       (flet ((update-physics (kin-2d)
-	       (setf (cdr (assoc :pos kin-2d))
+	       (aset kin-2d
 		     (stage-collisions
 		      (aval kin-2d :pos) stage
 		      collision-rects
@@ -1468,8 +1469,8 @@ This can be abused with the machine gun in TAS."
 		       :top
 		       (collision-lambda (tile-type)
 			 (setf (cdr (assoc :vel kin-2d))
-			       (max-y-v (aval kin-2d :vel) 0))))))
-	       kin-2d))
+			       (max-y-v (aval kin-2d :vel) 0)))))
+		     :pos)))
 	(setq physics (aupdate physics #'update-physics :stage))
 	(amerge (alist :physics physics
 		       :timers timers
@@ -1710,7 +1711,7 @@ This can be abused with the machine gun in TAS."
     (let* ((facing (elephant-facing e))
 	   (physics (aupdate (elephant-physics e)
 			     (lambda (kin-2d)
-			       (setf (cdr (assoc :pos kin-2d))
+			       (aset kin-2d
 				     (stage-collisions
 				      (aval kin-2d :pos) stage
 				      collision-rects
@@ -1722,8 +1723,8 @@ This can be abused with the machine gun in TAS."
 				       :right
 				       (collision-lambda (tile-type)
 					 (when (eq facing :right)
-					   (setq facing :left))))))
-			       kin-2d)
+					   (setq facing :left)))))
+				     :pos))
 			     :stage)))
       (make-elephant
        :physics physics

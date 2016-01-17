@@ -412,7 +412,7 @@
 	  (aupdate
 	   (player-physics p)
 	   (lambda (kin-2d)
-	     (setf (cdr (assoc :pos kin-2d))
+	     (aset kin-2d
 		   (stage-collisions
 		    (aval kin-2d :pos)
 		    stage
@@ -445,8 +445,8 @@
 				       (y
 					(aval kin-2d :vel))
 				       0))))))
-		    (player-ground-tile p)))
-	     kin-2d)
+		    (player-ground-tile p))
+		   :pos))
 	   :stage))
 
     (setf (player-ground-tile p) new-ground-tile)
