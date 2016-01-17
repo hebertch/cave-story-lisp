@@ -1355,8 +1355,6 @@ This can be abused with the machine gun in TAS."
     (unless (timer-active? (aval timers :shake))
       (setq physics (arem physics :shake)))
 
-    (setq facing (face-player (physics-pos c) (aval c :player)))
-
     (when (and (not (timer-active? (aval timers :sleep)))
 	       (< (origin-dist c (estate (aval c :player))) (tiles 4)))
       (when (aval c :ground-tile)
@@ -1373,8 +1371,7 @@ This can be abused with the machine gun in TAS."
 			 kin-2d)
 		       :stage))))
     (amerge (alist :physics physics
-		   :timers timers
-		   :facing facing)
+		   :facing (face-player (physics-pos c) (aval c :player)))
 	    c)))
 
 (defun critter-drawing (c)
@@ -1393,32 +1390,27 @@ This can be abused with the machine gun in TAS."
 			 :pos (physics-pos c))))
 
 (defun critter-hit-react (c amt)
-  (let ((physics (aval c :physics))
-	(timers (aval c :timers))
-	(health-amt (aval c :health-amt))
-	(dead? (aval c :dead?)))
-    (setq physics
-	  (aset physics
-		(make-wave-motion :dir :left :amp 2 :speed 0.1 :rads 0)
-		:shake))
-    (setq timers
-	  (aset timers (create-expiring-timer (s->ms 1/3) t) :shake))
+  (let ((health-amt (aval c :health-amt)))
     (if (< amt health-amt)
 	(progn
 	  (update-damage-number-amt (aval c :damage-numbers) (aval c :id) amt)
 	  (push-sound :enemy-hurt)
-	  (setq health-amt (- health-amt amt)))
+
+	  (amerge (alist
+		   :physics
+		   (aset (aval c :physics)
+			 (make-wave-motion :dir :left :amp 2 :speed 0.1 :rads 0)
+			 :shake)
+		   :timers
+		   (aset (aval c :timers) (create-expiring-timer (s->ms 1/3) t) :shake)
+		   :health-amt (- health-amt amt))
+		  c))
 	(let ((origin (origin c)))
 	  (push-sound :enemy-explode)
 	  (create-dorito origin (polar-vec->v (rand-angle) 0.07) :small)
 	  (create-dorito origin (polar-vec->v (rand-angle) 0.07) :small)
 	  (create-death-cloud-particles 6 origin)
-	  (setq dead? t)))
-    (amerge (alist :physics physics
-		   :timers timers
-		   :dead? dead?
-		   :health-amt health-amt)
-	    c)))
+	  (amerge (alist :dead? t) c)))))
 
 (defun critter-damage-collision-rect (c)
   (rect-offset *critter-dynamic-collision-rect* (physics-pos c)))
@@ -1460,9 +1452,8 @@ This can be abused with the machine gun in TAS."
   (defun critter-stage-collision (c stage)
     (let* ((physics (aval c :physics))
 	   (timers (aval c :timers))
-	   (ground-tile (aval c :ground-tile))
-	   (last-tile ground-tile))
-      (setq ground-tile nil)
+	   (ground-tile nil)
+	   (last-tile (aval c :ground-tile)))
       (setq physics
 	    (aupdate physics
 		     (lambda (kin-2d)
@@ -1496,7 +1487,6 @@ This can be abused with the machine gun in TAS."
   (+v (physics-pos c) (tile-dims/2)))
 (defun physics-tile-rect (c)
   (tile-rect (physics-pos c)))
-
 
 (defun stage-vel (physics)
   (kin-2d-vel (aval physics :stage)))
