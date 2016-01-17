@@ -1410,33 +1410,40 @@ This can be abused with the machine gun in TAS."
 
 (defun dynamic-collision-enemy-react
     (pos origin id dynamic-collision-rect side player-collision-rect player-state)
-  (let ((player-state (copy-structure player-state)))
+  (let* ((player-state (copy-structure player-state))
+	 (physics (player-physics player-state))
+	 (kin-2d (aval physics :stage)))
     (setf (player-physics player-state)
-	  (aupdate
-	   (player-physics player-state)
-	   (lambda (kin-2d)
-	     (let ((player-rect (rect-offset player-collision-rect
-					     (aval kin-2d :pos))))
-	       (case side
-		 (:bottom
-		  (when (and (not (player-on-ground? player-state))
-			     (<= (y pos) (bottom player-rect) (+ (y origin))))
-		    (setf (player-ground-tile player-state) :dynamic)
-		    (setf (player-ground-inertia-entity player-state) id)
-		    (setf (cdr (assoc :vel kin-2d)) (zero-v :x (x (aval kin-2d :vel))))
+	  (aset
+	   physics
+	   (let ((player-rect (rect-offset player-collision-rect
+					   (aval kin-2d :pos))))
+	     (case side
+	       (:bottom
+		(cond ((and (not (player-on-ground? player-state))
+			    (<= (y pos) (bottom player-rect) (+ (y origin))))
+		       (setf (player-ground-tile player-state) :dynamic)
+		       (setf (player-ground-inertia-entity player-state) id)
 
-		    (setf (cdr (assoc :pos kin-2d))
-			  (-v
-			   (flush-rect-pos player-rect
-					   (y (rect-pos dynamic-collision-rect))
-					   :up)
-			   (rect-pos player-collision-rect)))))
-		 ((:left :right)
-		  (let ((disp (- (x (aval kin-2d :pos)) (x pos))))
-		    (when (> (abs disp) (tiles 1/4))
-		      (setf (x (aval kin-2d :vel))
-			    (* (/ *terminal-speed* 70) disp)))))))
-	     kin-2d)
+		       (amerge
+			(alist
+			 :vel (zero-v :x (x (aval kin-2d :vel)))
+			 :pos (-v
+			       (flush-rect-pos player-rect
+					       (y (rect-pos dynamic-collision-rect))
+					       :up)
+			       (rect-pos player-collision-rect)))
+			kin-2d))
+		      (t kin-2d)))
+	       ((:left :right)
+		(let ((disp (- (x (aval kin-2d :pos)) (x pos))))
+		  (cond ((> (abs disp) (tiles 1/4))
+			 (aset
+			  kin-2d
+			  (make-v (* (/ *terminal-speed* 70) disp) (y (aval kin-2d :vel)))
+			  :vel))
+			(t kin-2d))))
+	       (t kin-2d)))
 	   :stage))
     player-state))
 
