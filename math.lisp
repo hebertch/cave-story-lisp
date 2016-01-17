@@ -10,6 +10,9 @@
 (defun anorm (alist)
   (remove-duplicates alist :from-end t :key #'car))
 
+(defun amerge (&rest alists)
+  (anorm (apply #'append alists)))
+
 (defun aset (alist val key)
   (anorm (acons key val alist)))
 
