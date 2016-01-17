@@ -236,11 +236,11 @@
 	       (aupdate
 		(player-physics p)
 		(lambda (kin-2d)
-		  (setf (cdr (assoc :vel kin-2d))
+		  (aset kin-2d
 			(make-v (x (aval kin-2d :vel))
 				(min (y (aval kin-2d :vel))
-				     (- *player-hop-speed*))))
-		  kin-2d)
+				     (- *player-hop-speed*)))
+			:vel))
 		:stage)))))
     p))
 

@@ -1358,14 +1358,10 @@ This can be abused with the machine gun in TAS."
 	(setq physics
 	      (aupdate physics
 		       (lambda (kin-2d)
-			 (setf (cdr (assoc :vel kin-2d))
-			       (make-v
-				(* 0.04
-				   (if (eq facing :left)
-				       -1
-				       1))
-				(- 0.35)))
-			 kin-2d)
+			 (aset kin-2d
+			       (make-v (* 0.04 (if (eq facing :left) -1 1))
+				       (- 0.35))
+			       :vel))
 		       :stage))))
     (amerge (alist :physics physics
 		   :facing (face-player (physics-pos c) (aval c :player)))
@@ -1690,9 +1686,9 @@ This can be abused with the machine gun in TAS."
 			  (if (eq (elephant-facing e) :right)
 			      (setq x-vel *elephant-speed*)
 			      (setq x-vel (- *elephant-speed*)))))
-		       (setf (cdr (assoc :vel kin-2d))
-			     (make-v x-vel (y (aval kin-2d :vel)))))
-		     kin-2d)
+		       (aset kin-2d
+			     (make-v x-vel (y (aval kin-2d :vel)))
+			     :vel)))
 		   :stage))
 
     (make-elephant :physics physics
