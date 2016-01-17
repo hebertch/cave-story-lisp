@@ -249,7 +249,6 @@ This can be abused with the machine gun in TAS."
 
      :pos (physics-pos d))))
 
-
 (defun set-x-v (v x)
   (make-v x (y v)))
 
@@ -263,44 +262,44 @@ This can be abused with the machine gun in TAS."
   (make-v (x v) (max (y v) max-y)))
 
 (defun dorito-stage-collision (d stage)
-  (let ((collision-rects (rect->collision-rects
-			  (dorito-collision-rect (aval d :size)))))
-    (aset d
-	  (aupdate (aval d :physics)
-		   (lambda (kin-2d)
-		     (aset kin-2d
-			   (stage-collisions
-			    (aval kin-2d :pos)
-			    stage
-			    collision-rects
-			    (alist :bottom
-				   (collision-lambda (tile-type)
-				     (setf (cdr (assoc :vel kin-2d))
-					   (set-y-v (aval kin-2d :vel)
-						    (- *dorito-bounce-speed*)))
-				     (push-sound :dorito-bounce))
-				   :right
-				   (collision-lambda (tile-type)
-				     (when
-					 (plusp
-					  (x (aval kin-2d :vel)))
-				       (setf (cdr (assoc :vel kin-2d))
-					     (reverse-x-v (aval kin-2d :vel)))))
-				   :left
-				   (collision-lambda (tile-type)
-				     (when
-					 (minusp
-					  (x (aval kin-2d :vel)))
-				       (setf (cdr (assoc :vel kin-2d))
-					     (reverse-x-v (aval kin-2d :vel)))))
-				   :top
-				   (collision-lambda (tile-type)
-				     (setf (cdr (assoc :vel kin-2d))
-					   (max-y-v (aval kin-2d :vel) 0)))))
-			   :pos))
-		   :stage)
+  (let* ((collision-rects (rect->collision-rects
+			   (dorito-collision-rect (aval d :size))))
+	 (physics (aval d :physics))
+	 (stage-physics (aval physics :stage))
+	 (data (alist :pos (aval stage-physics :pos)
+		      :vel (aval stage-physics :vel)))
+	 (res
+	  (stage-collisions
+	   data
+	   stage
+	   collision-rects
+	   (alist
+	    :bottom
+	    (collision-lambda (data)
+	      (push-sound :dorito-bounce)
+	      (aset data
+		    (set-y-v (aval data :vel)
+			     (- *dorito-bounce-speed*))
+		    :vel))
+	    :right
+	    (collision-lambda (data)
+	      (if (plusp (x (aval data :vel)))
+		  (aset data (reverse-x-v (aval data :vel)) :vel)
+		  data))
+	    :left
+	    (collision-lambda (data)
+	      (if (minusp (x (aval data :vel)))
+		  (aset data (reverse-x-v (aval data :vel)) :vel)
+		  data))
+	    :top
+	    (collision-lambda (data)
+	      (aset data (max-y-v (aval data :vel) 0) :vel))))))
+    (aset d (aset physics
+		  (amerge (alist :pos (aval res :pos)
+				 :vel (aval res :vel))
+			  stage-physics)
+		  :stage)
 	  :physics)))
-
 
 (defun dorito-pickup-rect (d)
   (rect-offset (dorito-collision-rect (aval d :size)) (physics-pos d)))
@@ -1263,31 +1262,33 @@ This can be abused with the machine gun in TAS."
 (let ((collision-rects (rect->collision-rects
 			(centered-rect (tile-dims/2) (both-v (tiles 2/5))))))
   (defun death-cloud-particle-stage-collision (d stage)
-    (make-death-cloud-particle
-     :physics (aupdate (death-cloud-particle-physics d)
-		       (lambda (kin-2d)
-			 (aset kin-2d
-			       (stage-collisions
-				(aval kin-2d :pos)
-				stage
-				collision-rects
-				(let ((stop-x
-				       (collision-lambda (tile-type)
-					 (setf (cdr (assoc :vel kin-2d))
-					       (set-x-v
-						(aval kin-2d :vel) 0))))
-				      (stop-y
-				       (collision-lambda (tile-type)
-					 (setf (cdr (assoc :vel kin-2d))
-					       (set-y-v
-						(aval kin-2d :vel) 0)))))
-				  (alist :bottom stop-y :left
-					 stop-x :right stop-x :top
-					 stop-y)))
-			       :pos)
-			 kin-2d)
-		       :stage)
-     :single-loop-sprite (death-cloud-particle-single-loop-sprite d))))
+    (let* ((physics (death-cloud-particle-physics d))
+	   (stage-physics (aval physics :stage))
+	   (data (alist :pos (aval stage-physics :pos)
+			:vel (aval stage-physics :vel)))
+	   (res
+	    (stage-collisions
+	     data stage collision-rects
+	     (let ((stop-x
+		    (collision-lambda (data)
+		      (aset data
+			    (set-x-v (aval data :vel) 0)
+			    :vel)))
+		   (stop-y
+		    (collision-lambda (data)
+		      (aset data
+			    (set-y-v (aval data :vel) 0)
+			    :vel))))
+	       (alist :bottom stop-y :left stop-x
+		      :right stop-x :top stop-y)))))
+
+      (make-death-cloud-particle
+       :physics (aset physics
+		      (amerge (alist :pos (aval res :pos)
+				     :vel (aval res :vel))
+			      stage-physics)
+		      :stage)
+       :single-loop-sprite (death-cloud-particle-single-loop-sprite d)))))
 
 (defmethod stage-collision ((d death-cloud-particle) stage)
   (death-cloud-particle-stage-collision d stage))
@@ -1447,35 +1448,39 @@ This can be abused with the machine gun in TAS."
 			(centered-rect (tile-dims/2) (both-v (tiles 3/4))) 6)))
   (defun critter-stage-collision (c stage)
     (let* ((physics (aval c :physics))
-	   (timers (aval c :timers))
-	   (ground-tile nil)
-	   (last-tile (aval c :ground-tile)))
-      (flet ((update-physics (kin-2d)
-	       (aset kin-2d
-		     (stage-collisions
-		      (aval kin-2d :pos) stage
-		      collision-rects
-		      (alist
-		       :bottom
-		       (collision-lambda (tile-type)
-			 (setq ground-tile tile-type)
-			 (unless last-tile
-			   (setq timers
-				 (aset timers
-				       (create-expiring-timer (s->ms 1/3) t)
-				       :sleep)))
-			 (setf (cdr (assoc :vel kin-2d))
-			       (zero-v :x 0 :y 0)))
-		       :top
-		       (collision-lambda (tile-type)
-			 (setf (cdr (assoc :vel kin-2d))
-			       (max-y-v (aval kin-2d :vel) 0)))))
-		     :pos)))
-	(setq physics (aupdate physics #'update-physics :stage))
-	(amerge (alist :physics physics
-		       :timers timers
-		       :ground-tile ground-tile)
-		c)))))
+	   (last-tile (aval c :ground-tile))
+	   (stage-physics (aval physics :stage))
+	   (data (alist :pos (aval stage-physics :pos)
+			:vel (aval stage-physics :vel)
+			:ground-tile nil
+			:last-ground-tile last-tile
+			:timers (aval c :timers)))
+	   (res
+	    (stage-collisions
+	     data stage collision-rects
+	     (alist
+	      :bottom
+	      (collision-lambda (data)
+		(amerge
+		 (unless last-tile
+		   (alist :timers
+			  (aset (aval data :timers)
+				(create-expiring-timer (s->ms 1/3) t)
+				:sleep)))
+		 (alist :ground-tile (aval data :tile-type)
+			:vel (zero-v))
+		 data))
+	      :top
+	      (collision-lambda (data)
+		(aset data (max-y-v (aval data :vel) 0) :vel))))))
+      (amerge (alist :physics (aset physics
+				    (amerge (alist :pos (aval res :pos)
+						   :vel (aval res :vel))
+					    stage-physics)
+				    :stage)
+		     :timers (aval res :timers)
+		     :ground-tile (aval res :ground-tile))
+	      c))))
 
 (defun physics-tile-origin (c)
   (+v (physics-pos c) (tile-dims/2)))
@@ -1708,30 +1713,32 @@ This can be abused with the machine gun in TAS."
 	(centered-rect (scale-v *elephant-dims* 1/2) *elephant-dims*)
 	6)))
   (defun elephant-stage-collision (e stage)
-    (let* ((facing (elephant-facing e))
-	   (physics (aupdate (elephant-physics e)
-			     (lambda (kin-2d)
-			       (aset kin-2d
-				     (stage-collisions
-				      (aval kin-2d :pos) stage
-				      collision-rects
-				      (alist
-				       :left
-				       (collision-lambda (tile-type)
-					 (when (eq facing :left)
-					   (setq facing :right)))
-				       :right
-				       (collision-lambda (tile-type)
-					 (when (eq facing :right)
-					   (setq facing :left)))))
-				     :pos))
-			     :stage)))
+    (let* ((data (alist :facing (elephant-facing e)
+			:pos (aval (aval (elephant-physics e) :stage) :pos)))
+	   (stage-collision-result
+	    (stage-collisions
+	     data stage collision-rects
+	     (alist
+	      :left
+	      (collision-lambda (data)
+		(if (eq (aval data :facing) :left)
+		    (aset data :right :facing)
+		    data))
+	      :right
+	      (collision-lambda (data)
+		(if (eq (aval data :facing) :right)
+		    (aset data :left :facing)
+		    data))))))
       (make-elephant
-       :physics physics
+       :physics (aset (elephant-physics e)
+		      (aset (aval (elephant-physics e) :stage)
+			    (aval stage-collision-result :pos)
+			    :pos)
+		      :stage)
        :timers (elephant-timers e)
        :dead? (elephant-dead? e)
        :health-amt (elephant-health-amt e)
-       :facing facing
+       :facing (aval stage-collision-result :facing)
        :id (elephant-id e)
        :player (elephant-player e)
        :camera (elephant-camera e)

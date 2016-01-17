@@ -405,56 +405,51 @@
   (player-input p input))
 
 (defun player-stage-collision (p stage)
-  (let (new-ground-tile
-	(collision-rects *player-collision-rectangles-alist*)
-	(p (copy-structure p)))
-    (setf (player-physics p)
-	  (aupdate
-	   (player-physics p)
-	   (lambda (kin-2d)
-	     (aset kin-2d
-		   (stage-collisions
-		    (aval kin-2d :pos)
-		    stage
-		    collision-rects
-		    (let ((stop-x
-			   (collision-lambda (tile-type)
-			     (setf (cdr (assoc :vel kin-2d))
-				   (zero-v :y
-					   (y (aval kin-2d :vel)))))))
-		      (alist :bottom
-			     (collision-lambda (tile-type)
-			       (setf (cdr (assoc :vel kin-2d))
-				     (zero-v :x
-					     (x (aval kin-2d :vel))))
-			       (unless (player-ground-tile p)
-				 (push-sound :land))
-			       (setf new-ground-tile
-				     tile-type))
-			     :left stop-x :right stop-x :top
-			     (collision-lambda (tile-type)
-			       (when
-				   (minusp
-				    (y (aval kin-2d :vel)))
-				 (push-sound :head-bump))
-			       (setf (cdr (assoc :vel kin-2d))
-				     (make-v
-				      (x
-				       (aval kin-2d :vel))
-				      (max
-				       (y
-					(aval kin-2d :vel))
-				       0))))))
-		    (player-ground-tile p))
-		   :pos))
-	   :stage))
+  (let* ((collision-rects *player-collision-rectangles-alist*)
+	 (p (copy-structure p))
+	 (physics (player-physics p))
+	 (stage-physics (aval physics :stage))
+	 (data (alist :pos (aval stage-physics :pos)
+		      :vel (aval stage-physics :vel)
+		      :ground-tile (player-ground-tile p)
+		      :new-ground-tile nil))
+	 (res (stage-collisions
+	       data stage collision-rects
+	       (let ((stop-x
+		      (collision-lambda (data)
+			(aset data (zero-v :y (y (aval data :vel))) :vel))))
+		 (alist :bottom
+			(collision-lambda (data)
+			  (unless (aval data :ground-tile)
+			    (push-sound :land))
 
-    (setf (player-ground-tile p) new-ground-tile)
+			  (amerge
+			   (alist :vel (zero-v :x (x (aval data :vel)))
+				  :new-ground-tile (aval data :tile-type))
+			   data))
+			:left stop-x :right stop-x
+			:top
+			(collision-lambda (tile-type)
+			  (when (minusp (y (aval data :vel)))
+			    (push-sound :head-bump))
+			  (aset data
+				(make-v
+				 (x (aval data :vel))
+				 (max (y (aval data :vel)) 0))
+				:vel))))
+	       (player-ground-tile p))))
+    (setf (player-physics p)
+	  (aset (player-physics p)
+		(amerge
+		 (alist :pos (aval res :pos)
+			:vel (aval res :vel))
+		 stage-physics)
+		:stage))
+
+    (setf (player-ground-tile p) (aval res :new-ground-tile))
     (unless (player-ground-tile p)
       (setf  (player-timers p)
-	     (aupdate (player-timers p)
-		      #'timed-cycle-pause
-		      :walk-cycle))
+	     (aupdate (player-timers p) #'timed-cycle-pause :walk-cycle))
       (setf (player-ground-tile p) nil))
     p))
 
