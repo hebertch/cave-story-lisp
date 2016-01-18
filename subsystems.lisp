@@ -256,7 +256,7 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 	(:drawable (register-drawable system-type id))
 	(:pickup (register-pickup system-type id))))))
 
-(defun create-entity (initial-state subsystems)
+(defun create-entity (initial-state)
   (let ((id (aval initial-state :id)))
     (unless id
       (setq initial-state (aset initial-state :id (gen-entity-id)))))
@@ -264,7 +264,7 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
   (let ((id (aval initial-state :id))
 	(entity (make-entity :system-type *entity-system-type*
 			     :state initial-state
-			     :subsystems subsystems)))
+			     :subsystems (aval initial-state :subsystems))))
     (register-entity-subsystems id entity)
     (register-entity id entity)))
 
@@ -279,11 +279,11 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
       (timer-set-update (aval o :timers))
     (ai (aset o :timers timers) ticks)))
 
-(defun entity-constructor (constructor subsystems)
+(defun entity-constructor (constructor)
   (lambda (&rest constructor-args)
     (let ((state (apply constructor constructor-args)))
-      (create-entity state subsystems))))
+      (create-entity state))))
 
-(defmacro def-entity-constructor (constructor-name constructor &rest subsystems)
+(defmacro def-entity-constructor (constructor-name constructor)
   `(setf (symbol-function ',constructor-name)
-	 (entity-constructor ,constructor ',subsystems)))
+	 (entity-constructor ,constructor)))

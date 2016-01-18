@@ -7,12 +7,18 @@
 	 :input-fn #'player-input
 	 :draw-fn #'player-and-gun-drawing))
 
+(def-entity-constructor create-default-player #'make-default-player)
+
+(defparameter *player-subsystems*
+  '(:timers :input :physics :stage-collision :drawable))
+
 (defun make-default-player (hud projectile-groups damage-numbers gun-exps
 			    active-systems)
   (let ((id (gen-entity-id)))
     (values
      (amerge
       (player-fns-alist)
+      (alist :subsystems *player-subsystems*)
       (alist :h-facing :left
 	     :gun-name-cycle (create-cycle *gun-names*)
 	     :health-amt 3
@@ -43,9 +49,6 @@
 	       :clamper-vy
 	       (clamper+- *terminal-speed*)))))
      id)))
-
-(def-entity-constructor create-default-player #'make-default-player
-  :timers :input :physics :stage-collision :drawable)
 
 (defparameter *player-walk-acc* 0.00083007812)
 (defparameter *player-max-speed-x* 0.15859375)

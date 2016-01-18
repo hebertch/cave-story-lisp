@@ -12,6 +12,10 @@
 					      (missile-projectile-pos p)))
 	 :stage-collision-fn #'missile-projectile-stage-collision))
 
+(def-entity-constructor create-missile-projectile #'make-default-missile-projectile)
+(defparameter *missile-projectile-subsystems*
+  '(:timers :physics :drawable :stage-collision :bullet))
+
 (defun make-default-missile-projectile 
     (lvl dir pos perp-offset-amt speed acc &optional oscillate?)
   (let ((perp-dir
@@ -20,6 +24,7 @@
 	     :up)))
     (amerge
      (missile-projectile-fns-alist)
+     (alist :subsystems *missile-projectile-subsystems*)
      (alist :lvl lvl
 	    :dir dir
 	    :timers
@@ -58,10 +63,6 @@
 
 (defun missile-projectile-ai (p ticks)
   (aset p :dead? (member :life ticks)))
-
-(def-entity-constructor create-missile-projectile
-    #'make-default-missile-projectile
-  :timers :physics :drawable :stage-collision :bullet)
 
 (defun projectile-collision? (rect dir stage)
   (loop for (tile-pos tile-type) in (stage-get-colliding-tiles stage rect)
@@ -173,9 +174,15 @@
 						 (physics-pos p)))
 	 :stage-collision-fn #'polar-star-projectile-stage-collision))
 
+(def-entity-constructor create-polar-star-projectile
+    #'make-default-polar-star-projectile)
+(defparameter *polar-star-projectile-subsystems*
+  '(:timers :physics :drawable :bullet :stage-collision))
+
 (defun make-default-polar-star-projectile (nozzle-pos dir lvl)
   (amerge
    (polar-star-projectile-fns-alist)
+   (alist :subsystems *polar-star-projectile-subsystems*)
    (alist :dir dir :lvl lvl
 	  :timers
 	  (alist :life
@@ -192,10 +199,6 @@
 		  dir 0.6 0))
 	  :sprite-rect
 	  (make-polar-star-projectile-sprite-rect lvl dir))))
-
-(def-entity-constructor create-polar-star-projectile
-    #'make-default-polar-star-projectile
-  :timers :physics :drawable :bullet :stage-collision)
 
 (defun polar-star-projectile-ai (p ticks)
   (declare (ignore ticks))

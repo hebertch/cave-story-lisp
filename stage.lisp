@@ -1,7 +1,9 @@
 (in-package :cave-story)
 
+(defparameter *stage-subsystems* '(:drawable))
+
 (defun create-stage! (data)
-  (create-entity data '(:drawable)))
+  (create-entity data))
 
 (defun basic-stage ()
   "Just a toy stage for debugging."
@@ -45,6 +47,7 @@
 (defun make-stage (stage-data)
   (amerge
    (stage-fns-alist)
+   (alist :subsystems *stage-subsystems*)
    (alist :data stage-data
 	  :id (gen-entity-id))))
 

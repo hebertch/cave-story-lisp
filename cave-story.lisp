@@ -191,9 +191,13 @@ This can be abused with the machine gun in TAS."
 	 :pickup-kill-fn #'dorito-pickup-kill
 	 :pickup-data-fn #'dorito-pickup-data))
 
+(def-entity-constructor create-dorito #'make-default-dorito)
+(defparameter *dorito-subsystems*
+  '(:timers :physics :stage-collision :drawable :pickup))
 (defun make-default-dorito (pos vel size)
   (append
    (dorito-fns-alist)
+   (alist :subsystems *dorito-subsystems*)
    (alist :timers
 	  (alist :life
 		 (create-expiring-timer (s->ms 8)
@@ -214,9 +218,6 @@ This can be abused with the machine gun in TAS."
 			      :clamper-vy
 			      (clamper+- *terminal-speed*)))
 	  :size size)))
-
-(def-entity-constructor create-dorito #'make-default-dorito
-  :timers :physics :stage-collision :drawable :pickup)
 
 (defun dorito-ai (d ticks)
   (declare (ignore ticks))
@@ -337,16 +338,19 @@ This can be abused with the machine gun in TAS."
 (defun single-loop-sprite-fns-alist ()
   (alist :ai-fn #'single-loop-sprite-ai))
 
+(def-entity-constructor create-single-loop-sprite #'make-default-single-loop-sprite)
+
+(defparameter *single-loop-sprite-subsystems*
+  '(:timers))
+
 (defun make-default-single-loop-sprite (fps seq sheet-key tile-y layer)
   (amerge
    (single-loop-sprite-fns-alist)
+   (alist :subsystems *single-loop-sprite-subsystems*)
    (alist :timers (alist :cycle (create-timed-cycle fps seq))
 	  :sheet-key sheet-key
 	  :layer layer
 	  :tile-y tile-y)))
-
-(def-entity-constructor create-single-loop-sprite #'make-default-single-loop-sprite
-  :timers)
 
 (defun single-loop-sprite-drawing (s pos)
   (unless (aval s :dead?)
@@ -374,20 +378,21 @@ This can be abused with the machine gun in TAS."
 	   (declare (ignore ticks))
 	   (aset p :dead? (aval (estate (aval p :single-loop-sprite)) :dead?)))))
 
+;; NOTE: This (ai/timers) is a kludge to make it so particle can set its
+;; dead? flag based on single-loop-sprite.
+(defparameter *particle-subsystems* '(:drawable :timers :ai))
+(def-entity-constructor create-particle #'make-default-particle)
+
 (defun make-default-particle (&key seq fps sheet-key tile-y pos)
   (amerge
    (particle-fns-alist)
+   (alist :subsystems *particle-subsystems*)
    (alist :single-loop-sprite
 	  (create-single-loop-sprite fps seq
 				     sheet-key
 				     tile-y
 				     :particle)
 	  :pos pos)))
-
-;; NOTE: This (ai/timers) is a kludge to make it so particle can set its
-;; dead? flag based on single-loop-sprite.
-(def-entity-constructor create-particle #'make-default-particle
-  :drawable :timers :ai)
 
 (defun particle-drawing (p)
   (let ((sp (estate (aval p :single-loop-sprite))))
@@ -461,9 +466,13 @@ This can be abused with the machine gun in TAS."
   (alist :draw-fn #'floating-number-drawing
 	 :ai-fn #'floating-number-ai))
 
+(def-entity-constructor create-floating-number #'make-default-floating-number)
+(defparameter *floating-number-subsystems*
+  '(:timers :drawable :physics))
 (defun make-default-floating-number (entity amt)
   (amerge
    (floating-number-fns-alist)
+   (alist :subsystems *floating-number-subsystems*)
    (alist :entity entity
 	  :amt amt
 	  :timers
@@ -474,9 +483,6 @@ This can be abused with the machine gun in TAS."
 	   :offset (make-offset-motion (zero-v)
 				       :up
 				       (/ (tiles 1/30) *frame-time*))))))
-
-(def-entity-constructor create-floating-number #'make-default-floating-number
-  :timers :drawable :physics)
 
 (defun floating-number-drawing (fn)
   (number-drawing (+v (origin (estate (aval fn :entity)))
@@ -646,21 +652,20 @@ This can be abused with the machine gun in TAS."
 
 (defun hud-fns-alist ()
   (alist :draw-fn #'hud-drawing))
-(defun make-default-hud  (player gun-exps id)
-  (values
-   (amerge
-    (hud-fns-alist)
-    (alist :player player
-	   :gun-exps gun-exps
-	   :id id
-	   :timers
-	   (alist
-	    :exp-change (create-expiring-timer (s->ms 1))
-	    :health-change (create-expiring-timer (s->ms 1/2)))))
-   id))
 
-(def-entity-constructor create-hud #'make-default-hud
-  :timers :drawable)
+(def-entity-constructor create-hud #'make-default-hud)
+(defparameter *hud-subsystems* '(:timers :drawable))
+(defun make-default-hud  (player gun-exps id)
+  (amerge
+   (hud-fns-alist)
+   (alist :subsystems *hud-subsystems*)
+   (alist :player player
+	  :gun-exps gun-exps
+	  :id id
+	  :timers
+	  (alist
+	   :exp-change (create-expiring-timer (s->ms 1))
+	   :health-change (create-expiring-timer (s->ms 1/2))))))
 
 (defun hud-drawing (hud)
   (let ((bar-tile/2-w 5)
@@ -925,7 +930,7 @@ This can be abused with the machine gun in TAS."
 	:input (list :dialog)))
 
 (defun create-active-systems ()
-  (create-entity (make-active-systems) ()))
+  (create-entity (make-active-systems)))
 
 (defun damage-numbers-remove-dead (d)
   (aset d
@@ -947,7 +952,7 @@ This can be abused with the machine gun in TAS."
   (alist :id (gen-entity-id)))
 
 (defun create-damage-numbers ()
-  (create-entity (make-damage-numbers) ()))
+  (create-entity (make-damage-numbers)))
 
 (defun gun-exp-for (gun-exps gun-name)
   (aval (aval gun-exps :guns) gun-name))
@@ -966,7 +971,7 @@ This can be abused with the machine gun in TAS."
 	 :guns (loop for g across *gun-names* collecting (cons g 0))))
 
 (defun create-gun-exps ()
-  (create-entity (make-gun-exps) ()))
+  (create-entity (make-gun-exps)))
 
 (defun projectile-groups-remove-dead (g)
   (aset g
@@ -990,7 +995,7 @@ This can be abused with the machine gun in TAS."
   (alist :id (gen-entity-id)))
 
 (defun create-projectile-groups ()
-  (create-entity (make-projectile-groups) ()))
+  (create-entity (make-projectile-groups)))
 
 (defun update-damage-number-amt (damage-numbers e amt)
   (replace-entity-state
@@ -1116,9 +1121,15 @@ This can be abused with the machine gun in TAS."
 	 :damage-collision-amt-fn (constantly 1)
 	 :damageable-rect-fn #'physics-tile-rect))
 
+(def-entity-constructor create-bat #'make-default-bat)
+
+(defparameter *bat-subsystems*
+  '(:timers :damage-collision :damageable :drawable :physics))
+
 (defun make-default-bat (tile-x tile-y player)
   (amerge
    (bat-fns-alist)
+   (alist :subsystems *bat-subsystems*)
    (alist :physics
 	  (alist
 	   :wave (make-wave-motion
@@ -1133,10 +1144,6 @@ This can be abused with the machine gun in TAS."
 	   :anim-cycle (create-timed-cycle 14 #(0 2 1 2)))
 	  :health-amt 1
 	  :player player)))
-
-(def-entity-constructor create-bat #'make-default-bat
-  :timers :damage-collision :damageable :drawable
-  :physics)
 
 (defun bat-hit-react (b amt)
   (let ((physics (aset (aval b :physics)
@@ -1202,9 +1209,15 @@ This can be abused with the machine gun in TAS."
 			(aval (estate (aval p :single-loop-sprite))
 			      :dead?)))))
 
+(def-entity-constructor create-death-cloud-particle #'make-default-death-cloud-particle)
+
+(defparameter *death-cloud-particle-subsystems*
+  '(:drawable :physics :stage-collision :timers :ai))
+
 (defun make-default-death-cloud-particle (pos)
   (amerge
    (death-cloud-particle-fns-alist)
+   (alist :subsystems *death-cloud-particle-subsystems*)
    (alist :single-loop-sprite
 	  (create-single-loop-sprite
 	   15 (mapcar #'1+ (alexandria.0.dev:iota 7))
@@ -1220,9 +1233,6 @@ This can be abused with the machine gun in TAS."
 	    (clamper+- *terminal-speed*)
 	    :clamper-vy
 	    (clamper+- *terminal-speed*))))))
-
-(def-entity-constructor create-death-cloud-particle #'make-default-death-cloud-particle
-  :drawable :physics :stage-collision :timers :ai)
 
 (defun death-cloud-particle-drawing (d)
   (single-loop-sprite-drawing (estate (aval d :single-loop-sprite))
@@ -1294,19 +1304,20 @@ This can be abused with the machine gun in TAS."
 
 (defun make-default-critter (pos player damage-numbers)
   (let ((id (gen-entity-id)))
-    (values
-     (aset
-      (critter-fns-alist)
+    (amerge
+     (critter-fns-alist)
+     (alist :subsystems *critter-subsystems*)
+     (alist
       :physics (alist :stage (gravity-kin-2d :pos pos))
       :player player
       :health-amt 2
       :damage-numbers damage-numbers
-      :id id)
-     id)))
+      :id id))))
 
-(def-entity-constructor create-critter #'make-default-critter
-  :timers :drawable :physics :damageable
-  :damage-collision :dynamic-collision :stage-collision)
+(def-entity-constructor create-critter #'make-default-critter)
+(defparameter *critter-subsystems*
+  '(:timers :drawable :physics :damageable
+    :damage-collision :dynamic-collision :stage-collision))
 
 (defun origin-dist (a b)
   (dist (origin a) (origin b)))
@@ -1488,30 +1499,29 @@ This can be abused with the machine gun in TAS."
 	 :ai-fn #'elephant-ai
 	 :stage-collision-fn #'elephant-stage-collision))
 
-(defun make-default-elephant  (pos player camera damage-numbers)
-  (let ((id (gen-entity-id)))
-    (values
-     (amerge
-      (elephant-fns-alist)
-      (alist :physics
-	     (alist
-	      :stage
-	      (gravity-kin-2d :pos pos
-			      :vel (make-v (- *elephant-speed*) 0)))
-	     :timers
-	     (alist
-	      :anim-cycle (create-timed-cycle 12 #(0 2 4)))
-	     :health-amt 8
-	     :facing :left
-	     :damage-numbers damage-numbers
-	     :camera camera
-	     :player player
-	     :id id))
-     id)))
+(defparameter *elephant-subsystems*
+  '(:timers :drawable :physics :stage-collision
+    :damageable :damage-collision :dynamic-collision))
 
-(def-entity-constructor create-elephant #'make-default-elephant
-  :timers :drawable :physics :stage-collision
-  :damageable :damage-collision :dynamic-collision)
+(defun make-default-elephant  (pos player camera damage-numbers)
+  (amerge
+   (elephant-fns-alist)
+   (alist :subsystems *elephant-subsystems*)
+   (alist :physics
+	  (alist
+	   :stage
+	   (gravity-kin-2d :pos pos
+			   :vel (make-v (- *elephant-speed*) 0)))
+	  :timers
+	  (alist
+	   :anim-cycle (create-timed-cycle 12 #(0 2 4)))
+	  :health-amt 8
+	  :facing :left
+	  :damage-numbers damage-numbers
+	  :camera camera
+	  :player player)))
+
+(def-entity-constructor create-elephant #'make-default-elephant)
 
 (defparameter *elephant-dims* (make-v (tiles 2) (tiles 3/2)))
 (defun elephant-drawing (e)
