@@ -652,6 +652,7 @@ This can be abused with the machine gun in TAS."
     (hud-fns-alist)
     (alist :player player
 	   :gun-exps gun-exps
+	   :id id
 	   :timers
 	   (alist
 	    :exp-change (create-expiring-timer (s->ms 1))
