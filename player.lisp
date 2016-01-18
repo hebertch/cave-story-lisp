@@ -7,13 +7,11 @@
 	 :input-fn #'player-input
 	 :draw-fn #'player-and-gun-drawing))
 
-(def-entity-constructor create-default-player #'make-default-player)
-
 (defparameter *player-subsystems*
   '(:timers :input :physics :stage-collision :drawable))
 
-(defun make-default-player (hud projectile-groups damage-numbers gun-exps
-			    active-systems)
+(defun make-player (hud projectile-groups damage-numbers gun-exps
+		    active-systems)
   (let ((id (gen-entity-id)))
     (values
      (amerge

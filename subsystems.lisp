@@ -283,7 +283,3 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
   (lambda (&rest constructor-args)
     (let ((state (apply constructor constructor-args)))
       (create-entity state))))
-
-(defmacro def-entity-constructor (constructor-name constructor)
-  `(setf (symbol-function ',constructor-name)
-	 (entity-constructor ,constructor)))

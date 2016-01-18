@@ -191,10 +191,9 @@ This can be abused with the machine gun in TAS."
 	 :pickup-kill-fn #'dorito-pickup-kill
 	 :pickup-data-fn #'dorito-pickup-data))
 
-(def-entity-constructor create-dorito #'make-default-dorito)
 (defparameter *dorito-subsystems*
   '(:timers :physics :stage-collision :drawable :pickup))
-(defun make-default-dorito (pos vel size)
+(defun make-dorito (pos vel size)
   (append
    (dorito-fns-alist)
    (alist :subsystems *dorito-subsystems*)
@@ -338,12 +337,10 @@ This can be abused with the machine gun in TAS."
 (defun single-loop-sprite-fns-alist ()
   (alist :ai-fn #'single-loop-sprite-ai))
 
-(def-entity-constructor create-single-loop-sprite #'make-default-single-loop-sprite)
-
 (defparameter *single-loop-sprite-subsystems*
   '(:timers))
 
-(defun make-default-single-loop-sprite (fps seq sheet-key tile-y layer)
+(defun make-single-loop-sprite (fps seq sheet-key tile-y layer)
   (amerge
    (single-loop-sprite-fns-alist)
    (alist :subsystems *single-loop-sprite-subsystems*)
@@ -381,17 +378,13 @@ This can be abused with the machine gun in TAS."
 ;; NOTE: This (ai/timers) is a kludge to make it so particle can set its
 ;; dead? flag based on single-loop-sprite.
 (defparameter *particle-subsystems* '(:drawable :timers :ai))
-(def-entity-constructor create-particle #'make-default-particle)
-
-(defun make-default-particle (&key seq fps sheet-key tile-y pos)
+(defun make-particle (&key seq fps sheet-key tile-y pos)
   (amerge
    (particle-fns-alist)
    (alist :subsystems *particle-subsystems*)
    (alist :single-loop-sprite
-	  (create-single-loop-sprite fps seq
-				     sheet-key
-				     tile-y
-				     :particle)
+	  (create-entity
+	   (make-single-loop-sprite fps seq sheet-key tile-y :particle))
 	  :pos pos)))
 
 (defun particle-drawing (p)
@@ -407,18 +400,18 @@ This can be abused with the machine gun in TAS."
 			       :pos (aval p :pos))))))
 
 (defun make-projectile-star-particle (center-pos)
-  (create-particle :seq (alexandria:iota 4)
-		   :fps 14
-		   :sheet-key :caret
-		   :tile-y 3
-		   :pos (sub-v center-pos (tile-dims/2))))
+  (make-particle :seq (alexandria:iota 4)
+		 :fps 14
+		 :sheet-key :caret
+		 :tile-y 3
+		 :pos (sub-v center-pos (tile-dims/2))))
 
 (defun make-projectile-wall-particle (center-pos)
-  (create-particle :seq (mapcar (curry #'+ 11) (alexandria:iota 4))
-		   :fps 14
-		   :sheet-key :caret
-		   :tile-y 0
-		   :pos (sub-v center-pos (tile-dims/2))))
+  (make-particle :seq (mapcar (curry #'+ 11) (alexandria:iota 4))
+		 :fps 14
+		 :sheet-key :caret
+		 :tile-y 0
+		 :pos (sub-v center-pos (tile-dims/2))))
 
 (defun number-drawing
     (pos number &key (layer :hud) (centered? t) (show-sign? t))
@@ -466,10 +459,9 @@ This can be abused with the machine gun in TAS."
   (alist :draw-fn #'floating-number-drawing
 	 :ai-fn #'floating-number-ai))
 
-(def-entity-constructor create-floating-number #'make-default-floating-number)
 (defparameter *floating-number-subsystems*
   '(:timers :drawable :physics))
-(defun make-default-floating-number (entity amt)
+(defun make-floating-number (entity amt)
   (amerge
    (floating-number-fns-alist)
    (alist :subsystems *floating-number-subsystems*)
@@ -585,7 +577,7 @@ This can be abused with the machine gun in TAS."
   blink-time)
 
 #+nil
-(defun make-default-text-display (pos text)
+(defun make-text-display (pos text)
   (make-text-display :pos pos
 		     :text text
 		     :num-chars 0
@@ -594,8 +586,8 @@ This can be abused with the machine gun in TAS."
 		     :wait-for-input? t
 		     :blink-time 0))
 #+nil
-(def-entity-constructor create-text-display #'make-default-text-display
-  :timers :drawable)
+(defparameter *text-display-subsystems*
+  '(:timers :drawable))
 
 #+nil
 (defun text-display-ai (td ticks)
@@ -653,9 +645,8 @@ This can be abused with the machine gun in TAS."
 (defun hud-fns-alist ()
   (alist :draw-fn #'hud-drawing))
 
-(def-entity-constructor create-hud #'make-default-hud)
 (defparameter *hud-subsystems* '(:timers :drawable))
-(defun make-default-hud  (player gun-exps id)
+(defun make-hud  (player gun-exps id)
   (amerge
    (hud-fns-alist)
    (alist :subsystems *hud-subsystems*)
@@ -946,7 +937,7 @@ This can be abused with the machine gun in TAS."
 				(lambda (fn)
 				  (floating-number-add-amt fn (- amt))))
 	  d)
-	(aset d :pairs (acons e (create-floating-number e (- amt)) dns)))))
+	(aset d :pairs (acons e (create-entity (make-floating-number e (- amt))) dns)))))
 
 (defun make-damage-numbers ()
   (alist :id (gen-entity-id)))
@@ -1027,25 +1018,27 @@ This can be abused with the machine gun in TAS."
 	(gun-exps (create-gun-exps))
 	(active-systems (create-active-systems)))
     (create-stage! stage)
-    (let* ((player (create-default-player hud
-					  projectile-groups
-					  damage-numbers
-					  gun-exps
-					  active-systems))
-	   (camera (create-player-camera (v/2 *window-dims*) (zero-v) player)))
-      (create-hud player gun-exps hud)
+    (let* ((player (create-entity
+		    (make-player hud
+				 projectile-groups
+				 damage-numbers
+				 gun-exps
+				 active-systems)))
+	   (camera (create-entity (make-camera (v/2 *window-dims*) (zero-v) player))))
+      (create-entity (make-hud player gun-exps hud))
 
-      (create-critter (make-v (+ (tiles 14) (tiles 1/4))
-			      (tiles 6))
-		      player
-		      damage-numbers)
-      (create-elephant (make-v (tiles 7) (tiles 6)) player camera damage-numbers)
+      (create-entity (make-critter (make-v (+ (tiles 14) (tiles 1/4))
+					   (tiles 6))
+				   player
+				   damage-numbers))
+      (create-entity
+       (make-elephant (make-v (tiles 7) (tiles 6)) player camera damage-numbers))
       (dolist (x '(1 3 6 7))
-	(create-bat x 7 player))
-      (create-dorito (make-v (+ (tiles 14) (tiles 1/4))
-			     (tiles 6))
-		     (make-v 0 0)
-		     :medium)
+	(create-entity (make-bat x 7 player)))
+      (create-entity (make-dorito (make-v (+ (tiles 14) (tiles 1/4))
+					  (tiles 6))
+				  (make-v 0 0)
+				  :medium))
       (make-game :player player
 		 :camera camera
 		 :stage stage
@@ -1121,12 +1114,10 @@ This can be abused with the machine gun in TAS."
 	 :damage-collision-amt-fn (constantly 1)
 	 :damageable-rect-fn #'physics-tile-rect))
 
-(def-entity-constructor create-bat #'make-default-bat)
-
 (defparameter *bat-subsystems*
   '(:timers :damage-collision :damageable :drawable :physics))
 
-(defun make-default-bat (tile-x tile-y player)
+(defun make-bat (tile-x tile-y player)
   (amerge
    (bat-fns-alist)
    (alist :subsystems *bat-subsystems*)
@@ -1164,8 +1155,10 @@ This can be abused with the machine gun in TAS."
 	  (t
 	   (let ((origin (origin b)))
 	     (push-sound :enemy-explode)
-	     (create-dorito origin (polar-vec->v (rand-angle) 0.07) :small)
-	     (create-dorito origin (polar-vec->v (rand-angle) 0.07) :small)
+	     (create-entity
+	      (make-dorito origin (polar-vec->v (rand-angle) 0.07) :small))
+	     (create-entity
+	      (make-dorito origin (polar-vec->v (rand-angle) 0.07) :small))
 	     (create-death-cloud-particles 3 origin)
 
 	     (aset b :dead? t))))))
@@ -1209,19 +1202,18 @@ This can be abused with the machine gun in TAS."
 			(aval (estate (aval p :single-loop-sprite))
 			      :dead?)))))
 
-(def-entity-constructor create-death-cloud-particle #'make-default-death-cloud-particle)
-
 (defparameter *death-cloud-particle-subsystems*
   '(:drawable :physics :stage-collision :timers :ai))
 
-(defun make-default-death-cloud-particle (pos)
+(defun make-death-cloud-particle (pos)
   (amerge
    (death-cloud-particle-fns-alist)
    (alist :subsystems *death-cloud-particle-subsystems*)
    (alist :single-loop-sprite
-	  (create-single-loop-sprite
-	   15 (mapcar #'1+ (alexandria.0.dev:iota 7))
-	   :npc-sym 0 :particle)
+	  (create-entity
+	   (make-single-loop-sprite
+	    15 (mapcar #'1+ (alexandria.0.dev:iota 7))
+	    :npc-sym 0 :particle))
 	  :physics
 	  (alist
 	   :stage
@@ -1273,7 +1265,7 @@ This can be abused with the machine gun in TAS."
 
 (defun create-death-cloud-particles (num pos)
   (dotimes (i num)
-    (create-death-cloud-particle pos))
+    (create-entity (make-death-cloud-particle pos)))
   (values))
 
 (defparameter *critter-dynamic-collision-rect*
@@ -1302,7 +1294,7 @@ This can be abused with the machine gun in TAS."
 	 :origin-fn #'physics-tile-origin
 	 :inertia-vel-fn #'critter-inertia-vel))
 
-(defun make-default-critter (pos player damage-numbers)
+(defun make-critter (pos player damage-numbers)
   (let ((id (gen-entity-id)))
     (amerge
      (critter-fns-alist)
@@ -1314,7 +1306,6 @@ This can be abused with the machine gun in TAS."
       :damage-numbers damage-numbers
       :id id))))
 
-(def-entity-constructor create-critter #'make-default-critter)
 (defparameter *critter-subsystems*
   '(:timers :drawable :physics :damageable
     :damage-collision :dynamic-collision :stage-collision))
@@ -1376,8 +1367,10 @@ This can be abused with the machine gun in TAS."
 		:health-amt (- health-amt amt)))
 	(let ((origin (origin c)))
 	  (push-sound :enemy-explode)
-	  (create-dorito origin (polar-vec->v (rand-angle) 0.07) :small)
-	  (create-dorito origin (polar-vec->v (rand-angle) 0.07) :small)
+	  (create-entity
+	   (make-dorito origin (polar-vec->v (rand-angle) 0.07) :small))
+	  (create-entity
+	   (make-dorito origin (polar-vec->v (rand-angle) 0.07) :small))
 	  (create-death-cloud-particles 6 origin)
 	  (aset c :dead? t)))))
 
@@ -1503,7 +1496,7 @@ This can be abused with the machine gun in TAS."
   '(:timers :drawable :physics :stage-collision
     :damageable :damage-collision :dynamic-collision))
 
-(defun make-default-elephant  (pos player camera damage-numbers)
+(defun make-elephant  (pos player camera damage-numbers)
   (amerge
    (elephant-fns-alist)
    (alist :subsystems *elephant-subsystems*)
@@ -1520,8 +1513,6 @@ This can be abused with the machine gun in TAS."
 	  :damage-numbers damage-numbers
 	  :camera camera
 	  :player player)))
-
-(def-entity-constructor create-elephant #'make-default-elephant)
 
 (defparameter *elephant-dims* (make-v (tiles 2) (tiles 3/2)))
 (defun elephant-drawing (e)
@@ -1570,8 +1561,10 @@ This can be abused with the machine gun in TAS."
 	  (setq health-amt (- health-amt amt)))
 	(let ((origin (origin e)))
 	  (push-sound :enemy-explode)
-	  (create-dorito origin (polar-vec->v (rand-angle) 0.07) :small)
-	  (create-dorito origin (polar-vec->v (rand-angle) 0.07) :small)
+	  (create-entity
+	   (make-dorito origin (polar-vec->v (rand-angle) 0.07) :small))
+	  (create-entity
+	   (make-dorito origin (polar-vec->v (rand-angle) 0.07) :small))
 	  (create-death-cloud-particles amt origin)
 
 	  (setq dead? t)))

@@ -21,7 +21,7 @@
 
 (defparameter *camera-subsystems* '(:timers :physics))
 
-(defun make-default-camera (focus vel player)
+(defun make-camera (focus vel player)
   (amerge
    (camera-fns-alist)
    (alist :subsystems *camera-subsystems*)
@@ -34,8 +34,6 @@
       (camera-target-from-player (estate player))
       (player-vel (estate player))))
     :player player)))
-
-(def-entity-constructor create-player-camera #'make-default-camera)
 
 (defun make-shake ()
   (make-wave-motion :dir :left

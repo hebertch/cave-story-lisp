@@ -12,11 +12,10 @@
 					      (missile-projectile-pos p)))
 	 :stage-collision-fn #'missile-projectile-stage-collision))
 
-(def-entity-constructor create-missile-projectile #'make-default-missile-projectile)
 (defparameter *missile-projectile-subsystems*
   '(:timers :physics :drawable :stage-collision :bullet))
 
-(defun make-default-missile-projectile 
+(defun make-missile-projectile 
     (lvl dir pos perp-offset-amt speed acc &optional oscillate?)
   (let ((perp-dir
 	 (if (vertical? dir)
@@ -150,17 +149,19 @@
 		    ;; Subtract the size of the sprite-rect to center it.
 		    (tile-dims/2))))
     (if (< lvl 2)
-	(list (create-missile-projectile lvl dir pos 0 0.05 0.001))
+	(list (create-entity
+	       (make-missile-projectile lvl dir pos 0 0.05 0.001)))
 	(let ((speed 0.0005))
-	  (list (create-missile-projectile lvl dir pos 12 speed
-					   (rand-val-between 0.0005 0.001)
-					   t)
-		(create-missile-projectile lvl dir pos 8 speed
-					   (rand-val-between 0.001 0.0015)
-					   t)
-		(create-missile-projectile lvl dir pos 0 speed
-					   (rand-val-between 0.001 0.0015)
-					   t))))))
+	  (mapcar #'create-entity
+		  (list (make-missile-projectile lvl dir pos 12 speed
+						 (rand-val-between 0.0005 0.001)
+						 t)
+			(make-missile-projectile lvl dir pos 8 speed
+						 (rand-val-between 0.001 0.0015)
+						 t)
+			(make-missile-projectile lvl dir pos 0 speed
+						 (rand-val-between 0.001 0.0015)
+						 t)))))))
 
 (defun polar-star-projectile-fns-alist ()
   (alist :ai-fn #'polar-star-projectile-ai
@@ -174,12 +175,10 @@
 						 (physics-pos p)))
 	 :stage-collision-fn #'polar-star-projectile-stage-collision))
 
-(def-entity-constructor create-polar-star-projectile
-    #'make-default-polar-star-projectile)
 (defparameter *polar-star-projectile-subsystems*
   '(:timers :physics :drawable :bullet :stage-collision))
 
-(defun make-default-polar-star-projectile (nozzle-pos dir lvl)
+(defun make-polar-star-projectile (nozzle-pos dir lvl)
   (amerge
    (polar-star-projectile-fns-alist)
    (alist :subsystems *polar-star-projectile-subsystems*)
@@ -204,10 +203,11 @@
   (declare (ignore ticks))
   (cond ((not (timer-active? (aval (aval p :timers) :life)))
 	 (push-sound :dissipate)
-	 (make-projectile-star-particle
-	  (offset-in-dir-pos (+v (physics-pos p) (tile-dims/2))
-			     (tiles/2 1)
-			     (aval p :dir)))
+	 (create-entity
+	  (make-projectile-star-particle
+	   (offset-in-dir-pos (+v (physics-pos p) (tile-dims/2))
+			      (tiles/2 1)
+			      (aval p :dir))))
 
 	 (aset p :dead? t))
 	(t p)))
@@ -235,7 +235,7 @@
 
 (defun make-polar-star-projectile-group (lvl dir nozzle-pos)
   (push-sound :polar-star-shoot-3)
-  (list (create-polar-star-projectile nozzle-pos dir lvl)))
+  (list (create-entity (make-polar-star-projectile nozzle-pos dir lvl))))
 
 (defun make-polar-star-projectile-sprite-rect (lvl dir)
   (let ((lvl-tile-positions (mapcar
@@ -273,10 +273,11 @@
   (let ((dead?))
     (when (projectile-collision? rect dir stage)
       (push-sound :hit-wall)
-      (make-projectile-wall-particle
-       (offset-in-dir-pos (+v pos (tile-dims/2))
-			  (tiles/2 1)
-			  dir))
+      (create-entity
+       (make-projectile-wall-particle
+	(offset-in-dir-pos (+v pos (tile-dims/2))
+			   (tiles/2 1)
+			   dir)))
       (setq dead? t))
     dead?))
 
@@ -284,7 +285,7 @@
   (cons gun-name
 	(case gun-name
 	  (:polar-star
-	   (make-projectile-star-particle nozzle-pos)
+	   (create-entity (make-projectile-star-particle nozzle-pos))
 	   (make-polar-star-projectile-group lvl dir nozzle-pos))
 	  (:missile-launcher
 	   (make-missile-projectile-group lvl dir nozzle-pos)))))
