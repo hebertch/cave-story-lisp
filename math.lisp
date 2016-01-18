@@ -180,10 +180,11 @@
    :seq (cycle-seq c)
    :idx 0))
 
-(defstruct timed-cycle
-  timer
-  cycle
-  paused?)
+(defun make-timed-cycle (&key timer cycle paused?)
+  (alist :timer timer
+	 :cycle cycle
+	 :paused? paused?
+	 :update-fn #'update-timed-cycle))
 
 (defun create-timed-cycle (fps seq &optional start-paused?)
   (make-timed-cycle :timer (fps-make-timer fps)
@@ -192,40 +193,30 @@
 
 (defun update-timed-cycle (tc)
   (cond
-    ((timed-cycle-paused? tc) tc)
+    ((aval tc :paused?) tc)
     (t
-     (multiple-value-bind (timer tick?) (timer-update (timed-cycle-timer tc))
+     (multiple-value-bind (timer tick?) (timer-update (aval tc :timer))
        (values (make-timed-cycle
 		:timer timer
 		:cycle (if tick?
-			   (cycle-next (timed-cycle-cycle tc))
-			   (timed-cycle-cycle tc))
+			   (cycle-next (aval tc :cycle))
+			   (aval tc :cycle))
 		:paused? nil)
 	       tick?)))))
 
-(defmethod update-timer ((tc timed-cycle))
-  (update-timed-cycle tc))
-
 (defun timed-cycle-current (tc)
-  (cycle-current (timed-cycle-cycle tc)))
+  (cycle-current (aval tc :cycle)))
 
 (defun timed-cycle-pause (tc)
-  (make-timed-cycle
-   :timer (timed-cycle-timer tc)
-   :cycle (timed-cycle-cycle tc)
-   :paused? t))
+  (aset tc :paused? t))
 
 (defun timed-cycle-resume (tc)
-  (make-timed-cycle
-   :timer (timed-cycle-timer tc)
-   :cycle (timed-cycle-cycle tc)
-   :paused? nil))
+  (aset tc :paused? nil))
 
 (defun timed-cycle-restart (tc)
-  (make-timed-cycle
-   :timer (reset-timer (timed-cycle-timer tc))
-   :cycle (cycle-reset (timed-cycle-cycle tc))
-   :paused? (timed-cycle-paused? tc)))
+  (aset tc
+	:timer (reset-timer (aval tc :timer))
+	:cycle (cycle-reset (aval tc :cycle))))
 
 ;; Clamps
 

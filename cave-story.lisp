@@ -355,16 +355,15 @@ This can be abused with the machine gun in TAS."
 			 :sheet-key (aval s :sheet-key)
 			 :src-rect
 			 (tile-rect (tile-v (cycle-current
-					     (timed-cycle-cycle
-					      (aval (aval s :timers) :cycle)))
+					     (aval (aval (aval s :timers) :cycle) :cycle))
 					    (aval s :tile-y)))
 			 :pos pos)))
 
 (defun single-loop-sprite-ai (p ticks)
   (let ((dead? (and (find :cycle ticks)
 		    (zerop (cycle-idx
-			    (timed-cycle-cycle
-			     (aval (aval p :timers) :cycle)))))))
+			    (aval (aval (aval p :timers) :cycle)
+				  :cycle))))))
     (aset p :dead? dead?)))
 
 
@@ -392,7 +391,7 @@ This can be abused with the machine gun in TAS."
     (if (aval sp :dead?)
 	nil
 	(let ((cycle-current (cycle-current
-			      (timed-cycle-cycle (aval (aval sp :timers) :cycle)))))
+			      (aval (aval (aval sp :timers) :cycle) :cycle))))
 	  (make-sprite-drawing :layer :particle
 			       :sheet-key (aval sp :sheet-key)
 			       :src-rect
@@ -1586,8 +1585,8 @@ This can be abused with the machine gun in TAS."
     (cond
       ((timer-active? (aval (aval e :timers) :recover))
        (setq pos (+v pos (make-v 0 (tiles 1/4)))))
-      ((= 1 (cycle-idx (timed-cycle-cycle
-			(aval (aval e :timers) :anim-cycle))))
+      ((= 1 (cycle-idx (aval (aval (aval e :timers) :anim-cycle)
+			     :cycle)))
        (setq pos (+v pos (make-v 0 (tiles 1/8))))))
     (create-rect pos *elephant-dims*)))
 
@@ -1624,7 +1623,7 @@ This can be abused with the machine gun in TAS."
 
     (when (timer-active? (aval timers :rage))
       (when (and (member :anim-cycle ticks)
-		 (zerop (cycle-idx (timed-cycle-cycle (aval timers :anim-cycle)))))
+		 (zerop (cycle-idx (aval (aval timers :anim-cycle) :cycle))))
 	(push-sound :big-footstep)
 	(replace-entity-state (aval e :camera) (rcurry #'timed-camera-shake (s->ms 1/2)))
 	(create-death-cloud-particles 3
