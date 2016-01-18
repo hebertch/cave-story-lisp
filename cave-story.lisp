@@ -969,23 +969,28 @@ This can be abused with the machine gun in TAS."
   (create-entity (make-gun-exps) ()))
 
 (defun projectile-groups-remove-dead (g)
-  (remove-if #'null
-	     (loop for (name . g) in g
-		collecting
-		  (let ((new-g (remove-if
-				(lambda (x)
-				  (dead? (estate x))) g)))
-		    (when new-g
-		      (list* name new-g))))))
+  (aset g
+	:groups
+	(remove-if #'null
+		   (loop for (name . group) in (aval g :groups)
+		      collecting
+			(let ((new-g (remove-if (lambda (x)
+						  (dead? (estate x)))
+						group)))
+			  (when new-g
+			    (list* name new-g)))))))
 
 (defun projectile-groups-count (g gun-name)
-  (count gun-name g :key #'car))
+  (count gun-name (aval g :groups) :key #'car))
 
 (defun projectile-groups-add (g pg)
-  (push pg g))
+  (aset g :groups (cons pg (aval g :groups))))
 
-(defun create-projectile-groups (&key (id (gen-entity-id)))
-  (create-entity nil () :id id))
+(defun make-projectile-groups ()
+  (alist :id (gen-entity-id)))
+
+(defun create-projectile-groups ()
+  (create-entity (make-projectile-groups) ()))
 
 (defun update-damage-number-amt (damage-numbers e amt)
   (replace-entity-state
