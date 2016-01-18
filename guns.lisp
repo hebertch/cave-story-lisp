@@ -138,13 +138,13 @@
 
 (defun player-nozzle-pos (p)
   (let ((actual-v-facing (player-actual-v-facing p))
-	(k (cdr (assoc :stage (player-physics p)))))
-    (+v (nozzle-offset (player-h-facing p)
+	(k (cdr (assoc :stage (aval p :physics)))))
+    (+v (nozzle-offset (aval p :h-facing)
 		       actual-v-facing
 		       (player-current-gun-name p))
 	(gun-pos
 	 (aval k :pos)
-	 (player-h-facing p)
+	 (aval p :h-facing)
 	 actual-v-facing
 	 (player-walking? p)
 	 (player-walk-idx p)))))

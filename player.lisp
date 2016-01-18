@@ -1,56 +1,47 @@
 (in-package :cave-story)
 
-(defstruct (player (:include entity-state))
-  h-facing
-  v-facing
-  interacting?
-  ground-tile
-  jumping?
-  gun-name-cycle
-  health-amt
-  max-health-amt
-  hud
-  active-systems
-  ground-inertia-entity
-  damage-numbers
-  gun-exps
-  projectile-groups
-  acc-dir)
+(defun player-fns-alist ()
+  (alist :stage-collision-fn #'player-stage-collision
+	 :ai-fn #'player-ai
+	 :origin-fn #'physics-tile-origin
+	 :input-fn #'player-input
+	 :draw-fn #'player-and-gun-drawing))
 
 (defun make-default-player (hud projectile-groups damage-numbers gun-exps
 			    active-systems)
   (let ((id (gen-entity-id)))
     (values
-     (make-player :h-facing :left
-		  :gun-name-cycle
-		  (create-cycle *gun-names*)
-		  :health-amt 3
-		  :max-health-amt 3
-		  :damage-numbers damage-numbers
-		  :gun-exps gun-exps
-		  :projectile-groups projectile-groups
-		  :active-systems active-systems
-		  :hud hud
-		  :id id
-		  :timers
-		  (alist :walk-cycle
-			 (create-timed-cycle 12
-					     #(0 1 0
-					       2)
-					     t)
-			 :invincible
-			 (create-expiring-timer
-			  (s->ms 3)))
-		  :physics
-		  (list
-		   (cons :stage
-			 (alist
-			  :pos (scale-v *window-dims* 1/2)
-			  :vel (zero-v)
-			  :clamper-vx
-			  (clamper+- *player-max-speed-x*)
-			  :clamper-vy
-			  (clamper+- *terminal-speed*)))))
+     (amerge
+      (player-fns-alist)
+      (alist :h-facing :left
+	     :gun-name-cycle (create-cycle *gun-names*)
+	     :health-amt 3
+	     :max-health-amt 3
+	     :damage-numbers damage-numbers
+	     :gun-exps gun-exps
+	     :projectile-groups projectile-groups
+	     :active-systems active-systems
+	     :hud hud
+	     :id id
+	     :timers
+	     (alist :walk-cycle
+		    (create-timed-cycle 12
+					#(0 1 0
+					  2)
+					t)
+		    :invincible
+		    (create-expiring-timer
+		     (s->ms 3)))
+	     :physics
+	     (list
+	      (cons :stage
+		    (alist
+		     :pos (scale-v *window-dims* 1/2)
+		     :vel (zero-v)
+		     :clamper-vx
+		     (clamper+- *player-max-speed-x*)
+		     :clamper-vy
+		     (clamper+- *terminal-speed*))))))
      id)))
 
 (def-entity-constructor create-default-player #'make-default-player
@@ -100,7 +91,7 @@
    (* (if (player-on-ground? p)
 	  *player-walk-acc*
 	  *player-air-acc*)
-      (case (player-acc-dir p)
+      (case (aval p :acc-dir)
 	(:left -1)
 	(:right 1)
 	(t 0)))))
@@ -111,19 +102,19 @@
 (defun player-accelerator-x (p)
   (cond
     ((and (player-on-ground? p)
-	  (null (player-acc-dir p)))
+	  (null (aval p :acc-dir)))
      (player-friction-acc))
     (t (player-walk-acc p))))
 
 (defun player-accelerator-y (p kin-2d)
   (const-accelerator
    (if (and (minusp (y (aval kin-2d :vel)))
-	    (player-jumping? p))
+	    (aval p :jumping?))
        *player-jump-gravity-acc*
        *gravity-acc*)))
 
 (defun player-inertia-vel (p ground-inertia-entity-state)
-  (if (eq (player-ground-tile p) :dynamic)
+  (if (eq (aval p :ground-tile) :dynamic)
       (inertia-vel ground-inertia-entity-state)
       nil))
 
@@ -133,126 +124,93 @@
 		  (*v (aval kin-2d :vel) *debug-velocity-scale*))
 	      *magenta*)
 
-  (alist :pos (aval kin-2d :pos)
-	 :vel (aval kin-2d :vel)
-	 :accelerator-x
-	 (player-accelerator-x p)
-	 :accelerator-y
-	 (player-accelerator-y p kin-2d)
-	 :clamper-vx (aval kin-2d :clamper-vx)
-	 :clamper-vy (aval kin-2d :clamper-vy)
-	 :inertia-vel
-	 (player-inertia-vel p (estate (player-ground-inertia-entity p)))))
+  (aset kin-2d
+	:accelerator-x (player-accelerator-x p)
+	:accelerator-y (player-accelerator-y p kin-2d)
+	:inertia-vel
+	(player-inertia-vel p (estate (aval p :ground-inertia-entity)))))
 
 (defun apply-player-physics (p)
-  (aupdate (player-physics p)
+  (aupdate (aval p :physics)
 	   (lambda (kin-2d)
 	     (player-kin-2d-physics p kin-2d))
 	   :stage))
 
 (defun player-ai (p ticks)
   (when (and (find :walk-cycle ticks)
-	     (/= 0 (timed-cycle-current (aval (player-timers p) :walk-cycle))))
+	     (/= 0 (timed-cycle-current (aval (aval p :timers) :walk-cycle))))
     (push-sound :step))
-
-  (make-player
-   :physics (apply-player-physics p)
-   :timers (player-timers p)
-   :h-facing (player-h-facing p)
-   :v-facing (player-v-facing p)
-   :interacting? (player-interacting? p)
-   :ground-tile (player-ground-tile p)
-   :jumping? (player-jumping? p)
-   :gun-name-cycle (player-gun-name-cycle p)
-   :health-amt (player-health-amt p)
-   :max-health-amt (player-max-health-amt p)
-   :id (player-id p)
-   :hud (player-hud p)
-   :active-systems (player-active-systems p)
-   :ground-inertia-entity (player-ground-inertia-entity p)
-   :damage-numbers (player-damage-numbers p)
-   :gun-exps (player-gun-exps p)
-   :projectile-groups (player-projectile-groups p)
-   :acc-dir (player-acc-dir p)))
-
-(defmethod ai ((p player) ticks)
-  (player-ai p ticks))
+  (aset p :physics (apply-player-physics p)))
 
 (defun player-fire-gun! (p)
   (let ((gun-name (player-current-gun-name p)))
     (let ((num-projectile-groups
-	   (projectile-groups-count (estate (player-projectile-groups p))
+	   (projectile-groups-count (estate (aval p :projectile-groups))
 				    gun-name))
 	  (nozzle-pos (player-nozzle-pos p))
 	  (dir (if (player-actual-v-facing p)
 		   (player-actual-v-facing p)
-		   (player-h-facing p)))
-	  (lvl (gun-level (gun-exp-for (estate (player-gun-exps p)) gun-name)
+		   (aval p :h-facing)))
+	  (lvl (gun-level (gun-exp-for (estate (aval p :gun-exps)) gun-name)
 			  (cdr (assoc gun-name *gun-level-exps*))))
 	  (max-projectiles (cdr (assoc gun-name *max-projectile-groups*))))
       (unless (null max-projectiles)
 	(when (< num-projectile-groups max-projectiles)
 	  (replace-entity-state
-	   (player-projectile-groups p)
+	   (aval p :projectile-groups)
 	   (rcurry #'projectile-groups-add
 		   (make-projectile-group gun-name lvl dir nozzle-pos)))))))
   (values))
 
+(defun player-short-hop-physics (kin-2d)
+  (aset kin-2d
+	:vel
+	(make-v (x (aval kin-2d :vel))
+		(min (y (aval kin-2d :vel))
+		     (- *player-hop-speed*)))))
+
 (defun player-take-damage (p dmg-amt)
-  (let ((p (copy-player p)))
-    (unless (timer-active? (aval (player-timers p) :invincible))
+  (if (not (timer-active? (aval (aval p :timers) :invincible)))
       (cond
-	((>= (abs dmg-amt) (player-health-amt p))
+	((>= (abs dmg-amt) (aval p :health-amt))
 	 (push-sound :player-die)
 	 (stop-music)
-	 (estate-set (player-active-systems p)
+	 (estate-set (aval p :active-systems)
 		     (active-systems-switch-to-dialog))
 
-	 (setf (player-health-amt p) 0)
-	 (setf (player-dead? p) t)
-	 (let ((*entity-system-type* :dialog))
-	   #+nil
-	   (create-callback-timer
-	    (s->ms 1/2)
-	    (create-game-over-event))))
+	 (aset p
+	       :health-amt 0
+	       :dead? t))
 	(t
-	 (setf (player-timers p)
-	       (aupdate (player-timers p) #'reset-timer :invincible))
-	 (setf (player-ground-tile p) nil)
 	 (push-sound :hurt)
-	 (replace-entity-state (player-hud p) #'hud-health-changed)
-	 (setf (player-health-amt p) (- (player-health-amt p) dmg-amt))
+	 (replace-entity-state (aval p :hud) #'hud-health-changed)
 	 (replace-entity-state
-	  (player-gun-exps p)
+	  (aval p :gun-exps)
 	  (lambda (g)
 	    (incr-gun-exp
 	     g
 	     (player-current-gun-name p)
 	     (- (* 2 dmg-amt)))))
-	 (update-damage-number-amt (player-damage-numbers p)
-				   (player-id p)
-				   dmg-amt)
-	 (setf (player-physics p)
-	       (aupdate
-		(player-physics p)
-		(lambda (kin-2d)
-		  (aset kin-2d
-			:vel
-			(make-v (x (aval kin-2d :vel))
-				(min (y (aval kin-2d :vel))
-				     (- *player-hop-speed*)))))
-		:stage)))))
-    p))
 
-(defmethod origin ((p player))
-  (physics-tile-origin p))
+	 (update-damage-number-amt (aval p :damage-numbers)
+				   (aval p :id)
+				   dmg-amt)
+	 (aset p
+	       :timers (aupdate (aval p :timers) #'reset-timer :invincible)
+	       :ground-tile nil
+	       :health-amt (- (aval p :health-amt) dmg-amt)
+	       :physics
+	       (aupdate (aval p :physics)
+			#'player-short-hop-physics
+			:stage))))
+      p))
 
 (defun player-gun-exp! (p amt)
   (replace-entity-state
-   (player-gun-exps p)
+   (aval p :gun-exps)
    (lambda (g)
      (incr-gun-exp g (player-current-gun-name p) amt)))
-  (replace-entity-state (player-hud p) #'hud-exp-changed)
+  (replace-entity-state (aval p :hud) #'hud-exp-changed)
   (values))
 
 (defun char-sprite-pos (h-facing v-facing interacting? walk-idx)
@@ -271,21 +229,21 @@
 	  (tile-v x y)))))
 
 (defun player-on-ground? (p)
-  (player-ground-tile p))
+  (aval p :ground-tile))
 
 (defun player-actual-v-facing (p)
   "The player cannot actually face down when on the ground."
-  (let ((v-facing (player-v-facing p))
+  (let ((v-facing (aval p :v-facing))
 	(on-ground? (player-on-ground? p)))
     (if (and on-ground? (eq v-facing :down))
 	nil
 	v-facing)))
 
 (defun player-walk-idx (player)
-  (timed-cycle-current (aval (player-timers player) :walk-cycle)))
+  (timed-cycle-current (aval (aval player :timers) :walk-cycle)))
 
 (defun player-walking? (p)
-  (and (player-acc-dir p) (player-on-ground? p)))
+  (and (aval p :acc-dir) (player-on-ground? p)))
 
 (defun player-sprite-rect
     (h-facing actual-v-facing interacting? walking? walk-idx vel-y)
@@ -300,46 +258,46 @@
 		((minusp vel-y) 2)
 		(t 0)))))
 
-(defun player-jump (p)
-  (let ((p (copy-structure p)))
-    (unless (player-jumping? p)
-      (when (player-on-ground? p)
-	(setf (player-physics p)
-	      (aupdate
-	       (player-physics p)
-	       (lambda (kin-2d)
-		 (setf (cdr (assoc :vel kin-2d))
-		       (+v (aval kin-2d :vel)
-			   (make-v 0 (- *player-jump-speed*))))
-		 kin-2d)
-	       :stage))
+(defun player-jump-physics (kin-2d)
+  (aset kin-2d
+	:vel
+	(+v (aval kin-2d :vel)
+	    (make-v 0 (- *player-jump-speed*)))))
 
-	(push-sound :jump))
-      (setf (player-interacting? p) nil
-	    (player-ground-tile p) nil)
-      (setf (player-timers p)
-	    (aupdate (player-timers p) #'timed-cycle-pause :walk-cycle))
-      (setf (player-jumping? p) t))
-    p))
+(defun player-jump (p)
+  (cond ((not (aval p :jumping?))
+	 (amerge
+	  (when (player-on-ground? p)
+	    (push-sound :jump)
+
+	    (alist :physics
+		   (aupdate (aval p :physics)
+			    #'player-jump-physics
+			    :stage)
+		   :interacting? nil
+		   :ground-tile nil
+		   :timers (aupdate (aval p :timers) #'timed-cycle-pause :walk-cycle)))
+
+	  (alist :jumping? t)
+	  p))
+	(t p)))
 
 (defun player-move (p dir)
   "Moves the player in a horizontal direction."
-  (let ((p (copy-structure p)))
+  (let ((timers (aval p :timers)))
     (when (player-on-ground? p)
-      (setf (player-timers p)
-	    (aupdate (player-timers p)
-		     #'timed-cycle-resume
-		     :walk-cycle))
-      (when (null (player-acc-dir p))
-	(setf (player-timers p)
-	      (aupdate (player-timers p)
-		       #'timed-cycle-restart
-		       :walk-cycle))))
-
-    (setf (player-interacting? p) nil)
-    (setf (player-acc-dir p) dir
-	  (player-h-facing p) dir)
-    p))
+      (setq timers (aupdate timers
+			    #'timed-cycle-resume
+			    :walk-cycle))
+      (when (null (aval p :acc-dir))
+	(setq timers (aupdate timers
+			      #'timed-cycle-restart
+			      :walk-cycle))))
+    (aset p
+	  :timers timers
+	  :interacting? nil
+	  :acc-dir dir
+	  :h-facing dir)))
 
 (defun player-input (p input)
   (let ((left?  (or (key-held? input :left)
@@ -349,27 +307,28 @@
 	(down?  (or (key-held? input :down)
 		    (eq :positive (input-joy-axis-y input))))
 	(up?    (or (key-held? input :up)
-		    (eq :negative (input-joy-axis-y input))))
-	(p (copy-player p)))
+		    (eq :negative (input-joy-axis-y input)))))
 
     (let* ((on-ground? (player-on-ground? p))
 	   (walking? (player-walking? p)))
       (cond
 	;; Look Up/Down or Interact
 	((and up? (not down?))
-	 (setf (player-interacting? p) nil)
-	 (setf (player-v-facing p) :up))
+	 (setq p (aset p
+		       :interacting? nil
+		       :v-facing :up)))
 
 	((and down? (not up?))
-	 (unless (eq (player-v-facing p) :down)
-	   (setf (player-v-facing p) :down)
-	   (setf  (player-timers p)
-		  (aupdate (player-timers p)
-			   #'timed-cycle-pause
-			   :walk-cycle))
-	   (setf (player-interacting? p) on-ground?)))
+	 (unless (eq (aval p :v-facing) :down)
+	   (setq p (aset p
+			 :v-facing :down
+			 :timers
+			 (aupdate (aval p :timers)
+				  #'timed-cycle-pause
+				  :walk-cycle)
+			 :interacting? on-ground?))))
 
-	(t (setf (player-v-facing p) nil)))
+	(t (setq p (aset p :v-facing nil))))
 
       (cond
 	;; Walk/Look based on horizontal direction
@@ -381,37 +340,33 @@
 
 	(t
 	 (when walking?
-	   (setf (player-timers p)
-		 (aupdate (player-timers p)
-			  #'timed-cycle-pause
-			  :walk-cycle))
+	   (setq p (aset p
+			 :timers
+			 (aupdate (aval p :timers)
+				  #'timed-cycle-pause
+				  :walk-cycle)))
 	   (push-sound :step))
-	 (setf (player-acc-dir p) nil)))
+	 (setq p (aset p :acc-dir nil))))
 
       (if (or (key-held? input :z) (joy-held? input :a))
 	  (setq p (player-jump p))
-	  (setf (player-jumping? p) nil)))
+	  (setq p (aset p :jumping? nil))))
 
     (when (or (key-pressed? input :a) (joy-pressed? input :y))
-      (setf (player-gun-name-cycle p) (cycle-previous
-				       (player-gun-name-cycle p))))
+      (setq p (aset :gun-name-cycle (cycle-previous (aval p :gun-name-cycle)))))
 
     (when (or (key-pressed? input :s) (joy-pressed? input :x))
-      (setf (player-gun-name-cycle p) (cycle-next
-				       (player-gun-name-cycle p))))
+      (setq p (aset :gun-name-cycle (cycle-next (aval p :gun-name-cycle)))))
     p))
 
-(defmethod input ((p player) input)
-  (player-input p input))
 
 (defun player-stage-collision (p stage)
   (let* ((collision-rects *player-collision-rectangles-alist*)
-	 (p (copy-structure p))
-	 (physics (player-physics p))
+	 (physics (aval p :physics))
 	 (stage-physics (aval physics :stage))
 	 (data (alist :pos (aval stage-physics :pos)
 		      :vel (aval stage-physics :vel)
-		      :ground-tile (player-ground-tile p)
+		      :ground-tile (aval p :ground-tile)
 		      :new-ground-tile nil))
 	 (res (stage-collisions
 	       data stage collision-rects
@@ -437,60 +392,54 @@
 				(make-v
 				 (x (aval data :vel))
 				 (max (y (aval data :vel)) 0))))))
-	       (player-ground-tile p))))
-    (setf (player-physics p)
-	  (aset (player-physics p)
-		:stage
-		(aset
-		 stage-physics
-		 :pos (aval res :pos)
-		 :vel (aval res :vel))))
-
-    (setf (player-ground-tile p) (aval res :new-ground-tile))
-    (unless (player-ground-tile p)
-      (setf  (player-timers p)
-	     (aupdate (player-timers p) #'timed-cycle-pause :walk-cycle))
-      (setf (player-ground-tile p) nil))
-    p))
-
-(defmethod stage-collision ((p player) stage)
-  (player-stage-collision p stage))
+	       (aval p :ground-tile))))
+    (amerge
+     (alist
+      :physics
+      (aset (aval p :physics)
+	    :stage
+	    (aset stage-physics
+		  :pos (aval res :pos)
+		  :vel (aval res :vel)))
+      :ground-tile (aval res :new-ground-tile))
+     (unless (aval p :ground-tile)
+       (alist :timers
+	      (aupdate (aval p :timers) #'timed-cycle-pause :walk-cycle)
+	      :ground-tile nil))
+     p)))
 
 (defun player-drawing (p)
-  (let ((kin-2d (cdr (assoc :stage (player-physics p)))))
+  (let ((kin-2d (cdr (assoc :stage (aval p :physics)))))
     (make-sprite-drawing :layer :player
 			 :sheet-key :my-char
-			 :src-rect (player-sprite-rect (player-h-facing p)
+			 :src-rect (player-sprite-rect (aval p :h-facing)
 						       (player-actual-v-facing p)
-						       (player-interacting? p)
+						       (aval p :interacting?)
 						       (player-walking? p)
 						       (player-walk-idx p)
 						       (y (aval kin-2d :vel)))
 			 :pos (pixel-v (aval kin-2d :pos)))))
 
 (defun player-and-gun-drawing (p)
-  (let ((kin-2d (cdr (assoc :stage (player-physics p)))))
+  (let ((kin-2d (cdr (assoc :stage (aval p :physics)))))
     (unless
-	(and (timer-active? (aval (player-timers p) :invincible))
+	(and (timer-active? (aval (aval p :timers) :invincible))
 	     (plusp (chunk-timer-period
-		     (aval (player-timers p) :invincible) 50)))
+		     (aval (aval p :timers) :invincible) 50)))
       (list
        (player-drawing p)
        (player-gun-drawing (aval kin-2d :pos)
 			   (player-current-gun-name p)
-			   (player-h-facing p)
+			   (aval p :h-facing)
 			   (player-actual-v-facing p)
 			   (player-walking? p)
 			   (player-walk-idx p))))))
 
-(defmethod draw ((p player))
-  (player-and-gun-drawing p))
-
 (defun player-vel (p)
-  (aval (aval (player-physics p) :stage) :vel))
+  (aval (aval (aval p :physics) :stage) :vel))
 
 (defun player-damage-collision-rect (p)
   (rect-offset *player-damage-rect* (physics-pos p)))
 
 (defun player-current-gun-name (p)
-  (cycle-current (player-gun-name-cycle p)))
+  (cycle-current (aval p :gun-name-cycle)))

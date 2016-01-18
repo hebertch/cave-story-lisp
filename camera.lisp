@@ -5,8 +5,8 @@
 (defparameter *camera-max-speed* 0.15859374)
 
 (defun camera-target-from-player (player)
-  (let ((h-facing (player-h-facing player))
-	(v-facing (player-v-facing player))
+  (let ((h-facing (aval player :h-facing))
+	(v-facing (aval player :v-facing))
 	(pos (+v (physics-pos player)
 		 (tile-dims/2))))
 

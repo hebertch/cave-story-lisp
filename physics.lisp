@@ -117,17 +117,16 @@ new (values DELTA-POS VEL)."
 		     (aval m :accelerator-y)
 		     :clamper-vx (aval m :clamper-vx)
 		     :clamper-vy (aval m :clamper-vy))
-    (let ((m (copy-alist m))
-	  (pos (+v (aval m :pos) dpos)))
+    (let ((pos (+v (aval m :pos) dpos)))
       (when (aval m :inertia-vel)
 	(setq pos
 	      (+v pos
 		  (accelerate-2d (aval m :inertia-vel)
 				 (const-accelerator 0)
 				 (const-accelerator 0)))))
-      (setf (cdr (assoc :pos m)) pos)
-      (setf (cdr (assoc :vel m)) nvel)
-      m)))
+      (aset m
+	    :pos pos
+	    :vel nvel))))
 
 (defmethod motion-physics ((m list))
   (kin-2d-motion-physics m))

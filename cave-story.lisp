@@ -666,7 +666,7 @@ This can be abused with the machine gun in TAS."
 			  :pos (tile-v 1 2))
      drawings)
 
-    (let ((health (player-health-amt (player-state (aval hud :player)))))
+    (let ((health (aval (player-state (aval hud :player)) :health-amt)))
       (when (timer-active? (aval (aval hud :timers) :health-change))
 	(push
 	 (make-sprite-drawing
@@ -676,22 +676,23 @@ This can be abused with the machine gun in TAS."
 	  (create-rect-cmpts 0 (tiles/2 4)
 			     (floor (* (tiles/2 bar-tile/2-w)
 				       (/ (aval hud :last-health-amt)
-					  (player-max-health-amt
-					   (player-state (aval hud :player))))))
+					  (aval (player-state (aval hud :player))
+						:max-health-amt))))
 			     (tiles/2 1))
 	  :pos (tiles/2-v bar-tile/2-x 4))
 	 drawings))
       (push
-       (make-sprite-drawing :layer :hud-fg
-			    :sheet-key :text-box
-			    :src-rect
-			    (create-rect-cmpts 0 (tiles/2 3)
-					       (floor (* (tiles/2 bar-tile/2-w)
-							 (/ health
-							    (player-max-health-amt
-							     (player-state (aval hud :player))))))
-					       (tiles/2 1))
-			    :pos (tiles/2-v bar-tile/2-x 4))
+       (make-sprite-drawing
+	:layer :hud-fg
+	:sheet-key :text-box
+	:src-rect
+	(create-rect-cmpts 0 (tiles/2 3)
+			   (floor (* (tiles/2 bar-tile/2-w)
+				     (/ health
+					(aval (player-state (aval hud :player))
+					      :max-health-amt))))
+			   (tiles/2 1))
+	:pos (tiles/2-v bar-tile/2-x 4))
        drawings)
       (appendf drawings (hud-number-drawing 4 health)))
 
@@ -762,7 +763,7 @@ This can be abused with the machine gun in TAS."
 (defun hud-health-changed (hud)
   (aset hud
 	:timers (aupdate (aval hud :timers) #'reset-timer :health-change)
-	:last-health-amt (player-health-amt (player-state (aval hud :player)))))
+	:last-health-amt (aval (player-state (aval hud :player)) :health-amt)))
 
 (defun textbox-tile-drawing (src-pos pos)
   (let ((size (both-v (tiles/2 1))))
@@ -1349,41 +1350,46 @@ This can be abused with the machine gun in TAS."
 
 (defun dynamic-collision-enemy-react
     (pos origin id dynamic-collision-rect side player-collision-rect player-state)
-  (let* ((player-state (copy-structure player-state))
-	 (physics (player-physics player-state))
-	 (kin-2d (aval physics :stage)))
-    (setf (player-physics player-state)
-	  (aset
-	   physics
-	   :stage
-	   (let ((player-rect (rect-offset player-collision-rect
-					   (aval kin-2d :pos))))
-	     (case side
-	       (:bottom
-		(cond ((and (not (player-on-ground? player-state))
-			    (<= (y pos) (bottom player-rect) (+ (y origin))))
-		       (setf (player-ground-tile player-state) :dynamic)
-		       (setf (player-ground-inertia-entity player-state) id)
-
-		       (aset
-			kin-2d
-			:vel (zero-v :x (x (aval kin-2d :vel)))
-			:pos (-v
-			      (flush-rect-pos player-rect
-					      (y (rect-pos dynamic-collision-rect))
-					      :up)
-			      (rect-pos player-collision-rect))))
-		      (t kin-2d)))
-	       ((:left :right)
-		(let ((disp (- (x (aval kin-2d :pos)) (x pos))))
-		  (cond ((> (abs disp) (tiles 1/4))
+  (let* ((physics (aval player-state :physics))
+	 (kin-2d (aval physics :stage))
+	 (ground-tile (aval player-state :ground-tile))
+	 (ground-inertia-entity (aval player-state :ground-inertia-entity)))
+    (setq player-state
+	  (aset player-state
+		:physics
+		(aset
+		 physics
+		 :stage
+		 (let ((player-rect (rect-offset player-collision-rect
+						 (aval kin-2d :pos))))
+		   (case side
+		     (:bottom
+		      (cond
+			((and (not (player-on-ground? player-state))
+			      (<= (y pos) (bottom player-rect) (+ (y origin))))
+			 (setq ground-tile :dynamic
+			       ground-inertia-entity id)
 			 (aset
 			  kin-2d
-			  (make-v (* (/ *terminal-speed* 70) disp) (y (aval kin-2d :vel)))
-			  :vel))
-			(t kin-2d))))
-	       (t kin-2d)))))
-    player-state))
+			  :vel (zero-v :x (x (aval kin-2d :vel)))
+			  :pos (-v
+				(flush-rect-pos player-rect
+						(y (rect-pos dynamic-collision-rect))
+						:up)
+				(rect-pos player-collision-rect))))
+			(t kin-2d)))
+		     ((:left :right)
+		      (let ((disp (- (x (aval kin-2d :pos)) (x pos))))
+			(cond ((> (abs disp) (tiles 1/4))
+			       (aset
+				kin-2d
+				(make-v (* (/ *terminal-speed* 70) disp) (y (aval kin-2d :vel)))
+				:vel))
+			      (t kin-2d))))
+		     (t kin-2d))))))
+    (aset player-state
+	  :ground-tile ground-tile
+	  :ground-inertia-entity ground-inertia-entity)))
 
 (let ((collision-rects (rect->collision-rects
 			(centered-rect (tile-dims/2) (both-v (tiles 3/4))) 6)))
