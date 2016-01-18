@@ -221,7 +221,7 @@ This can be abused with the machine gun in TAS."
 (defun dorito-ai (d ticks)
   (cond ((timer-active? (aval (aval d :timers) :life))
 	 d)
-	(t (aset d t :dead?))))
+	(t (aset d :dead? t))))
 
 (defun dorito-pos (d)
   (physics-pos d))
@@ -278,35 +278,35 @@ This can be abused with the machine gun in TAS."
 	    (collision-lambda (data)
 	      (push-sound :dorito-bounce)
 	      (aset data
+		    :vel
 		    (set-y-v (aval data :vel)
-			     (- *dorito-bounce-speed*))
-		    :vel))
+			     (- *dorito-bounce-speed*))))
 	    :right
 	    (collision-lambda (data)
 	      (if (plusp (x (aval data :vel)))
-		  (aset data (reverse-x-v (aval data :vel)) :vel)
+		  (aset data :vel (reverse-x-v (aval data :vel)))
 		  data))
 	    :left
 	    (collision-lambda (data)
 	      (if (minusp (x (aval data :vel)))
-		  (aset data (reverse-x-v (aval data :vel)) :vel)
+		  (aset data :vel (reverse-x-v (aval data :vel)))
 		  data))
 	    :top
 	    (collision-lambda (data)
-	      (aset data (max-y-v (aval data :vel) 0) :vel))))))
-    (aset d (aset physics
-		  (amerge (alist :pos (aval res :pos)
-				 :vel (aval res :vel))
-			  stage-physics)
-		  :stage)
-	  :physics)))
+	      (aset data :vel (max-y-v (aval data :vel) 0)))))))
+    (aset d :physics
+	  (aset physics
+		:stage
+		(amerge (alist :pos (aval res :pos)
+			       :vel (aval res :vel))
+			stage-physics)))))
 
 (defun dorito-pickup-rect (d)
   (rect-offset (dorito-collision-rect (aval d :size)) (physics-pos d)))
 
 (defun dorito-pickup-kill (d)
   (push-sound :pickup)
-  (aset d t :dead?))
+  (aset d :dead? t))
 
 (defun dorito-pickup-data (d)
   (make-pickup :type :dorito
@@ -499,8 +499,8 @@ This can be abused with the machine gun in TAS."
 	    :dead? dead?
 	    :physics
 	    (aset (floating-number-physics fn)
-		  (make-offset-motion (zero-v :y (- (tiles 1))) :up 0)
-		  :offset)
+		  :offset
+		  (make-offset-motion (zero-v :y (- (tiles 1))) :up 0))
 	    :timers (floating-number-timers fn)
 	    :entity (floating-number-entity fn)
 	    :amt (floating-number-amt fn)))
@@ -632,7 +632,7 @@ This can be abused with the machine gun in TAS."
     ((not (timer-active? (aval (text-display-timers td) :text)))
      (push-sound :text-click)
      (make-text-display
-      :timers (aset (text-display-timers td) (create-expiring-timer *text-speed* t) :text)
+      :timers (aset (text-display-timers td) :text (create-expiring-timer *text-speed* t))
       :pos (text-display-pos td)
       :text (text-display-text td)
       :num-chars (+ 1 (text-display-num-chars td))
@@ -1134,10 +1134,10 @@ This can be abused with the machine gun in TAS."
 
 (defun bat-hit-react (b amt)
   (let ((physics (aset (bat-physics b)
-		       (make-wave-motion :dir :left :amp 2 :speed 0.1 :rads 0)
-		       :shake))
+		       :shake
+		       (make-wave-motion :dir :left :amp 2 :speed 0.1 :rads 0)))
 	(timers (aset (bat-timers b)
-		      (create-expiring-timer (s->ms 1/3) t) :shake))
+		      :shake (create-expiring-timer (s->ms 1/3) t)))
 	(damage-numbers (bat-damage-numbers b))
 	(id (bat-id b))
 	(health-amt (bat-health-amt b)))
@@ -1272,22 +1272,22 @@ This can be abused with the machine gun in TAS."
 	     (let ((stop-x
 		    (collision-lambda (data)
 		      (aset data
-			    (set-x-v (aval data :vel) 0)
-			    :vel)))
+			    :vel
+			    (set-x-v (aval data :vel) 0))))
 		   (stop-y
 		    (collision-lambda (data)
 		      (aset data
-			    (set-y-v (aval data :vel) 0)
-			    :vel))))
+			    :vel
+			    (set-y-v (aval data :vel) 0)))))
 	       (alist :bottom stop-y :left stop-x
 		      :right stop-x :top stop-y)))))
 
       (make-death-cloud-particle
        :physics (aset physics
+		      :stage
 		      (amerge (alist :pos (aval res :pos)
 				     :vel (aval res :vel))
-			      stage-physics)
-		      :stage)
+			      stage-physics))
        :single-loop-sprite (death-cloud-particle-single-loop-sprite d)))))
 
 (defmethod stage-collision ((d death-cloud-particle) stage)
@@ -1359,9 +1359,9 @@ This can be abused with the machine gun in TAS."
 	      (aupdate physics
 		       (lambda (kin-2d)
 			 (aset kin-2d
+			       :vel
 			       (make-v (* 0.04 (if (eq facing :left) -1 1))
-				       (- 0.35))
-			       :vel))
+				       (- 0.35))))
 		       :stage))))
     (amerge (alist :physics physics
 		   :facing (face-player (physics-pos c) (aval c :player)))
@@ -1392,10 +1392,10 @@ This can be abused with the machine gun in TAS."
 	  (amerge (alist
 		   :physics
 		   (aset (aval c :physics)
-			 (make-wave-motion :dir :left :amp 2 :speed 0.1 :rads 0)
-			 :shake)
+			 :shake
+			 (make-wave-motion :dir :left :amp 2 :speed 0.1 :rads 0))
 		   :timers
-		   (aset (aval c :timers) (create-expiring-timer (s->ms 1/3) t) :shake)
+		   (aset (aval c :timers) :shake (create-expiring-timer (s->ms 1/3) t))
 		   :health-amt (- health-amt amt))
 		  c))
 	(let ((origin (origin c)))
@@ -1416,6 +1416,7 @@ This can be abused with the machine gun in TAS."
     (setf (player-physics player-state)
 	  (aset
 	   physics
+	   :stage
 	   (let ((player-rect (rect-offset player-collision-rect
 					   (aval kin-2d :pos))))
 	     (case side
@@ -1443,8 +1444,7 @@ This can be abused with the machine gun in TAS."
 			  (make-v (* (/ *terminal-speed* 70) disp) (y (aval kin-2d :vel)))
 			  :vel))
 			(t kin-2d))))
-	       (t kin-2d)))
-	   :stage))
+	       (t kin-2d)))))
     player-state))
 
 (let ((collision-rects (rect->collision-rects
@@ -1468,19 +1468,19 @@ This can be abused with the machine gun in TAS."
 		 (unless last-tile
 		   (alist :timers
 			  (aset (aval data :timers)
-				(create-expiring-timer (s->ms 1/3) t)
-				:sleep)))
+				:sleep
+				(create-expiring-timer (s->ms 1/3) t))))
 		 (alist :ground-tile (aval data :tile-type)
 			:vel (zero-v))
 		 data))
 	      :top
 	      (collision-lambda (data)
-		(aset data (max-y-v (aval data :vel) 0) :vel))))))
+		(aset data :vel (max-y-v (aval data :vel) 0)))))))
       (amerge (alist :physics (aset physics
+				    :stage
 				    (amerge (alist :pos (aval res :pos)
 						   :vel (aval res :vel))
-					    stage-physics)
-				    :stage)
+					    stage-physics))
 		     :timers (aval res :timers)
 		     :ground-tile (aval res :ground-tile))
 	      c))))
@@ -1572,9 +1572,9 @@ This can be abused with the machine gun in TAS."
 	(dead? (elephant-dead? e)))
     (setq physics
 	  (aset physics
-		(make-wave-motion :dir :left :amp 2 :speed 0.1 :rads 0)
-		:shake))
-    (setq timers (aset timers (create-expiring-timer (s->ms 1/3) t) :shake))
+		:shake
+		(make-wave-motion :dir :left :amp 2 :speed 0.1 :rads 0)))
+    (setq timers (aset timers :shake (create-expiring-timer (s->ms 1/3) t)))
     (if (< amt (elephant-health-amt e))
 	(progn
 	  (update-damage-number-amt (elephant-damage-numbers e) (elephant-id e) amt)
@@ -1592,8 +1592,8 @@ This can be abused with the machine gun in TAS."
     (unless (timer-active? (aval timers :rage))
       (if (timer-active? (aval timers :recover))
 	  (when (< (timer-ms-remaining (aval timers :recover)) (s->ms 1/2))
-	    (setq timers (aset timers (create-expiring-timer (s->ms 3)) :rage)))
-	  (setq timers (aset timers (create-expiring-timer (s->ms 3/4) t) :recover))))
+	    (setq timers (aset timers :rage (create-expiring-timer (s->ms 3)))))
+	  (setq timers (aset timers :recover (create-expiring-timer (s->ms 3/4) t)))))
     
     (make-elephant :physics physics
 		   :timers timers
@@ -1659,11 +1659,11 @@ This can be abused with the machine gun in TAS."
     (when (member :recover ticks)
       (when (aval timers :rage)
 	(setq timers (aupdate timers #'reset-timer :rage))
-	(setq timers (aset timers (create-timed-cycle 14 #(8 10)) :anim-cycle))))
+	(setq timers (aset timers :anim-cycle (create-timed-cycle 14 #(8 10))))))
 
     (when (member :rage ticks)
       (setq timers (arem timers :rage))
-      (setq timers (aset timers (create-timed-cycle 12 #(0 2 4)) :anim-cycle)))
+      (setq timers (aset timers :anim-cycle (create-timed-cycle 12 #(0 2 4)))))
 
     (when (timer-active? (aval timers :rage))
       (when (and (member :anim-cycle ticks)
@@ -1694,8 +1694,8 @@ This can be abused with the machine gun in TAS."
 			      (setq x-vel *elephant-speed*)
 			      (setq x-vel (- *elephant-speed*)))))
 		       (aset kin-2d
-			     (make-v x-vel (y (aval kin-2d :vel)))
-			     :vel)))
+			     :vel
+			     (make-v x-vel (y (aval kin-2d :vel))))))
 		   :stage))
 
     (make-elephant :physics physics
@@ -1725,19 +1725,19 @@ This can be abused with the machine gun in TAS."
 	      :left
 	      (collision-lambda (data)
 		(if (eq (aval data :facing) :left)
-		    (aset data :right :facing)
+		    (aset data :facing :right)
 		    data))
 	      :right
 	      (collision-lambda (data)
 		(if (eq (aval data :facing) :right)
-		    (aset data :left :facing)
+		    (aset data :facing :left)
 		    data))))))
       (make-elephant
-       :physics (aset (elephant-physics e)
-		      (aset (aval (elephant-physics e) :stage)
-			    (aval stage-collision-result :pos)
-			    :pos)
-		      :stage)
+       :physics 
+       (aset (elephant-physics e)
+	     :stage
+	     (aset (aval (elephant-physics e) :stage)
+		   :pos (aval stage-collision-result :pos)))
        :timers (elephant-timers e)
        :dead? (elephant-dead? e)
        :health-amt (elephant-health-amt e)

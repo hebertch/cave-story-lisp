@@ -18,24 +18,24 @@
 				     (s->ms 3/2) t))
 			     :physics
 			     (let ((physics
-				    (aset nil
-					  (make-offset-motion
-					   (offset-in-dir-pos
-					    pos
-					    perp-offset-amt
-					    perp-dir)
-					   dir speed acc)
-					  :kin-2d)))
+				    (alist
+				     :kin-2d
+				     (make-offset-motion
+				      (offset-in-dir-pos
+				       pos
+				       perp-offset-amt
+				       perp-dir)
+				      dir speed acc))))
 			       (when oscillate?
 				 (setq physics
 				       (aset physics
+					     :wave-motion
 					     (make-wave-motion
 					      :dir perp-dir
 					      :amp
 					      *missile-projectile-amplitude*
 					      :speed
-					      *missile-radial-speed*)
-					     :wave-motion)))
+					      *missile-radial-speed*))))
 			       physics)
 			     :sprite-rect
 			     (tile-rect

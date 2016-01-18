@@ -278,7 +278,7 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
   (if (typep o 'list)
       (multiple-value-bind (timers ticks)
 	  (timer-set-update (aval o :timers))
-	(ai (aset o timers :timers) ticks))
+	(ai (aset o :timers timers) ticks))
       (let ((cpy (copy-structure o)))
 	(multiple-value-bind (timers ticks)
 	    (timer-set-update (entity-state-timers cpy))

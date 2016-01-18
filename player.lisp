@@ -237,10 +237,10 @@
 		(player-physics p)
 		(lambda (kin-2d)
 		  (aset kin-2d
+			:vel
 			(make-v (x (aval kin-2d :vel))
 				(min (y (aval kin-2d :vel))
-				     (- *player-hop-speed*)))
-			:vel))
+				     (- *player-hop-speed*)))))
 		:stage)))))
     p))
 
@@ -417,7 +417,7 @@
 	       data stage collision-rects
 	       (let ((stop-x
 		      (collision-lambda (data)
-			(aset data (zero-v :y (y (aval data :vel))) :vel))))
+			(aset data :vel (zero-v :y (y (aval data :vel)))))))
 		 (alist :bottom
 			(collision-lambda (data)
 			  (unless (aval data :ground-tile)
@@ -433,18 +433,18 @@
 			  (when (minusp (y (aval data :vel)))
 			    (push-sound :head-bump))
 			  (aset data
+				:vel
 				(make-v
 				 (x (aval data :vel))
-				 (max (y (aval data :vel)) 0))
-				:vel))))
+				 (max (y (aval data :vel)) 0))))))
 	       (player-ground-tile p))))
     (setf (player-physics p)
 	  (aset (player-physics p)
+		:stage
 		(amerge
 		 (alist :pos (aval res :pos)
 			:vel (aval res :vel))
-		 stage-physics)
-		:stage))
+		 stage-physics)))
 
     (setf (player-ground-tile p) (aval res :new-ground-tile))
     (unless (player-ground-tile p)

@@ -13,8 +13,10 @@
 (defun amerge (&rest alists)
   (anorm (apply #'append alists)))
 
-(defun aset (alist val key)
-  (anorm (acons key val alist)))
+(defun aset (alist &rest keys-and-vals)
+  (anorm (amerge
+	  (apply #'alist keys-and-vals)
+	  alist)))
 
 (defun arem (alist &rest keys)
   (remove-if (lambda (pair)

@@ -42,8 +42,8 @@
 
 (defun add-camera-shake ()
   (lambda (physics)
-    (aset (aset physics (make-shake) :shake-v)
-	  (make-shake) :shake-h)))
+    (aset (aset physics :shake-v (make-shake))
+	  :shake-h (make-shake))))
 
 (defun camera-ai (c ticks)
   (let ((physics (aupdate
@@ -72,16 +72,16 @@
   (make-camera :physics (funcall (add-camera-shake)
 				 (camera-physics c))
 	       :timers (aset (camera-timers c)
-			     (create-expiring-timer time t)
-			     :shake)
+			     :shake
+			     (create-expiring-timer time t))
 	       :player (camera-player c)))
-
-(defun camera-focus (c)
-  (target-kin-2d-pos (aval (camera-physics c) :target)))
 
 (defun stage-dims->camera-bounds (stage-dims)
   (create-rect (scale-v *window-dims* 1/2)
 	       (sub-v stage-dims *window-dims*)))
+
+(defun camera-focus (c)
+  (target-kin-2d-pos (aval (camera-physics c) :target)))
 
 (defun camera-pos (camera camera-bounds)
   (let ((pos (clamp-pos (camera-focus camera) camera-bounds))
