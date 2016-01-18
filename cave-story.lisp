@@ -193,6 +193,7 @@ This can be abused with the machine gun in TAS."
 
 (defun make-default-dorito (pos vel size)
   (append
+   (dorito-fns-alist)
    (alist :timers
 	  (alist :life
 		 (create-expiring-timer (s->ms 8)
@@ -212,8 +213,7 @@ This can be abused with the machine gun in TAS."
 			      (const-accelerator *gravity-acc*)
 			      :clamper-vy
 			      (clamper+- *terminal-speed*)))
-	  :size size)
-   (dorito-fns-alist)))
+	  :size size)))
 
 (def-entity-constructor create-dorito #'make-default-dorito
   :timers :physics :stage-collision :drawable :pickup)
