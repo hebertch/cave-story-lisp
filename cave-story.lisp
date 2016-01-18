@@ -219,9 +219,8 @@ This can be abused with the machine gun in TAS."
   :timers :physics :stage-collision :drawable :pickup)
 
 (defun dorito-ai (d ticks)
-  (cond ((timer-active? (aval (aval d :timers) :life))
-	 d)
-	(t (aset d :dead? t))))
+  (declare (ignore ticks))
+  (aset d :dead? (not (timer-active? (aval (aval d :timers) :life)))))
 
 (defun dorito-pos (d)
   (physics-pos d))
@@ -350,14 +349,15 @@ This can be abused with the machine gun in TAS."
   :timers)
 
 (defun single-loop-sprite-drawing (s pos)
-  (make-sprite-drawing :layer (aval s :layer)
-		       :sheet-key (aval s :sheet-key)
-		       :src-rect
-		       (tile-rect (tile-v (cycle-current
-					   (timed-cycle-cycle
-					    (aval (aval s :timers) :cycle)))
-					  (aval s :tile-y)))
-		       :pos pos))
+  (unless (aval s :dead?)
+    (make-sprite-drawing :layer (aval s :layer)
+			 :sheet-key (aval s :sheet-key)
+			 :src-rect
+			 (tile-rect (tile-v (cycle-current
+					     (timed-cycle-cycle
+					      (aval (aval s :timers) :cycle)))
+					    (aval s :tile-y)))
+			 :pos pos)))
 
 (defun single-loop-sprite-ai (p ticks)
   (let ((dead? (and (find :cycle ticks)
@@ -570,6 +570,7 @@ This can be abused with the machine gun in TAS."
   (setq *text-speed* 25))
 (defparameter *cursor-blink-time* 100)
 
+#+nil
 (defstruct (text-display (:include entity-state))
   pos
   text
@@ -577,6 +578,7 @@ This can be abused with the machine gun in TAS."
   wait-for-input?
   blink-time)
 
+#+nil
 (defun make-default-text-display (pos text)
   (make-text-display :pos pos
 		     :text text
@@ -585,9 +587,11 @@ This can be abused with the machine gun in TAS."
 		     (alist :text (create-expiring-timer *text-speed* t))
 		     :wait-for-input? t
 		     :blink-time 0))
+#+nil
 (def-entity-constructor create-text-display #'make-default-text-display
   :timers :drawable)
 
+#+nil
 (defun text-display-ai (td ticks)
   (cond
     ((= (text-display-num-chars td) (length (text-display-text td)))
@@ -622,9 +626,11 @@ This can be abused with the machine gun in TAS."
       :dead? (text-display-dead? td)))
     (t td)))
 
+#+nil
 (defmethod ai ((td text-display) ticks)
   (text-display-ai td ticks))
 
+#+nil
 (defun text-display-drawing (td)
   (list* (make-text-line-drawing
 	  :pos (text-display-pos td)
@@ -634,6 +640,7 @@ This can be abused with the machine gun in TAS."
 	  :layer :text)
 	 (draw-textbox 5 21 30 8)))
 
+#+nil
 (defmethod draw ((td text-display))
   (text-display-drawing td))
 
@@ -1165,47 +1172,47 @@ This can be abused with the machine gun in TAS."
   (make-v (* mag (cos angle))
 	  (* mag (sin angle))))
 
-(defstruct (death-cloud-particle (:include entity-state))
-  single-loop-sprite)
+(defun death-cloud-particle-fns-alist ()
+  (alist :draw-fn #'death-cloud-particle-drawing
+	 :stage-collision-fn #'death-cloud-particle-stage-collision
+	 :ai-fn (lambda (p ticks)
+		  (declare (ignore ticks))
+		  (aset p
+			:dead?
+			(aval (estate (aval p :single-loop-sprite))
+			      :dead?)))))
 
 (defun make-default-death-cloud-particle (pos)
-  (make-death-cloud-particle :single-loop-sprite
-			     (create-single-loop-sprite
-			      15
-			      (mapcar #'1+
-				      (alexandria.0.dev:iota
-				       7))
-			      :npc-sym 0 :particle)
-			     :physics
-			     (alist
-			      :stage
-			      (alist
-			       :pos (-v pos (tile-dims/2))
-			       :vel (polar-vec->v (rand-angle)
-						  (rand-val-between 0.1 0.3))
-			       :clamper-vx
-			       (clamper+- *terminal-speed*)
-			       :clamper-vy
-			       (clamper+- *terminal-speed*)))))
+  (amerge
+   (death-cloud-particle-fns-alist)
+   (alist :single-loop-sprite
+	  (create-single-loop-sprite
+	   15 (mapcar #'1+ (alexandria.0.dev:iota 7))
+	   :npc-sym 0 :particle)
+	  :physics
+	  (alist
+	   :stage
+	   (alist
+	    :pos (-v pos (tile-dims/2))
+	    :vel (polar-vec->v (rand-angle)
+			       (rand-val-between 0.1 0.3))
+	    :clamper-vx
+	    (clamper+- *terminal-speed*)
+	    :clamper-vy
+	    (clamper+- *terminal-speed*))))))
 
 (def-entity-constructor create-death-cloud-particle #'make-default-death-cloud-particle
-  :drawable :physics :stage-collision)
+  :drawable :physics :stage-collision :timers :ai)
 
 (defun death-cloud-particle-drawing (d)
-  (single-loop-sprite-drawing (estate (death-cloud-particle-single-loop-sprite d))
+  (single-loop-sprite-drawing (estate (aval d :single-loop-sprite))
 			      (physics-pos d)))
 
-(defmethod draw ((d death-cloud-particle))
-  (death-cloud-particle-drawing d))
-
-(defmethod dead? ((d death-cloud-particle))
-  (aval (estate (death-cloud-particle-single-loop-sprite d))
-	:dead?))
 
 (let ((collision-rects (rect->collision-rects
 			(centered-rect (tile-dims/2) (both-v (tiles 2/5))))))
   (defun death-cloud-particle-stage-collision (d stage)
-    (let* ((physics (death-cloud-particle-physics d))
+    (let* ((physics (aval d :physics))
 	   (stage-physics (aval physics :stage))
 	   (data (alist :pos (aval stage-physics :pos)
 			:vel (aval stage-physics :vel)))
@@ -1225,16 +1232,14 @@ This can be abused with the machine gun in TAS."
 	       (alist :bottom stop-y :left stop-x
 		      :right stop-x :top stop-y)))))
 
-      (make-death-cloud-particle
-       :physics (aset physics
-		      :stage
-		      (aset stage-physics
-			    :pos (aval res :pos)
-			    :vel (aval res :vel)))
-       :single-loop-sprite (death-cloud-particle-single-loop-sprite d)))))
+      (aset d
+	    :physics (aset physics
+			   :stage
+			   (aset stage-physics
+				 :pos (aval res :pos)
+				 :vel (aval res :vel)))))))
 
-(defmethod stage-collision ((d death-cloud-particle) stage)
-  (death-cloud-particle-stage-collision d stage))
+
 
 (defun create-death-cloud-particles (num pos)
   (dotimes (i num)

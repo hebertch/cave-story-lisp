@@ -237,8 +237,6 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 (defmethod dead? (obj)
   (declare (ignore obj))
   nil)
-(defmethod dead? ((obj entity-state))
-  (entity-state-dead? obj))
 
 (defun register-entity-subsystems (id entity)
   (let ((system-type (entity-system-type entity)))
@@ -264,35 +262,16 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
     (register-entity-subsystems id entity)
     (register-entity id entity)))
 
-(defstruct entity-state
-  (id (gen-entity-id))
-  dead?
-  physics
-  timers)
-
 (defun physics (o)
-  (if (typep o 'list)
-      (aupdate o #'motion-set-update :physics)
-      (let ((cpy (copy-structure o)))
-	(setf (entity-state-physics cpy) (motion-set-update
-					  (entity-state-physics cpy)))
-	cpy)))
+  (aupdate o #'motion-set-update :physics))
 
 (defun physics-pos (o)
-  (if (typep o 'list)
-      (motion-set-pos (aval o :physics))
-      (motion-set-pos (entity-state-physics o))))
+  (motion-set-pos (aval o :physics)))
 
 (defun timers (o)
-  (if (typep o 'list)
-      (multiple-value-bind (timers ticks)
-	  (timer-set-update (aval o :timers))
-	(ai (aset o :timers timers) ticks))
-      (let ((cpy (copy-structure o)))
-	(multiple-value-bind (timers ticks)
-	    (timer-set-update (entity-state-timers cpy))
-	  (setf (entity-state-timers cpy) timers)
-	  (ai cpy ticks)))))
+  (multiple-value-bind (timers ticks)
+      (timer-set-update (aval o :timers))
+    (ai (aset o :timers timers) ticks)))
 
 (defun entity-constructor (constructor subsystems)
   (lambda (&rest constructor-args)
