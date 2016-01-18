@@ -952,7 +952,7 @@ This can be abused with the machine gun in TAS."
 		collecting
 		  (let ((new-g (remove-if
 				(lambda (x)
-				  (entity-state-dead? (estate x))) g)))
+				  (dead? (estate x))) g)))
 		    (when new-g
 		      (list* name new-g))))))
 

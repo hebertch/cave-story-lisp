@@ -39,9 +39,15 @@
   (:method ((obj list) amt)
     (funcall (aval obj :damageable-hit-react-fn) obj amt)))
 
-(defgeneric bullet-rect (obj))
-(defgeneric bullet-hit-react (obj))
-(defgeneric bullet-damage-amt (obj))
+(defgeneric bullet-rect (obj)
+  (:method ((obj list))
+    (funcall (aval obj :bullet-rect-fn) obj)))
+(defgeneric bullet-hit-react (obj)
+  (:method ((obj list))
+    (funcall (aval obj :bullet-hit-react-fn) obj)))
+(defgeneric bullet-damage-amt (obj)
+  (:method ((obj list))
+    (funcall (aval obj :bullet-damage-amt-fn) obj)))
 
 (defgeneric pickup-rect (obj)
   (:method ((obj list))

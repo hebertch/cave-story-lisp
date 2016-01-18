@@ -1,9 +1,16 @@
 (in-package :cave-story)
 
-(defstruct (missile-projectile (:include entity-state))
-  lvl
-  dir
-  sprite-rect)
+(defun missile-projectile-fns-alist ()
+  (alist :ai-fn #'missile-projectile-ai
+	 :bullet-hit-react-fn #'missile-projectile-hit-react
+	 :bullet-damage-amt-fn #'missile-projectile-damage-amt
+	 :draw-fn #'missile-projectile-drawing
+	 :bullet-rect-fn
+	 (lambda (p)
+	   (missile-projectile-collision-rect (aval p :lvl)
+					      (aval p :dir)
+					      (missile-projectile-pos p)))
+	 :stage-collision-fn #'missile-projectile-stage-collision))
 
 (defun make-default-missile-projectile 
     (lvl dir pos perp-offset-amt speed acc &optional oscillate?)
@@ -11,40 +18,46 @@
 	 (if (vertical? dir)
 	     :left
 	     :up)))
-    (make-missile-projectile :lvl lvl :dir dir
-			     :timers
-			     (alist :life
-				    (create-expiring-timer
-				     (s->ms 3/2) t))
-			     :physics
-			     (let ((physics
-				    (alist
-				     :kin-2d
-				     (make-offset-motion
-				      (offset-in-dir-pos
-				       pos
-				       perp-offset-amt
-				       perp-dir)
-				      dir speed acc))))
-			       (when oscillate?
-				 (setq physics
-				       (aset physics
-					     :wave-motion
-					     (make-wave-motion
-					      :dir perp-dir
-					      :amp
-					      *missile-projectile-amplitude*
-					      :speed
-					      *missile-radial-speed*))))
-			       physics)
-			     :sprite-rect
-			     (tile-rect
-			      (tile-v
-			       (position dir
-					 '(:left :up
-					   :right
-					   :down))
-			       lvl)))))
+    (amerge
+     (missile-projectile-fns-alist)
+     (alist :lvl lvl
+	    :dir dir
+	    :timers
+	    (alist :life
+		   (create-expiring-timer
+		    (s->ms 3/2) t))
+	    :physics
+	    (let ((physics
+		   (alist
+		    :kin-2d
+		    (make-offset-motion
+		     (offset-in-dir-pos
+		      pos
+		      perp-offset-amt
+		      perp-dir)
+		     dir speed acc))))
+	      (when oscillate?
+		(setq physics
+		      (aset physics
+			    :wave-motion
+			    (make-wave-motion
+			     :dir perp-dir
+			     :amp
+			     *missile-projectile-amplitude*
+			     :speed
+			     *missile-radial-speed*))))
+	      physics)
+	    :sprite-rect
+	    (tile-rect
+	     (tile-v
+	      (position dir
+			'(:left :up
+			  :right
+			  :down))
+	      lvl))))))
+
+(defun missile-projectile-ai (p ticks)
+  (aset p :dead? (member :life ticks)))
 
 (def-entity-constructor create-missile-projectile
     #'make-default-missile-projectile
@@ -100,68 +113,36 @@
     dead?))
 
 (defun missile-projectile-pos (m)
-  (motion-set-pos (missile-projectile-physics m)))
+  (motion-set-pos (aval m :physics)))
 
 (defun missile-projectile-drawing (p)
   (make-sprite-drawing :layer :projectile
 		       :sheet-key :bullet
 		       :src-rect
-		       (missile-projectile-sprite-rect p)
+		       (aval p :sprite-rect)
 		       :pos (missile-projectile-pos p)))
 
-(defmethod draw ((p missile-projectile))
-  (missile-projectile-drawing p))
+
 
 (defun missile-projectile-stage-collision (p stage)
-  (let ((dir (missile-projectile-dir p))
-	(lvl (missile-projectile-lvl p)))
-    (make-missile-projectile
-     :physics (missile-projectile-physics p)
-     :timers (missile-projectile-timers p)
-     :lvl lvl
-     :dir dir
-     :sprite-rect (missile-projectile-sprite-rect p)
-     :dead?
-     (missile-projectile-collisions
-      (missile-projectile-collision-rect lvl dir
-					 (missile-projectile-pos
-					  p))
-      dir stage))))
+  (let ((dir (aval p :dir))
+	(lvl (aval p :lvl)))
+    (aset p
+	  :dead?
+	  (missile-projectile-collisions
+	   (missile-projectile-collision-rect lvl dir
+					      (missile-projectile-pos
+					       p))
+	   dir stage))))
 
-(defmethod stage-collision ((p missile-projectile) stage)
-  (missile-projectile-stage-collision p stage))
-
-(defmethod bullet-rect ((p missile-projectile))
-  (missile-projectile-collision-rect (missile-projectile-lvl p)
-				     (missile-projectile-dir p)
-				     (missile-projectile-pos p)))
 
 (defun missile-projectile-damage-amt (p)
+  (declare (ignore p))
   3)
 
-(defmethod bullet-damage-amt ((p missile-projectile))
-  (missile-projectile-damage-amt p))
-
 (defun missile-projectile-hit-react (p)
-  (make-missile-projectile
-   :physics (missile-projectile-physics p)
-   :timers (missile-projectile-timers p)
-   :lvl (missile-projectile-lvl p)
-   :dir (missile-projectile-dir p)
-   :sprite-rect (missile-projectile-sprite-rect p)
-   :dead? t))
+  (aset p :dead? t))
 
-(defmethod bullet-hit-react ((p missile-projectile))
-  (missile-projectile-hit-react p))
-
-(defun missile-projectile-ai (p ticks)
-  (cond ((member :life ticks)
-	 (make-missile-projectile
-	  :dead? t))
-	(t p)))
-
-(defmethod ai ((p missile-projectile) ticks)
-  (missile-projectile-ai p ticks))
 
 (defun make-missile-projectile-group (lvl dir nozzle-pos)
   (let ((pos (sub-v nozzle-pos
@@ -211,6 +192,7 @@
   :timers :physics :drawable :bullet :stage-collision)
 
 (defun polar-star-projectile-ai (p ticks)
+  (declare (ignore ticks))
   (cond ((not (timer-active? (aval (polar-star-projectile-timers p) :life)))
 	 (push-sound :dissipate)
 	 (make-projectile-star-particle
