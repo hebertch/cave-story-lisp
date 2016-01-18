@@ -335,46 +335,37 @@ This can be abused with the machine gun in TAS."
 		   (:medium (both-v (tiles 3/4)))
 		   (:large (both-v (tiles 1))))))
 
-(defstruct (single-loop-sprite (:include entity-state))
-  sheet-key
-  tile-y
-  layer)
+(defun single-loop-sprite-fns-alist ()
+  (alist :ai-fn #'single-loop-sprite-ai))
 
 (defun make-default-single-loop-sprite (fps seq sheet-key tile-y layer)
-  (make-single-loop-sprite :timers
-			   (alist :cycle (create-timed-cycle fps seq))
-			   :sheet-key sheet-key
-			   :layer layer
-			   :tile-y tile-y))
+  (amerge
+   (single-loop-sprite-fns-alist)
+   (alist :timers (alist :cycle (create-timed-cycle fps seq))
+	  :sheet-key sheet-key
+	  :layer layer
+	  :tile-y tile-y)))
 
 (def-entity-constructor create-single-loop-sprite #'make-default-single-loop-sprite
   :timers)
 
 (defun single-loop-sprite-drawing (s pos)
-  (make-sprite-drawing :layer (single-loop-sprite-layer s)
-		       :sheet-key (single-loop-sprite-sheet-key s)
+  (make-sprite-drawing :layer (aval s :layer)
+		       :sheet-key (aval s :sheet-key)
 		       :src-rect
 		       (tile-rect (tile-v (cycle-current
 					   (timed-cycle-cycle
-					    (aval (single-loop-sprite-timers s) :cycle)))
-					  (single-loop-sprite-tile-y s)))
+					    (aval (aval s :timers) :cycle)))
+					  (aval s :tile-y)))
 		       :pos pos))
 
 (defun single-loop-sprite-ai (p ticks)
-  (cond ((and (find :cycle ticks)
-	      (zerop (cycle-idx
-		      (timed-cycle-cycle (aval (single-loop-sprite-timers p)
-					       :cycle)))))
-	 (make-single-loop-sprite
-	  :timers (single-loop-sprite-timers p)
-	  :dead? t
-	  :sheet-key (single-loop-sprite-sheet-key p)
-	  :tile-y (single-loop-sprite-tile-y p)
-	  :layer (single-loop-sprite-layer p)))
-	(t p)))
+  (let ((dead? (and (find :cycle ticks)
+		    (zerop (cycle-idx
+			    (timed-cycle-cycle
+			     (aval (aval p :timers) :cycle)))))))
+    (aset p :dead? dead?)))
 
-(defmethod ai ((p single-loop-sprite) ticks)
-  (single-loop-sprite-ai p ticks))
 
 (defstruct (particle (:include entity-state))
   single-loop-sprite
@@ -394,19 +385,19 @@ This can be abused with the machine gun in TAS."
 (defun particle-drawing (p)
   (let ((sp (estate (particle-single-loop-sprite p))))
     (let ((cycle-current (cycle-current
-			  (timed-cycle-cycle (aval (single-loop-sprite-timers sp) :cycle)))))
+			  (timed-cycle-cycle (aval (aval sp :timers) :cycle)))))
       (make-sprite-drawing :layer :particle
-			   :sheet-key (single-loop-sprite-sheet-key sp)
+			   :sheet-key (aval sp :sheet-key)
 			   :src-rect
-			   (tile-rect (tile-v cycle-current (single-loop-sprite-tile-y sp)))
+			   (tile-rect (tile-v cycle-current (aval sp :tile-y)))
 			   :pos (particle-pos p)))))
 
 (defmethod draw ((p particle))
   (particle-drawing p))
 
 (defmethod dead? ((p particle))
-  (single-loop-sprite-dead?
-   (estate (particle-single-loop-sprite p))))
+  (aval (estate (particle-single-loop-sprite p))
+	:dead?))
 
 (defun make-projectile-star-particle (center-pos)
   (create-particle :seq (alexandria:iota 4)
@@ -1227,8 +1218,8 @@ This can be abused with the machine gun in TAS."
   (death-cloud-particle-drawing d))
 
 (defmethod dead? ((d death-cloud-particle))
-  (single-loop-sprite-dead?
-   (estate (death-cloud-particle-single-loop-sprite d))))
+  (aval (estate (death-cloud-particle-single-loop-sprite d))
+	:dead?))
 
 (let ((collision-rects (rect->collision-rects
 			(centered-rect (tile-dims/2) (both-v (tiles 2/5))))))
@@ -1533,7 +1524,6 @@ This can be abused with the machine gun in TAS."
 (defun elephant-origin (e)
   (+v (physics-pos e)
       (scale-v *elephant-dims* 1/2)))
-
 
 (defun elephant-inertia-vel (e)
   (scale-v (stage-vel (aval e :physics)) 1/3))
