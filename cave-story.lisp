@@ -1017,7 +1017,7 @@ This can be abused with the machine gun in TAS."
 (defun create-game ()
   (let ((damage-numbers (create-damage-numbers))
 	(projectile-groups (create-projectile-groups))
-	(stage (basic-stage))
+	(stage (make-stage (basic-stage)))
 	(hud (gen-entity-id))
 	(gun-exps (create-gun-exps))
 	(active-systems (create-active-systems)))

@@ -1,10 +1,7 @@
 (in-package :cave-story)
 
-(defmethod draw ((s array))
-  (stage-drawing s))
-
-(defun create-stage! (stage-data)
-  (create-entity stage-data '(:drawable)))
+(defun create-stage! (data)
+  (create-entity data '(:drawable)))
 
 (defun basic-stage ()
   "Just a toy stage for debugging."
@@ -42,26 +39,37 @@
 
     stage))
 
+(defun stage-fns-alist ()
+  (alist :draw-fn #'stage-drawing))
+
+(defun make-stage (stage-data)
+  (amerge
+   (stage-fns-alist)
+   (alist :data stage-data
+	  :id (gen-entity-id))))
+
 (defun stage-dims (stage)
-  (tile-v (array-dimension stage 1)
-	  (array-dimension stage 0)))
+  (let ((data (aval stage :data)))
+    (tile-v (array-dimension data 1)
+	    (array-dimension data 0))))
 
 (defun stage-get-colliding-tiles (stage rect)
   "Return all tiles colliding with rect. ((TILE-POS TILE-TYPE) ...)"
-  (let ((tile-tl (pos->tile-pos (rect-pos rect)))
-	(tile-br (pos->tile-pos (+v (rect-pos rect) (rect-size rect)))))
-    (loop named stage-loop
-       ;; For each tile colliding with rect
-       for row
-       from (max 0 (y tile-tl))
-       to (min (1- (array-dimension stage 0)) (y tile-br))
-       appending
-	 (loop
-	    for col
-	    from (max 0 (x tile-tl))
-	    to (min (1- (array-dimension stage 1)) (x tile-br))
-	    collecting
-	      (list (make-v col row) (car (aref stage row col)))))))
+  (let ((data (aval stage :data)))
+    (let ((tile-tl (pos->tile-pos (rect-pos rect)))
+	  (tile-br (pos->tile-pos (+v (rect-pos rect) (rect-size rect)))))
+      (loop named stage-loop
+	 ;; For each tile colliding with rect
+	 for row
+	 from (max 0 (y tile-tl))
+	 to (min (1- (array-dimension data 0)) (y tile-br))
+	 appending
+	   (loop
+	      for col
+	      from (max 0 (x tile-tl))
+	      to (min (1- (array-dimension data 1)) (x tile-br))
+	      collecting
+		(list (make-v col row) (car (aref data row col))))))))
 
 (defmacro collision-lambda ((&optional data) &body forms)
   (let ((data (if data
@@ -144,14 +152,15 @@ Stage-collisions returns the final data argument."
   data)
 
 (defun stage-drawing (stage)
-  (let ((drawings nil))
-    (dotimes (row (array-dimension stage 0))
-      (dotimes (col (array-dimension stage 1))
-	(when (aref stage row col)
+  (let ((drawings nil)
+	(data (aval stage :data)))
+    (dotimes (row (array-dimension data 0))
+      (dotimes (col (array-dimension data 1))
+	(when (aref data row col)
 	  (push
 	   (make-sprite-drawing :layer :foreground :sheet-key :prt-cave
 				:src-rect
-				(tile-rect (tile-pos (cdr (aref stage row col))))
+				(tile-rect (tile-pos (cdr (aref data row col))))
 				:pos (tile-v col row))
 	   drawings))))
     drawings))
