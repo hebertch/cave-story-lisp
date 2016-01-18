@@ -12,7 +12,10 @@
     (funcall (aval obj :inertia-vel-fn) obj)))
 (defgeneric ai (obj ticks)
   (:method ((obj list) ticks)
-    (funcall (aval obj :ai-fn) obj ticks)))
+    (let ((fn (aval obj :ai-fn)))
+      (if fn
+	  (funcall fn obj ticks)
+	  obj))))
 
 (defgeneric draw (obj)
   (:method ((obj list))

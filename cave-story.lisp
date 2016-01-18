@@ -637,17 +637,18 @@ This can be abused with the machine gun in TAS."
 (defmethod draw ((td text-display))
   (text-display-drawing td))
 
-(defstruct (hud (:include entity-state))
-  player
-  gun-exps
-  last-health-amt)
-
+(defun hud-fns-alist ()
+  (alist :draw-fn #'hud-drawing))
 (defun make-default-hud  (player gun-exps id)
   (values
-   (make-hud :player player :gun-exps gun-exps :timers
-	     (alist
-	      :exp-change (create-expiring-timer (s->ms 1))
-	      :health-change (create-expiring-timer (s->ms 1/2))))
+   (amerge
+    (hud-fns-alist)
+    (alist :player player
+	   :gun-exps gun-exps
+	   :timers
+	   (alist
+	    :exp-change (create-expiring-timer (s->ms 1))
+	    :health-change (create-expiring-timer (s->ms 1/2)))))
    id))
 
 (def-entity-constructor create-hud #'make-default-hud
@@ -665,8 +666,8 @@ This can be abused with the machine gun in TAS."
 			  :pos (tile-v 1 2))
      drawings)
 
-    (let ((health (player-health-amt (player-state (hud-player hud)))))
-      (when (timer-active? (aval (hud-timers hud) :health-change))
+    (let ((health (player-health-amt (player-state (aval hud :player)))))
+      (when (timer-active? (aval (aval hud :timers) :health-change))
 	(push
 	 (make-sprite-drawing
 	  :layer :hud
@@ -674,9 +675,9 @@ This can be abused with the machine gun in TAS."
 	  :src-rect
 	  (create-rect-cmpts 0 (tiles/2 4)
 			     (floor (* (tiles/2 bar-tile/2-w)
-				       (/ (hud-last-health-amt hud)
+				       (/ (aval hud :last-health-amt)
 					  (player-max-health-amt
-					   (player-state (hud-player hud))))))
+					   (player-state (aval hud :player))))))
 			     (tiles/2 1))
 	  :pos (tiles/2-v bar-tile/2-x 4))
 	 drawings))
@@ -688,7 +689,7 @@ This can be abused with the machine gun in TAS."
 					       (floor (* (tiles/2 bar-tile/2-w)
 							 (/ health
 							    (player-max-health-amt
-							     (player-state (hud-player hud))))))
+							     (player-state (aval hud :player))))))
 					       (tiles/2 1))
 			    :pos (tiles/2-v bar-tile/2-x 4))
        drawings)
@@ -703,7 +704,7 @@ This can be abused with the machine gun in TAS."
 			    :pos exp-pos)
        drawings)
 
-      (when (flash-time? (aval (hud-timers hud) :exp-change))
+      (when (flash-time? (aval (aval hud :timers) :exp-change))
 	(push
 	 (make-sprite-drawing :layer :hud-fg
 			      :sheet-key :text-box
@@ -713,7 +714,7 @@ This can be abused with the machine gun in TAS."
 			      :pos exp-pos)
 	 drawings))
 
-      (multiple-value-bind (exp gun-name) (current-gun-exp (hud-player hud) (hud-gun-exps hud))
+      (multiple-value-bind (exp gun-name) (current-gun-exp (aval hud :player) (aval hud :gun-exps))
 	(let* ((current-level (gun-level exp (cdr (assoc gun-name *gun-level-exps*))))
 	       (next-lvl-exp (exp-for-gun-level gun-name current-level))
 	       (current-lvl-exp (if (zerop current-level)
@@ -754,25 +755,14 @@ This can be abused with the machine gun in TAS."
 	  (appendf drawings (hud-number-drawing 3 (1+ current-level))))))
     drawings))
 
-(defmethod draw ((hud hud))
-  (hud-drawing hud))
-
-(defmethod dead? ((h hud))
-  (player-dead? (estate (hud-player h))))
-
 (defun hud-exp-changed (hud)
-  (make-hud
-   :timers (aupdate  (hud-timers hud) #'reset-timer :exp-change)
-   :player (hud-player hud)
-   :gun-exps (hud-gun-exps hud)
-   :last-health-amt (hud-last-health-amt hud)))
+  (aset hud
+	:timers (aupdate (aval hud :timers) #'reset-timer :exp-change)))
 
 (defun hud-health-changed (hud)
-  (make-hud
-   :timers (aupdate (hud-timers hud) #'reset-timer :health-change)
-   :player (hud-player hud)
-   :gun-exps (hud-gun-exps hud)
-   :last-health-amt (player-health-amt (player-state (hud-player hud)))))
+  (aset hud
+	:timers (aupdate (aval hud :timers) #'reset-timer :health-change)
+	:last-health-amt (player-health-amt (player-state (aval hud :player)))))
 
 (defun textbox-tile-drawing (src-pos pos)
   (let ((size (both-v (tiles/2 1))))
