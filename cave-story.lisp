@@ -928,19 +928,26 @@ This can be abused with the machine gun in TAS."
   (create-entity (make-active-systems) ()))
 
 (defun damage-numbers-remove-dead (d)
-  (remove-if (lambda (pair) (aval (estate (cdr pair)) :dead?)) d))
+  (aset d
+	:pairs
+	(remove-if (lambda (pair) (aval (estate (cdr pair)) :dead?)) (aval d :pairs))))
 
 (defun damage-numbers-update-damage-amt (d e amt)
-  (let ((existing-dn-pair (assoc e d)))
+  (let* ((dns (aval d :pairs))
+	 (existing-dn-pair (assoc e dns)))
     (if existing-dn-pair
-	(replace-entity-state (cdr existing-dn-pair)
-			      (lambda (fn)
-				(floating-number-add-amt fn (- amt))))
-	(push (cons e (create-floating-number e (- amt))) d)))
-  d)
+	(progn
+	  (replace-entity-state (cdr existing-dn-pair)
+				(lambda (fn)
+				  (floating-number-add-amt fn (- amt))))
+	  d)
+	(aset d :pairs (acons e (create-floating-number e (- amt)) dns)))))
 
-(defun create-damage-numbers (&key (id (gen-entity-id)))
-  (create-entity nil () :id id))
+(defun make-damage-numbers ()
+  (alist :id (gen-entity-id)))
+
+(defun create-damage-numbers ()
+  (create-entity (make-damage-numbers) ()))
 
 (defun gun-exp-for (gun-exps gun-name)
   (aval (aval gun-exps :guns) gun-name))
@@ -981,9 +988,10 @@ This can be abused with the machine gun in TAS."
   (create-entity nil () :id id))
 
 (defun update-damage-number-amt (damage-numbers e amt)
-  (replace-entity-state damage-numbers
-			(lambda (dn)
-			  (damage-numbers-update-damage-amt dn e amt))))
+  (replace-entity-state
+   damage-numbers
+   (lambda (dn)
+     (damage-numbers-update-damage-amt dn e amt))))
 
 (defun current-gun-exp (player gun-exps)
   (let* ((gun-name (player-current-gun-name (player-state player)))
@@ -1529,7 +1537,6 @@ This can be abused with the machine gun in TAS."
 (defun elephant-damageable-rect (e)
   (create-rect (physics-pos e) *elephant-dims*))
 
-
 (defun elephant-hit-react (e amt)
   (let ((timers (aval e :timers))
 	(physics (aval e :physics))
@@ -1565,8 +1572,6 @@ This can be abused with the machine gun in TAS."
 	  :timers timers
 	  :dead? dead?
 	  :health-amt health-amt)))
-
-
 
 (defun elephant-dynamic-collision-rect (e)
   (let ((pos (physics-pos e)))
