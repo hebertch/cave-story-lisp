@@ -1,9 +1,11 @@
 (in-package :cave-story)
 
-(defgeneric motion-physics (obj))
+(defgeneric motion-physics (obj)
+  (:method ((obj list))
+    (funcall (aval obj :physics-fn) obj)))
 (defgeneric motion-pos (obj)
   (:method ((obj list))
-    (aval obj :pos)))
+    (funcall (aval obj :pos-fn) obj)))
 (defgeneric origin (obj)
   (:method ((obj list))
     (funcall (aval obj :origin-fn) obj)))
@@ -69,6 +71,7 @@
 (defgeneric dead? (obj)
   (:method ((obj list))
     (aval obj :dead?)))
+
 (defgeneric update-timer (tr))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)

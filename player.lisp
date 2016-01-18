@@ -33,15 +33,15 @@
 		    (create-expiring-timer
 		     (s->ms 3)))
 	     :physics
-	     (list
-	      (cons :stage
-		    (alist
-		     :pos (scale-v *window-dims* 1/2)
-		     :vel (zero-v)
-		     :clamper-vx
-		     (clamper+- *player-max-speed-x*)
-		     :clamper-vy
-		     (clamper+- *terminal-speed*))))))
+	     (alist
+	      :stage
+	      (make-kin-2d
+	       :pos (scale-v *window-dims* 1/2)
+	       :vel (zero-v)
+	       :clamper-vx
+	       (clamper+- *player-max-speed-x*)
+	       :clamper-vy
+	       (clamper+- *terminal-speed*)))))
      id)))
 
 (def-entity-constructor create-default-player #'make-default-player
@@ -66,7 +66,7 @@
      collect (cons key (make-rect :pos (make-v x y) :size (make-v w h)))))
 
 (defun player-collision-rect (side)
-  (cdr (assoc side *player-collision-rectangles-alist*)))
+  (aval *player-collision-rectangles-alist* side))
 
 (defparameter *player-damage-rect*
   (let ((left (left (player-collision-rect :left)))

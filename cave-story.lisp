@@ -203,15 +203,15 @@ This can be abused with the machine gun in TAS."
 				      6)))
 	  :physics
 	  (alist :stage
-		 (alist :pos (-v pos (rect-pos
-				      (dorito-collision-rect size)))
-			:vel vel
-			:accelerator-x
-			(friction-accelerator *dorito-friction-acc*)
-			:accelerator-y
-			(const-accelerator *gravity-acc*)
-			:clamper-vy
-			(clamper+- *terminal-speed*)))
+		 (make-kin-2d :pos (-v pos (rect-pos
+					    (dorito-collision-rect size)))
+			      :vel vel
+			      :accelerator-x
+			      (friction-accelerator *dorito-friction-acc*)
+			      :accelerator-y
+			      (const-accelerator *gravity-acc*)
+			      :clamper-vy
+			      (clamper+- *terminal-speed*)))
 	  :size size)
    (dorito-fns-alist)))
 
@@ -1192,7 +1192,7 @@ This can be abused with the machine gun in TAS."
 	  :physics
 	  (alist
 	   :stage
-	   (alist
+	   (make-kin-2d
 	    :pos (-v pos (tile-dims/2))
 	    :vel (polar-vec->v (rand-angle)
 			       (rand-val-between 0.1 0.3))
@@ -1250,10 +1250,10 @@ This can be abused with the machine gun in TAS."
   (make-rect :pos (tile-v 0 1/4) :size (tile-v 1 3/4)))
 
 (defun gravity-kin-2d (&key (pos (zero-v)) (vel (zero-v)))
-  (alist :pos pos
-	 :vel vel
-	 :accelerator-y (const-accelerator *gravity-acc*)
-	 :clamper-vy (clamper+- *terminal-speed*)))
+  (make-kin-2d :pos pos
+	       :vel vel
+	       :accelerator-y (const-accelerator *gravity-acc*)
+	       :clamper-vy (clamper+- *terminal-speed*)))
 
 (defun critter-fns-alist ()
   (alist :ai-fn #'critter-ai

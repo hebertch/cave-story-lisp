@@ -63,8 +63,23 @@ new (values DELTA-POS VEL)."
 (defun offset-in-dir-pos (origin dist dir)
   (+v origin (offset-in-dir dist dir)))
 
+(defun kin-2d-fns-alist ()
+  (alist :physics-fn #'kin-2d-motion-physics
+	 :pos-fn (lambda (m) (aval m :pos))))
+
+(defun make-kin-2d (&key pos vel clamper-vx clamper-vy accelerator-x accelerator-y)
+  (amerge
+   (kin-2d-fns-alist)
+   (alist
+    :pos pos
+    :vel vel
+    :clamper-vx clamper-vx
+    :clamper-vy clamper-vy
+    :accelerator-x accelerator-x
+    :accelerator-y accelerator-y)))
+
 (defun make-offset-motion (origin dir speed &optional (acc 0))
-  (alist
+  (make-kin-2d
    :pos origin
    :vel (offset-in-dir-pos (zero-v) speed dir)
    :accelerator-x (const-accelerator (case dir
@@ -128,28 +143,30 @@ new (values DELTA-POS VEL)."
 	    :pos pos
 	    :vel nvel))))
 
-(defmethod motion-physics ((m list))
-  (kin-2d-motion-physics m))
+(defun target-kin-2d-fns-alist ()
+  (alist :physics-fn #'target-kin-2d-motion-physics
+	 :pos-fn (lambda (m) (aval m :pos))))
 
-(defstruct target-kin-2d
-  pos
-  vel
-  target
-  target-vel)
+(defun make-target-kin-2d (pos vel target target-vel)
+  (amerge
+   (target-kin-2d-fns-alist)
+   (alist
+    :pos pos
+    :vel vel
+    :target target
+    :target-vel target-vel)))
 
 (defun target-kin-2d-update-target (m targ targ-vel)
-  (make-target-kin-2d :pos (target-kin-2d-pos m)
-		      :vel (target-kin-2d-vel m)
-		      :target targ
-		      :target-vel targ-vel))
+  (aset m
+	:target targ
+	:target-vel targ-vel))
 
 (defun target-kin-2d-motion-physics (m)
-  (let* ((m (copy-structure m))
-	 (disp (sub-v (target-kin-2d-target m)
-		      (target-kin-2d-pos m)))
+  (let* ((disp (sub-v (aval m :target)
+		      (aval m :pos)))
 	 (disp-speeds (abs-v (scale-v disp (/ *camera-speed-scale-factor*
 					      *frame-time*))))
-	 (target-speeds (abs-v (target-kin-2d-target-vel m)))
+	 (target-speeds (abs-v (aval m :target-vel)))
 
 	 ;; Camera velocity clamped by speed proportional to distance,
 	 ;; and by a max speed
@@ -167,25 +184,18 @@ new (values DELTA-POS VEL)."
     ;; When disp is less than 1 pixel distance, don't accelerate.
     ;; This is to avoid shaking.
 
-    (setf (target-kin-2d-vel m) (copy-v2 (target-kin-2d-vel m)))
     (when (< (abs (x disp)) 1)
-      (setf (x disp) 0
-	    (x (target-kin-2d-vel m)) 0))
+      (setq disp (zero-v :y (y disp)))
+      (setq m (aset m :vel (zero-v :y (y (aval m :vel))))))
     (when (< (abs (y disp)) 1)
-      (setf (y disp) 0
-	    (y (target-kin-2d-vel m)) 0))
+      (setq disp (zero-v :x (x disp)))
+      (setq m (aset m :vel (zero-v :x (x (aval m :vel))))))
 
     (multiple-value-bind (pos vel)
-	(accelerate-2d (target-kin-2d-vel m)
+	(accelerate-2d (aval m :vel)
 		       (const-accelerator (* (signum (x disp)) *camera-acc*))
 		       (const-accelerator (* (signum (y disp)) *camera-acc*))
 		       :clamper-vx clamper-x :clamper-vy clamper-y)
-      (setf (target-kin-2d-pos m) (+v (target-kin-2d-pos m) pos))
-      (setf (target-kin-2d-vel m) vel))
-    m))
-
-(defmethod motion-physics ((m target-kin-2d))
-  (target-kin-2d-motion-physics m))
-
-(defmethod motion-pos ((m target-kin-2d))
-  (target-kin-2d-pos m))
+      (aset m
+	    :pos  (+v (aval m :pos) pos)
+	    :vel vel))))

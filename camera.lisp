@@ -27,10 +27,9 @@
     (alist
      :target
      (make-target-kin-2d
-      :pos focus
-      :vel vel
-      :target (camera-target-from-player (estate player))
-      :target-vel (player-vel (estate player))))
+      focus vel
+      (camera-target-from-player (estate player))
+      (player-vel (estate player))))
     :player player)))
 
 (def-entity-constructor create-player-camera #'make-default-camera
@@ -79,7 +78,7 @@
 	       (sub-v stage-dims *window-dims*)))
 
 (defun camera-focus (c)
-  (target-kin-2d-pos (aval (aval c :physics) :target)))
+  (aval (aval (aval c :physics) :target) :pos))
 
 (defun camera-pos (camera camera-bounds)
   (let ((pos (clamp-pos (camera-focus camera) camera-bounds))
