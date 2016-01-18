@@ -367,37 +367,39 @@ This can be abused with the machine gun in TAS."
     (aset p :dead? dead?)))
 
 
-(defstruct (particle (:include entity-state))
-  single-loop-sprite
-  pos)
+(defun particle-fns-alist ()
+  (alist :draw-fn #'particle-drawing
+	 :ai-fn
+	 (lambda (p ticks)
+	   (declare (ignore ticks))
+	   (aset p :dead? (aval (estate (aval p :single-loop-sprite)) :dead?)))))
 
 (defun make-default-particle (&key seq fps sheet-key tile-y pos)
-  (make-particle :single-loop-sprite
-		 (create-single-loop-sprite fps seq
-					    sheet-key
-					    tile-y
-					    :particle)
-		 :pos pos))
+  (amerge
+   (particle-fns-alist)
+   (alist :single-loop-sprite
+	  (create-single-loop-sprite fps seq
+				     sheet-key
+				     tile-y
+				     :particle)
+	  :pos pos)))
 
+;; NOTE: This (ai/timers) is a kludge to make it so particle can set its
+;; dead? flag based on single-loop-sprite.
 (def-entity-constructor create-particle #'make-default-particle
-  :drawable)
+  :drawable :timers :ai)
 
 (defun particle-drawing (p)
-  (let ((sp (estate (particle-single-loop-sprite p))))
-    (let ((cycle-current (cycle-current
-			  (timed-cycle-cycle (aval (aval sp :timers) :cycle)))))
-      (make-sprite-drawing :layer :particle
-			   :sheet-key (aval sp :sheet-key)
-			   :src-rect
-			   (tile-rect (tile-v cycle-current (aval sp :tile-y)))
-			   :pos (particle-pos p)))))
-
-(defmethod draw ((p particle))
-  (particle-drawing p))
-
-(defmethod dead? ((p particle))
-  (aval (estate (particle-single-loop-sprite p))
-	:dead?))
+  (let ((sp (estate (aval p :single-loop-sprite))))
+    (if (aval sp :dead?)
+	nil
+	(let ((cycle-current (cycle-current
+			      (timed-cycle-cycle (aval (aval sp :timers) :cycle)))))
+	  (make-sprite-drawing :layer :particle
+			       :sheet-key (aval sp :sheet-key)
+			       :src-rect
+			       (tile-rect (tile-v cycle-current (aval sp :tile-y)))
+			       :pos (aval p :pos))))))
 
 (defun make-projectile-star-particle (center-pos)
   (create-particle :seq (alexandria:iota 4)
