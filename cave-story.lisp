@@ -1107,51 +1107,54 @@ This can be abused with the machine gun in TAS."
 (defun face-player (pos player)
   (if (< (x pos) (x (physics-pos (player-state player)))) :right :left))
 
-(defstruct (bat (:include entity-state))
-  player
-  facing
-  health-amt
-  damage-numbers)
+(defun bat-fns-alist ()
+  (alist :damageable-hit-react-fn #'bat-hit-react
+	 :origin-fn #'physics-tile-origin
+	 :draw-fn #'bat-drawing
+	 :ai-fn #'bat-ai
+	 :damage-collision-rect-fn
+	 (compose #'point-rect #'origin)
+	 :damage-collision-amt-fn (constantly 1)
+	 :damageable-rect-fn #'physics-tile-rect))
 
 (defun make-default-bat (tile-x tile-y player)
-  (make-bat :physics
-	    (alist
-	     :wave (make-wave-motion
-		    :origin (tile-v tile-x
-				    tile-y)
-		    :dir :up
-		    :amp (tiles 2)
-		    :speed (/ 0.0325
-			      *frame-time*)))
-	    :timers
-	    (alist
-	     :anim-cycle (create-timed-cycle 14 #(0 2 1 2)))
-	    :health-amt 1 :player player))
+  (amerge
+   (bat-fns-alist)
+   (alist :physics
+	  (alist
+	   :wave (make-wave-motion
+		  :origin (tile-v tile-x
+				  tile-y)
+		  :dir :up
+		  :amp (tiles 2)
+		  :speed (/ 0.0325
+			    *frame-time*)))
+	  :timers
+	  (alist
+	   :anim-cycle (create-timed-cycle 14 #(0 2 1 2)))
+	  :health-amt 1
+	  :player player)))
 
 (def-entity-constructor create-bat #'make-default-bat
   :timers :damage-collision :damageable :drawable
   :physics)
 
 (defun bat-hit-react (b amt)
-  (let ((physics (aset (bat-physics b)
+  (let ((physics (aset (aval b :physics)
 		       :shake
 		       (make-wave-motion :dir :left :amp 2 :speed 0.1 :rads 0)))
-	(timers (aset (bat-timers b)
+	(timers (aset (aval b :timers)
 		      :shake (create-expiring-timer (s->ms 1/3) t)))
-	(damage-numbers (bat-damage-numbers b))
-	(id (bat-id b))
-	(health-amt (bat-health-amt b)))
+	(damage-numbers (aval b :damage-numbers))
+	(id (aval b :id))
+	(health-amt (aval b :health-amt)))
     (cond ((< amt health-amt)
 	   (update-damage-number-amt damage-numbers id amt)
 	   (push-sound :enemy-hurt)
-	   (make-bat :physics physics
-		     :timers timers
-		     :player (bat-player b)
-		     :facing (bat-facing b)
-		     :health-amt (- health-amt amt)
-		     :damage-numbers damage-numbers
-		     :id id
-		     :dead? (bat-dead? b)))
+	   (aset b
+		 :physics physics
+		 :timers timers
+		 :health-amt (- health-amt amt)))
 	  (t
 	   (let ((origin (origin b)))
 	     (push-sound :enemy-explode)
@@ -1159,45 +1162,20 @@ This can be abused with the machine gun in TAS."
 	     (create-dorito origin (polar-vec->v (rand-angle) 0.07) :small)
 	     (create-death-cloud-particles 3 origin)
 
-	     (make-bat :physics physics
-		       :timers timers
-		       :player (bat-player b)
-		       :facing (bat-facing b)
-		       :health-amt health-amt
-		       :damage-numbers damage-numbers
-		       :id id
-		       :dead? t))))))
-
-(defmethod damageable-hit-react ((b bat) amt)
-  (bat-hit-react b amt))
-
-(defmethod origin ((b bat))
-  (physics-tile-origin b))
+	     (aset b :dead? t))))))
 
 (defun bat-drawing (b)
   (make-sprite-drawing :layer :enemy
 		       :sheet-key :npc-cemet
 		       :src-rect
 		       (tile-rect (+v (tile-v 2 2)
-				      (anim-cycle-offset (bat-timers b))
-				      (facing-offset (bat-facing b))))
+				      (anim-cycle-offset (aval b :timers))
+				      (facing-offset (aval b :facing))))
 		       :pos (physics-pos b)))
 
-(defmethod draw ((b bat))
-  (bat-drawing b))
-
 (defun bat-ai (b ticks)
-  (make-bat :physics (bat-physics b)
-	    :timers (bat-timers b)
-	    :player (bat-player b)
-	    :facing (face-player (physics-pos b) (bat-player b))
-	    :health-amt (bat-health-amt b)
-	    :damage-numbers (bat-damage-numbers b)
-	    :id (bat-id b)
-	    :dead? (bat-dead? b)))
-
-(defmethod ai ((b bat) ticks)
-  (bat-ai b ticks))
+  (declare (ignore ticks))
+  (aset b :facing (face-player (physics-pos b) (aval b :player))))
 
 (defun facing-offset (facing)
   (tile-v 0 (if (eq facing :left) 0 1)))
@@ -1210,13 +1188,6 @@ This can be abused with the machine gun in TAS."
 
 (defun point-rect (pos)
   (create-rect pos (both-v 1)))
-
-(defmethod damage-collision-rect ((b bat))
-  (point-rect (origin b)))
-
-(defmethod damage-collision-amt ((b bat)) 1)
-(defmethod damageable-rect ((b bat))
-  (physics-tile-rect b))
 
 (defun polar-vec->v (angle mag)
   (make-v (* mag (cos angle))
