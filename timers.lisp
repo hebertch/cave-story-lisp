@@ -6,7 +6,7 @@
 	 :looping? looping?
 	 :update-fn #'timer-update))
 
-(defun create-expiring-timer (length &optional (begin-active? nil))
+(defun make-expiring-timer (length &optional (begin-active? nil))
   (make-timer :length length
 	      :ms-remaining (if begin-active?
 				length

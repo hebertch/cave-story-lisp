@@ -199,12 +199,10 @@ This can be abused with the machine gun in TAS."
    (alist :subsystems *dorito-subsystems*)
    (alist :timers
 	  (alist :life
-		 (create-expiring-timer (s->ms 8)
-					t)
+		 (make-expiring-timer (s->ms 8)
+				      t)
 		 :anim-cycle
-		 (create-timed-cycle 14
-				     (alexandria.0.dev:iota
-				      6)))
+		 (make-fps-cycle 14 (alexandria.0.dev:iota 6)))
 	  :physics
 	  (alist :stage
 		 (make-kin-2d :pos (-v pos (rect-pos
@@ -344,7 +342,7 @@ This can be abused with the machine gun in TAS."
   (amerge
    (single-loop-sprite-fns-alist)
    (alist :subsystems *single-loop-sprite-subsystems*)
-   (alist :timers (alist :cycle (create-timed-cycle fps seq))
+   (alist :timers (alist :cycle (make-fps-cycle fps seq))
 	  :sheet-key sheet-key
 	  :layer layer
 	  :tile-y tile-y)))
@@ -466,7 +464,7 @@ This can be abused with the machine gun in TAS."
 	  :amt amt
 	  :timers
 	  (alist
-	   :life (create-expiring-timer (s->ms 2) t))
+	   :life (make-expiring-timer (s->ms 2) t))
 	  :physics
 	  (alist
 	   :offset (make-offset-motion (zero-v)
@@ -579,7 +577,7 @@ This can be abused with the machine gun in TAS."
 		     :text text
 		     :num-chars 0
 		     :timers
-		     (alist :text (create-expiring-timer *text-speed* t))
+		     (alist :text (make-expiring-timer *text-speed* t))
 		     :wait-for-input? t
 		     :blink-time 0))
 #+nil
@@ -612,7 +610,7 @@ This can be abused with the machine gun in TAS."
     ((not (timer-active? (aval (text-display-timers td) :text)))
      (push-sound :text-click)
      (make-text-display
-      :timers (aset (text-display-timers td) :text (create-expiring-timer *text-speed* t))
+      :timers (aset (text-display-timers td) :text (make-expiring-timer *text-speed* t))
       :pos (text-display-pos td)
       :text (text-display-text td)
       :num-chars (+ 1 (text-display-num-chars td))
@@ -652,8 +650,8 @@ This can be abused with the machine gun in TAS."
 	  :id id
 	  :timers
 	  (alist
-	   :exp-change (create-expiring-timer (s->ms 1))
-	   :health-change (create-expiring-timer (s->ms 1/2))))))
+	   :exp-change (make-expiring-timer (s->ms 1))
+	   :health-change (make-expiring-timer (s->ms 1/2))))))
 
 (defun hud-drawing (hud)
   (let ((bar-tile/2-w 5)
@@ -1129,7 +1127,7 @@ This can be abused with the machine gun in TAS."
 			    *frame-time*)))
 	  :timers
 	  (alist
-	   :anim-cycle (create-timed-cycle 14 #(0 2 1 2)))
+	   :anim-cycle (make-fps-cycle 14 #(0 2 1 2)))
 	  :health-amt 1
 	  :player player)))
 
@@ -1138,7 +1136,7 @@ This can be abused with the machine gun in TAS."
 		       :shake
 		       (make-wave-motion :dir :left :amp 2 :speed 0.1 :rads 0)))
 	(timers (aset (aval b :timers)
-		      :shake (create-expiring-timer (s->ms 1/3) t)))
+		      :shake (make-expiring-timer (s->ms 1/3) t)))
 	(damage-numbers (aval b :damage-numbers))
 	(id (aval b :id))
 	(health-amt (aval b :health-amt)))
@@ -1360,7 +1358,7 @@ This can be abused with the machine gun in TAS."
 		      :shake
 		      (make-wave-motion :dir :left :amp 2 :speed 0.1 :rads 0))
 		:timers
-		(aset (aval c :timers) :shake (create-expiring-timer (s->ms 1/3) t))
+		(aset (aval c :timers) :shake (make-expiring-timer (s->ms 1/3) t))
 		:health-amt (- health-amt amt)))
 	(let ((origin (origin c)))
 	  (push-sound :enemy-explode)
@@ -1439,7 +1437,7 @@ This can be abused with the machine gun in TAS."
 		   (alist :timers
 			  (aset (aval data :timers)
 				:sleep
-				(create-expiring-timer (s->ms 1/3) t))))
+				(make-expiring-timer (s->ms 1/3) t))))
 		 (alist :ground-tile (aval data :tile-type)
 			:vel (zero-v))
 		 data))
@@ -1504,7 +1502,7 @@ This can be abused with the machine gun in TAS."
 			   :vel (make-v (- *elephant-speed*) 0)))
 	  :timers
 	  (alist
-	   :anim-cycle (create-timed-cycle 12 #(0 2 4)))
+	   :anim-cycle (make-fps-cycle 12 #(0 2 4)))
 	  :health-amt 8
 	  :facing :left
 	  :damage-numbers damage-numbers
@@ -1549,7 +1547,7 @@ This can be abused with the machine gun in TAS."
 	  (aset physics
 		:shake
 		(make-wave-motion :dir :left :amp 2 :speed 0.1 :rads 0)))
-    (setq timers (aset timers :shake (create-expiring-timer (s->ms 1/3) t)))
+    (setq timers (aset timers :shake (make-expiring-timer (s->ms 1/3) t)))
     (if (< amt (aval e :health-amt))
 	(progn
 	  (update-damage-number-amt (aval e :damage-numbers) (aval e :id) amt)
@@ -1569,8 +1567,8 @@ This can be abused with the machine gun in TAS."
     (unless (timer-active? (aval timers :rage))
       (if (timer-active? (aval timers :recover))
 	  (when (< (aval (aval timers :recover) :ms-remaining) (s->ms 1/2))
-	    (setq timers (aset timers :rage (create-expiring-timer (s->ms 3)))))
-	  (setq timers (aset timers :recover (create-expiring-timer (s->ms 3/4) t)))))
+	    (setq timers (aset timers :rage (make-expiring-timer (s->ms 3)))))
+	  (setq timers (aset timers :recover (make-expiring-timer (s->ms 3/4) t)))))
     
     (aset e
 	  :physics physics
@@ -1612,11 +1610,11 @@ This can be abused with the machine gun in TAS."
     (when (member :recover ticks)
       (when (aval timers :rage)
 	(setq timers (aupdate timers #'reset-timer :rage))
-	(setq timers (aset timers :anim-cycle (create-timed-cycle 14 #(8 10))))))
+	(setq timers (aset timers :anim-cycle (make-fps-cycle 14 #(8 10))))))
 
     (when (member :rage ticks)
       (setq timers (arem timers :rage))
-      (setq timers (aset timers :anim-cycle (create-timed-cycle 12 #(0 2 4)))))
+      (setq timers (aset timers :anim-cycle (make-fps-cycle 12 #(0 2 4)))))
 
     (when (timer-active? (aval timers :rage))
       (when (and (member :anim-cycle ticks)

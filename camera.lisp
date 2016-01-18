@@ -71,7 +71,7 @@
 			  (aval c :physics))
 	:timers (aset (aval c :timers)
 		      :shake
-		      (create-expiring-timer time t))))
+		      (make-expiring-timer time t))))
 
 (defun stage-dims->camera-bounds (stage-dims)
   (create-rect (scale-v *window-dims* 1/2)

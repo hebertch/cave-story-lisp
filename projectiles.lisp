@@ -28,8 +28,7 @@
 	    :dir dir
 	    :timers
 	    (alist :life
-		   (create-expiring-timer
-		    (s->ms 3/2) t))
+		   (make-expiring-timer (s->ms 3/2) t))
 	    :physics
 	    (let ((physics
 		   (alist
@@ -185,12 +184,7 @@
    (alist :dir dir :lvl lvl
 	  :timers
 	  (alist :life
-		 (create-expiring-timer
-		  (s->ms
-		   (elt
-		    '(1/8 1/4 1/2)
-		    lvl))
-		  t))
+		 (make-expiring-timer (s->ms (elt '(1/8 1/4 1/2) lvl)) t))
 	  :physics
 	  (alist :kin-2d
 		 (make-offset-motion

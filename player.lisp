@@ -26,13 +26,9 @@
 	  :hud hud
 	  :timers
 	  (alist :walk-cycle
-		 (create-timed-cycle 12
-				     #(0 1 0
-				       2)
-				     t)
+		 (make-fps-cycle 12 #(0 1 0 2) t)
 		 :invincible
-		 (create-expiring-timer
-		  (s->ms 3)))
+		 (make-expiring-timer (s->ms 3)))
 	  :physics
 	  (alist
 	   :stage

@@ -181,7 +181,7 @@
 	 :paused? paused?
 	 :update-fn #'update-timed-cycle))
 
-(defun create-timed-cycle (fps seq &optional start-paused?)
+(defun make-fps-cycle (fps seq &optional start-paused?)
   (make-timed-cycle :timer (fps-make-timer fps)
 		    :cycle (make-cycle :seq seq)
 		    :paused? start-paused?))
