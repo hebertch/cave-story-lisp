@@ -723,7 +723,8 @@ This can be abused with the machine gun in TAS."
 			      :pos exp-pos)
 	 drawings))
 
-      (multiple-value-bind (exp gun-name) (current-gun-exp (aval hud :player) (aval hud :gun-exps))
+      (multiple-value-bind (exp gun-name) (current-gun-exp (aval hud :player)
+							   (aval hud :gun-exps))
 	(let* ((current-level (gun-level exp (cdr (assoc gun-name *gun-level-exps*))))
 	       (next-lvl-exp (exp-for-gun-level gun-name current-level))
 	       (current-lvl-exp (if (zerop current-level)
@@ -942,20 +943,23 @@ This can be abused with the machine gun in TAS."
   (create-entity nil () :id id))
 
 (defun gun-exp-for (gun-exps gun-name)
-  (cdr (assoc gun-name gun-exps)))
+  (aval (aval gun-exps :guns) gun-name))
 
 (defun incr-gun-exp (gun-exps gun-name amt)
-  (aupdate gun-exps
-	   (lambda (gun-amt)
-	     (min (max (+ gun-amt amt) 0)
-		  (exp-for-gun-level gun-name :max)))
-	   gun-name))
+  (let* ((guns (aval gun-exps :guns))
+	 (gun-exp (aval guns gun-name)))
+    (aset gun-exps
+	  :guns (aset guns
+		      gun-name
+		      (min (max (+ gun-exp amt) 0)
+			   (exp-for-gun-level gun-name :max))))))
 
-(defun create-gun-exps (&key (id (gen-entity-id)))
-  (create-entity
-   (loop for g across *gun-names* collecting (cons g 0))
-   ()
-   :id id))
+(defun make-gun-exps ()
+  (alist :id (gen-entity-id)
+	 :guns (loop for g across *gun-names* collecting (cons g 0))))
+
+(defun create-gun-exps ()
+  (create-entity (make-gun-exps) ()))
 
 (defun projectile-groups-remove-dead (g)
   (remove-if #'null
