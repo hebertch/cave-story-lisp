@@ -230,7 +230,7 @@ This can be abused with the machine gun in TAS."
 
 (defun death-flash? (timers)
   (let ((tr (aval timers :life)))
-    (and (< (timer-ms-remaining tr) (s->ms 1))
+    (and (< (aval tr :ms-remaining) (s->ms 1))
 	 (flash-time? tr))))
 
 (defun dorito-drawing (d)
@@ -315,7 +315,7 @@ This can be abused with the machine gun in TAS."
 		      (:large 20))))
 
 (defun dorito-draw (life-tr anim-cycle-current size pos)
-  (unless (and (< (timer-ms-remaining life-tr) (s->ms 1))
+  (unless (and (< (aval life-tr :ms-remaining) (s->ms 1))
 	       (zerop (chunk-timer-period life-tr 50)))
     (draw-sprite!
      :pickup :npc-sym
@@ -1571,7 +1571,7 @@ This can be abused with the machine gun in TAS."
 
     (unless (timer-active? (aval timers :rage))
       (if (timer-active? (aval timers :recover))
-	  (when (< (timer-ms-remaining (aval timers :recover)) (s->ms 1/2))
+	  (when (< (aval (aval timers :recover) :ms-remaining) (s->ms 1/2))
 	    (setq timers (aset timers :rage (create-expiring-timer (s->ms 3)))))
 	  (setq timers (aset timers :recover (create-expiring-timer (s->ms 3/4) t)))))
     

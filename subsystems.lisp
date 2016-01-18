@@ -51,7 +51,9 @@
 (defun dead? (obj)
   (aval obj :dead?))
 
-(defgeneric update-timer (tr))
+(defgeneric update-timer (tr)
+  (:method ((tr list))
+    (funcall (aval tr :update-fn) tr)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defvar *registry-syms* nil)
