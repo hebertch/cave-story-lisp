@@ -175,8 +175,8 @@
 	((>= (abs dmg-amt) (aval p :health-amt))
 	 (push-sound :player-die)
 	 (stop-music)
-	 (estate-set (aval p :active-systems)
-		     (active-systems-switch-to-dialog))
+	 (replace-entity-state (aval p :active-systems)
+			       #'active-systems-switch-to-dialog)
 
 	 (aset p
 	       :health-amt 0

@@ -133,7 +133,7 @@ This can be abused with the machine gun in TAS."
 
   (let ((input (game-input game))
 	(input-systems
-	 (active-systems-input (estate (game-active-systems game)))))
+	 (aval (estate (game-active-systems game)) :input)))
     (update-input-subsystem input-systems input)
     (ecase (first input-systems)
       (:game
@@ -838,7 +838,7 @@ This can be abused with the machine gun in TAS."
     (:playback
      (draw-text-line! (zero-v) "PLAYBACK")))
 
-  (let ((active-update-systems (active-systems-update (estate (game-active-systems game))))
+  (let ((active-update-systems (aval (estate (game-active-systems game)) :update))
 	(stage (game-stage game))
 	(player (game-player game)))
     (update-timers-subsystem active-update-systems)
@@ -850,7 +850,7 @@ This can be abused with the machine gun in TAS."
     (update-damage-collision-subsystem active-update-systems player)
     (update-dynamic-collision-subsystem active-update-systems player))
 
-  (let ((active-draw-systems (active-systems-draw (estate (game-active-systems game)))))
+  (let ((active-draw-systems (aval (estate (game-active-systems game)) :draw)))
     (update-drawable-subsystem active-draw-systems))
 
   (remove-all-dead game)
@@ -910,19 +910,21 @@ This can be abused with the machine gun in TAS."
 (defvar *global-paused?*)
 (defparameter *entity-systems* '(:game :dialog))
 
-(defstruct active-systems
-  (update (list :game))
-  (draw (list :game))
-  (input (list :game)))
+(defun make-active-systems
+    (&key (update (list :game)) (draw (list :game)) (input (list :game)) (id (gen-entity-id)))
+  (alist :update update
+	 :draw draw
+	 :input input
+	 :id id))
 
-(defun active-systems-switch-to-dialog ()
-  (make-active-systems
-   :update (list :dialog)
-   :draw (list :game :dialog)
-   :input (list :dialog)))
+(defun active-systems-switch-to-dialog (d)
+  (aset d
+	:update (list :dialog)
+	:draw (list :game :dialog)
+	:input (list :dialog)))
 
-(defun create-active-systems (&key (id (gen-entity-id)))
-  (create-entity (make-active-systems) () :id id))
+(defun create-active-systems ()
+  (create-entity (make-active-systems) ()))
 
 (defun damage-numbers-remove-dead (d)
   (remove-if (lambda (pair) (aval (estate (cdr pair)) :dead?)) d))
