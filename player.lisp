@@ -423,10 +423,10 @@
 			  (unless (aval data :ground-tile)
 			    (push-sound :land))
 
-			  (amerge
-			   (alist :vel (zero-v :x (x (aval data :vel)))
-				  :new-ground-tile (aval data :tile-type))
-			   data))
+			  (aset
+			   data
+			   :vel (zero-v :x (x (aval data :vel)))
+			   :new-ground-tile (aval data :tile-type)))
 			:left stop-x :right stop-x
 			:top
 			(collision-lambda (tile-type)
@@ -441,10 +441,10 @@
     (setf (player-physics p)
 	  (aset (player-physics p)
 		:stage
-		(amerge
-		 (alist :pos (aval res :pos)
-			:vel (aval res :vel))
-		 stage-physics)))
+		(aset
+		 stage-physics
+		 :pos (aval res :pos)
+		 :vel (aval res :vel))))
 
     (setf (player-ground-tile p) (aval res :new-ground-tile))
     (unless (player-ground-tile p)

@@ -131,10 +131,10 @@ Stage-collisions returns the final data argument."
 	      (appendf args (list :ground-tile ground-tile)))
 	    (apply #'stage-check/resolve-collision args))
 	(when new-pos
-	  (setq data (amerge
-		      (alist :pos (sub-v new-pos (rect-pos collision-rect))
-			     :tile-type tile-type)
-		      data))
+	  (setq data (aset
+		      data
+		      :pos (sub-v new-pos (rect-pos collision-rect))
+		      :tile-type tile-type))
 	  (when fn
 	    (setq data (funcall fn data))))
 	(draw-rect! (rect-offset collision-rect (aval data :pos))

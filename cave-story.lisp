@@ -297,9 +297,9 @@ This can be abused with the machine gun in TAS."
     (aset d :physics
 	  (aset physics
 		:stage
-		(amerge (alist :pos (aval res :pos)
-			       :vel (aval res :vel))
-			stage-physics)))))
+		(aset stage-physics
+		      :pos (aval res :pos)
+		      :vel (aval res :vel))))))
 
 (defun dorito-pickup-rect (d)
   (rect-offset (dorito-collision-rect (aval d :size)) (physics-pos d)))
@@ -1285,9 +1285,9 @@ This can be abused with the machine gun in TAS."
       (make-death-cloud-particle
        :physics (aset physics
 		      :stage
-		      (amerge (alist :pos (aval res :pos)
-				     :vel (aval res :vel))
-			      stage-physics))
+		      (aset stage-physics
+			    :pos (aval res :pos)
+			    :vel (aval res :vel)))
        :single-loop-sprite (death-cloud-particle-single-loop-sprite d)))))
 
 (defmethod stage-collision ((d death-cloud-particle) stage)
@@ -1327,14 +1327,13 @@ This can be abused with the machine gun in TAS."
 (defun make-default-critter (pos player damage-numbers)
   (let ((id (gen-entity-id)))
     (values
-     (amerge
+     (aset
       (critter-fns-alist)
-      (alist :physics (alist
-		       :stage (gravity-kin-2d :pos pos))
-	     :player player
-	     :health-amt 2
-	     :damage-numbers damage-numbers
-	     :id id))
+      :physics (alist :stage (gravity-kin-2d :pos pos))
+      :player player
+      :health-amt 2
+      :damage-numbers damage-numbers
+      :id id)
      id)))
 
 (def-entity-constructor create-critter #'make-default-critter
@@ -1363,9 +1362,8 @@ This can be abused with the machine gun in TAS."
 			       (make-v (* 0.04 (if (eq facing :left) -1 1))
 				       (- 0.35))))
 		       :stage))))
-    (amerge (alist :physics physics
-		   :facing (face-player (physics-pos c) (aval c :player)))
-	    c)))
+    (aset c :physics physics
+	  :facing (face-player (physics-pos c) (aval c :player)))))
 
 (defun critter-drawing (c)
   (let* ((sleep-timer (aval (aval c :timers) :sleep))
@@ -1389,21 +1387,20 @@ This can be abused with the machine gun in TAS."
 	  (update-damage-number-amt (aval c :damage-numbers) (aval c :id) amt)
 	  (push-sound :enemy-hurt)
 
-	  (amerge (alist
-		   :physics
-		   (aset (aval c :physics)
-			 :shake
-			 (make-wave-motion :dir :left :amp 2 :speed 0.1 :rads 0))
-		   :timers
-		   (aset (aval c :timers) :shake (create-expiring-timer (s->ms 1/3) t))
-		   :health-amt (- health-amt amt))
-		  c))
+	  (aset c
+		:physics
+		(aset (aval c :physics)
+		      :shake
+		      (make-wave-motion :dir :left :amp 2 :speed 0.1 :rads 0))
+		:timers
+		(aset (aval c :timers) :shake (create-expiring-timer (s->ms 1/3) t))
+		:health-amt (- health-amt amt)))
 	(let ((origin (origin c)))
 	  (push-sound :enemy-explode)
 	  (create-dorito origin (polar-vec->v (rand-angle) 0.07) :small)
 	  (create-dorito origin (polar-vec->v (rand-angle) 0.07) :small)
 	  (create-death-cloud-particles 6 origin)
-	  (amerge (alist :dead? t) c)))))
+	  (aset c :dead? t)))))
 
 (defun critter-damage-collision-rect (c)
   (rect-offset *critter-dynamic-collision-rect* (physics-pos c)))
@@ -1426,15 +1423,14 @@ This can be abused with the machine gun in TAS."
 		       (setf (player-ground-tile player-state) :dynamic)
 		       (setf (player-ground-inertia-entity player-state) id)
 
-		       (amerge
-			(alist
-			 :vel (zero-v :x (x (aval kin-2d :vel)))
-			 :pos (-v
-			       (flush-rect-pos player-rect
-					       (y (rect-pos dynamic-collision-rect))
-					       :up)
-			       (rect-pos player-collision-rect)))
-			kin-2d))
+		       (aset
+			kin-2d
+			:vel (zero-v :x (x (aval kin-2d :vel)))
+			:pos (-v
+			      (flush-rect-pos player-rect
+					      (y (rect-pos dynamic-collision-rect))
+					      :up)
+			      (rect-pos player-collision-rect))))
 		      (t kin-2d)))
 	       ((:left :right)
 		(let ((disp (- (x (aval kin-2d :pos)) (x pos))))
@@ -1476,14 +1472,14 @@ This can be abused with the machine gun in TAS."
 	      :top
 	      (collision-lambda (data)
 		(aset data :vel (max-y-v (aval data :vel) 0)))))))
-      (amerge (alist :physics (aset physics
-				    :stage
-				    (amerge (alist :pos (aval res :pos)
-						   :vel (aval res :vel))
-					    stage-physics))
-		     :timers (aval res :timers)
-		     :ground-tile (aval res :ground-tile))
-	      c))))
+      (aset c
+	    :physics (aset physics
+			   :stage
+			   (aset stage-physics
+				 :pos (aval res :pos)
+				 :vel (aval res :vel)))
+	    :timers (aval res :timers)
+	    :ground-tile (aval res :ground-tile)))))
 
 (defun physics-tile-origin (c)
   (+v (physics-pos c) (tile-dims/2)))
