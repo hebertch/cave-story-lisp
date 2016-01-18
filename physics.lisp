@@ -91,12 +91,18 @@ new (values DELTA-POS VEL)."
 				       (:down acc)
 				       (t 0)))))
 
-(defstruct wave-motion
-  (origin (zero-v))
-  dir
-  amp
-  speed
-  (rads (rand-angle)))
+(defun wave-motion-fns-alist ()
+  (alist :physics-fn #'wave-physics
+	 :pos-fn #'wave-offset))
+
+(defun make-wave-motion (&key (origin (zero-v)) dir amp speed (rads (rand-angle)))
+  (amerge
+   (wave-motion-fns-alist)
+   (alist :origin origin
+	  :dir dir
+	  :amp amp
+	  :speed speed
+	  :rads rads)))
 
 (defun motion-set-update (physics)
   (loop for asc in physics
@@ -110,20 +116,13 @@ new (values DELTA-POS VEL)."
     pos))
 
 (defun wave-physics (w)
-  (let ((w (copy-structure w)))
-    (setf (wave-motion-rads w) (+ (wave-motion-rads w)
-				  (* *frame-time* (wave-motion-speed w))))
-    w))
+  (aset w :rads (+ (aval w :rads)
+		   (* *frame-time* (aval w :speed)))))
 
 (defun wave-offset (w)
-  (+v (wave-motion-origin w)
-      (offset-in-dir (* (wave-motion-amp w) (sin (wave-motion-rads w)))
-		     (wave-motion-dir w))))
-
-(defmethod motion-physics ((w wave-motion))
-  (wave-physics w))
-(defmethod motion-pos ((w wave-motion))
-  (wave-offset w))
+  (+v (aval w :origin)
+      (offset-in-dir (* (aval w :amp) (sin (aval w :rads)))
+		     (aval w :dir))))
 
 (defun kin-2d-motion-physics (m)
   (multiple-value-bind (dpos nvel)
