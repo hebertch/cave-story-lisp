@@ -456,63 +456,51 @@ This can be abused with the machine gun in TAS."
 	    (cons :negative digits)
 	    (cons :positive digits)))))
 
-(defstruct (floating-number (:include entity-state))
-  entity
-  amt)
+
+(defun floating-number-fns-alist ()
+  (alist :draw-fn #'floating-number-drawing
+	 :ai-fn #'floating-number-ai))
 
 (defun make-default-floating-number (entity amt)
-  (make-floating-number :entity entity
-			:amt amt
-			:timers
-			(alist
-			 :life (create-expiring-timer (s->ms 2) t))
-			:physics
-			(alist
-			 :offset (make-offset-motion (zero-v)
-						     :up
-						     (/ (tiles 1/30) *frame-time*)))))
+  (amerge
+   (floating-number-fns-alist)
+   (alist :entity entity
+	  :amt amt
+	  :timers
+	  (alist
+	   :life (create-expiring-timer (s->ms 2) t))
+	  :physics
+	  (alist
+	   :offset (make-offset-motion (zero-v)
+				       :up
+				       (/ (tiles 1/30) *frame-time*))))))
 
 (def-entity-constructor create-floating-number #'make-default-floating-number
   :timers :drawable :physics)
 
 (defun floating-number-drawing (fn)
-  (number-drawing (+v (origin (estate (floating-number-entity fn)))
+  (number-drawing (+v (origin (estate (aval fn :entity)))
 		      (physics-pos fn))
-		  (floating-number-amt fn)
+		  (aval fn :amt)
 		  :layer :floating-text))
 
-(defmethod draw ((fn floating-number))
-  (floating-number-drawing fn))
-
 (defun floating-number-ai (fn ticks)
-  (let ((dead? (not (timer-active? (aval (floating-number-timers fn) :life)))))
-    (cond ((< (y (motion-pos (cdr (assoc :offset (floating-number-physics fn)))))
+  (declare (ignore ticks))
+  (let ((dead? (not (timer-active? (aval (aval fn :timers) :life)))))
+    (cond ((< (y (motion-pos (cdr (assoc :offset (aval fn :physics)))))
 	      (- (tiles 1)))
-	   (make-floating-number
-	    :dead? dead?
-	    :physics
-	    (aset (floating-number-physics fn)
-		  :offset
-		  (make-offset-motion (zero-v :y (- (tiles 1))) :up 0))
-	    :timers (floating-number-timers fn)
-	    :entity (floating-number-entity fn)
-	    :amt (floating-number-amt fn)))
-	  (t (make-floating-number
-	      :dead? dead?
-	      :physics (floating-number-physics fn)
-	      :timers (floating-number-timers fn)
-	      :entity (floating-number-entity fn)
-	      :amt (floating-number-amt fn))))))
-
-(defmethod ai ((fn floating-number) ticks)
-  (floating-number-ai fn ticks))
+	   (aset fn
+		 :dead? dead?
+		 :physics
+		 (aset (aval fn :physics)
+		       :offset
+		       (make-offset-motion (zero-v :y (- (tiles 1))) :up 0))))
+	  (t (aset fn :dead? dead?)))))
 
 (defun floating-number-add-amt (fn amount)
-  (make-floating-number
-   :physics (floating-number-physics fn)
-   :timers (aupdate (floating-number-timers fn) #'reset-timer :life)
-   :entity (floating-number-entity fn)
-   :amt (+ (floating-number-amt fn) amount)))
+  (aset fn
+	:timers (aupdate (aval fn :timers) #'reset-timer :life)
+	:amt (+ (aval fn :amt) amount)))
 
 (defun remove-all-dead (game)
   (replace-entity-state (game-projectile-groups game)
@@ -938,7 +926,7 @@ This can be abused with the machine gun in TAS."
   (create-entity (make-active-systems) () :id id))
 
 (defun damage-numbers-remove-dead (d)
-  (remove-if (lambda (pair) (entity-state-dead? (estate (cdr pair)))) d))
+  (remove-if (lambda (pair) (aval (estate (cdr pair)) :dead?)) d))
 
 (defun damage-numbers-update-damage-amt (d e amt)
   (let ((existing-dn-pair (assoc e d)))
