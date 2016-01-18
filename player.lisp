@@ -353,10 +353,10 @@
 	  (setq p (aset p :jumping? nil))))
 
     (when (or (key-pressed? input :a) (joy-pressed? input :y))
-      (setq p (aset :gun-name-cycle (cycle-previous (aval p :gun-name-cycle)))))
+      (setq p (aset p :gun-name-cycle (cycle-previous (aval p :gun-name-cycle)))))
 
     (when (or (key-pressed? input :s) (joy-pressed? input :x))
-      (setq p (aset :gun-name-cycle (cycle-next (aval p :gun-name-cycle)))))
+      (setq p (aset p :gun-name-cycle (cycle-next (aval p :gun-name-cycle)))))
     p))
 
 
