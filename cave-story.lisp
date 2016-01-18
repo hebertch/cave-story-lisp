@@ -1319,7 +1319,7 @@ This can be abused with the machine gun in TAS."
 	 (lambda (c side player-collision-rect player)
 	   (dynamic-collision-enemy-react (physics-pos c) (origin c) (aval c :id)
 					  (dynamic-collision-rect c) side
-					  player-collision-rect (estate (aval c :player))))
+					  player-collision-rect (estate player)))
 	 :stage-collision-fn #'critter-stage-collision
 	 :origin-fn #'physics-tile-origin
 	 :inertia-vel-fn #'critter-inertia-vel))
@@ -1493,29 +1493,47 @@ This can be abused with the machine gun in TAS."
   (stage-vel (aval c :physics)))
 
 (defparameter *elephant-speed* 0.08)
-(defstruct (elephant (:include entity-state))
-  health-amt
-  facing
-  player
-  camera
-  damage-numbers)
+
+(defun elephant-fns-alist ()
+  (alist :draw-fn #'elephant-drawing
+	 :origin-fn #'elephant-origin
+	 :inertia-vel-fn #'elephant-inertia-vel
+	 :damageable-rect-fn #'elephant-damageable-rect
+	 :damageable-hit-react-fn #'elephant-hit-react
+	 :dynamic-collision-rect-fn #'elephant-dynamic-collision-rect
+	 :damage-collision-amt-fn #'elephant-damage-collision-amt
+	 :damage-collision-rect-fn #'elephant-damage-collision-rect
+	 :dynamic-collision-react-fn
+	 (lambda (c side player-collision-rect player)
+	   (dynamic-collision-enemy-react (physics-pos c)
+					  (origin c)
+					  (aval c :id)
+					  (dynamic-collision-rect c)
+					  side
+					  player-collision-rect
+					  (estate player)))
+	 :ai-fn #'elephant-ai
+	 :stage-collision-fn #'elephant-stage-collision))
+
 (defun make-default-elephant  (pos player camera damage-numbers)
   (let ((id (gen-entity-id)))
     (values
-     (make-elephant :physics
-		    (alist
-		     :stage
-		     (gravity-kin-2d :pos pos
-				     :vel (make-v (- *elephant-speed*) 0)))
-		    :timers
-		    (alist
-		     :anim-cycle (create-timed-cycle 12 #(0 2 4)))
-		    :health-amt 8
-		    :facing :left
-		    :damage-numbers damage-numbers
-		    :camera camera
-		    :player player
-		    :id id)
+     (amerge
+      (elephant-fns-alist)
+      (alist :physics
+	     (alist
+	      :stage
+	      (gravity-kin-2d :pos pos
+			      :vel (make-v (- *elephant-speed*) 0)))
+	     :timers
+	     (alist
+	      :anim-cycle (create-timed-cycle 12 #(0 2 4)))
+	     :health-amt 8
+	     :facing :left
+	     :damage-numbers damage-numbers
+	     :camera camera
+	     :player player
+	     :id id))
      id)))
 
 (def-entity-constructor create-elephant #'make-default-elephant
@@ -1526,54 +1544,46 @@ This can be abused with the machine gun in TAS."
 (defun elephant-drawing (e)
   (let ((src-pos
 	 (cond
-	   ((timer-active? (aval (elephant-timers e) :recover))
+	   ((timer-active? (aval (aval e :timers) :recover))
 	    (make-v (tiles (* 2 3)) 0))
-	   (t (anim-cycle-offset (elephant-timers e))))))
+	   (t (anim-cycle-offset (aval e :timers))))))
     (make-sprite-drawing :layer :enemy
 			 :sheet-key :npc-eggs1
 			 :src-rect
 			 (create-rect (+v src-pos
-					  (make-v 0 (if (eq (elephant-facing e) :left)
+					  (make-v 0 (if (eq (aval e :facing) :left)
 							0
 							(tiles 3/2))))
 				      *elephant-dims*)
 			 :pos (physics-pos e))))
 
-(defmethod draw ((e elephant))
-  (elephant-drawing e))
+
 
 (defun elephant-origin (e)
   (+v (physics-pos e)
       (scale-v *elephant-dims* 1/2)))
 
-(defmethod origin ((e elephant))
-  (elephant-origin e))
 
 (defun elephant-inertia-vel (e)
-  (scale-v (stage-vel (entity-state-physics e)) 1/3))
-
-(defmethod inertia-vel ((e elephant))
-  (elephant-inertia-vel e))
+  (scale-v (stage-vel (aval e :physics)) 1/3))
 
 (defun elephant-damageable-rect (e)
   (create-rect (physics-pos e) *elephant-dims*))
 
-(defmethod damageable-rect ((e elephant))
-  (elephant-damageable-rect e))
 
 (defun elephant-hit-react (e amt)
-  (let ((timers (elephant-timers e))
-	(physics (elephant-physics e))
-	(health-amt (elephant-health-amt e))
-	(dead? (elephant-dead? e)))
+  (let ((timers (aval e :timers))
+	(physics (aval e :physics))
+	(health-amt (aval e :health-amt))
+	(dead? (aval e :dead?)))
     (setq physics
 	  (aset physics
 		:shake
 		(make-wave-motion :dir :left :amp 2 :speed 0.1 :rads 0)))
     (setq timers (aset timers :shake (create-expiring-timer (s->ms 1/3) t)))
-    (if (< amt (elephant-health-amt e))
+    (if (< amt (aval e :health-amt))
 	(progn
-	  (update-damage-number-amt (elephant-damage-numbers e) (elephant-id e) amt)
+	  (update-damage-number-amt (aval e :damage-numbers) (aval e :id) amt)
 	  (push-sound :enemy-hurt)
 
 	  (setq health-amt (- health-amt amt)))
@@ -1591,64 +1601,43 @@ This can be abused with the machine gun in TAS."
 	    (setq timers (aset timers :rage (create-expiring-timer (s->ms 3)))))
 	  (setq timers (aset timers :recover (create-expiring-timer (s->ms 3/4) t)))))
     
-    (make-elephant :physics physics
-		   :timers timers
-		   :dead? dead?
-		   :health-amt health-amt
-		   :facing (elephant-facing e)
-		   :id (elephant-id e)
-		   :player (elephant-player e)
-		   :camera (elephant-camera e)
-		   :damage-numbers (elephant-damage-numbers e))))
+    (aset e
+	  :physics physics
+	  :timers timers
+	  :dead? dead?
+	  :health-amt health-amt)))
 
-(defmethod damageable-hit-react ((e elephant) amt)
-  (elephant-hit-react e amt))
+
 
 (defun elephant-dynamic-collision-rect (e)
   (let ((pos (physics-pos e)))
     (cond
-      ((timer-active? (aval (elephant-timers e) :recover))
+      ((timer-active? (aval (aval e :timers) :recover))
        (setq pos (+v pos (make-v 0 (tiles 1/4)))))
       ((= 1 (cycle-idx (timed-cycle-cycle
-			(aval (elephant-timers e) :anim-cycle))))
+			(aval (aval e :timers) :anim-cycle))))
        (setq pos (+v pos (make-v 0 (tiles 1/8))))))
     (create-rect pos *elephant-dims*)))
 
-(defmethod dynamic-collision-rect ((e elephant))
-  (elephant-dynamic-collision-rect e))
 
 (defun elephant-damage-collision-amt (e)
-  (if (timer-active? (aval (elephant-timers e) :rage))
+  (if (timer-active? (aval (aval e :timers) :rage))
       5
       1))
 
-(defmethod damage-collision-amt ((e elephant))
-  (elephant-damage-collision-amt e))
 
 (defun elephant-damage-collision-rect (e)
   (let* ((dims (make-v (tiles 1) (tiles 3/4)))
 	 (y (tiles 3/4))
-	 (pos (if (eq (elephant-facing e) :left)
+	 (pos (if (eq (aval e :facing) :left)
 		  (make-v 0 y)
 		  (make-v (tiles 1) y))))
     (create-rect (+v (physics-pos e) pos) dims)))
 
-(defmethod damage-collision-rect ((e elephant))
-  (elephant-damage-collision-rect e))
-
-(defmethod dynamic-collision-react ((c elephant) side player-collision-rect player)
-  (dynamic-collision-enemy-react
-   (physics-pos c)
-   (origin c)
-   (elephant-id c)
-   (dynamic-collision-rect c)
-   side
-   player-collision-rect
-   (estate player)))
 
 (defun elephant-ai (e ticks)
-  (let ((timers (elephant-timers e))
-	(physics (elephant-physics e)))
+  (let ((timers (aval e :timers))
+	(physics (aval e :physics)))
     (unless (timer-active? (aval timers :shake))
       (removef physics :shake :key #'car :test #'eq))
     
@@ -1665,10 +1654,10 @@ This can be abused with the machine gun in TAS."
       (when (and (member :anim-cycle ticks)
 		 (zerop (cycle-idx (timed-cycle-cycle (aval timers :anim-cycle)))))
 	(push-sound :big-footstep)
-	(replace-entity-state (elephant-camera e) (rcurry #'timed-camera-shake (s->ms 1/2)))
+	(replace-entity-state (aval e :camera) (rcurry #'timed-camera-shake (s->ms 1/2)))
 	(create-death-cloud-particles 3
 				      (+v (physics-pos e)
-					  (make-v (if (eq (elephant-facing e) :left)
+					  (make-v (if (eq (aval e :facing) :left)
 						      (tiles 3/2)
 						      (tiles 1/2))
 						  (tiles 5/4))))))
@@ -1680,13 +1669,13 @@ This can be abused with the machine gun in TAS."
 		       (cond
 			 ((timer-active? (aval timers :rage))
 			  (let ((*elephant-speed* (* 2 *elephant-speed*)))
-			    (if (eq (elephant-facing e) :right)
+			    (if (eq (aval e :facing) :right)
 				(setq x-vel *elephant-speed*)
 				(setq x-vel (- *elephant-speed*)))))
 			 ((timer-active? (aval timers :recover))
 			  (setq x-vel 0))
 			 (t
-			  (if (eq (elephant-facing e) :right)
+			  (if (eq (aval e :facing) :right)
 			      (setq x-vel *elephant-speed*)
 			      (setq x-vel (- *elephant-speed*)))))
 		       (aset kin-2d
@@ -1694,26 +1683,17 @@ This can be abused with the machine gun in TAS."
 			     (make-v x-vel (y (aval kin-2d :vel))))))
 		   :stage))
 
-    (make-elephant :physics physics
-		   :timers timers
-		   :dead? (elephant-dead? e)
-		   :health-amt (elephant-health-amt e)
-		   :facing (elephant-facing e)
-		   :id (elephant-id e)
-		   :player (elephant-player e)
-		   :camera (elephant-camera e)
-		   :damage-numbers (elephant-damage-numbers e))))
-
-(defmethod ai ((e elephant) ticks)
-  (elephant-ai e ticks))
+    (aset e
+	  :physics physics
+	  :timers timers)))
 
 (let ((collision-rects
        (rect->collision-rects
 	(centered-rect (scale-v *elephant-dims* 1/2) *elephant-dims*)
 	6)))
   (defun elephant-stage-collision (e stage)
-    (let* ((data (alist :facing (elephant-facing e)
-			:pos (aval (aval (elephant-physics e) :stage) :pos)))
+    (let* ((data (alist :facing (aval e :facing)
+			:pos (aval (aval (aval e :physics) :stage) :pos)))
 	   (stage-collision-result
 	    (stage-collisions
 	     data stage collision-rects
@@ -1728,20 +1708,10 @@ This can be abused with the machine gun in TAS."
 		(if (eq (aval data :facing) :right)
 		    (aset data :facing :left)
 		    data))))))
-      (make-elephant
-       :physics 
-       (aset (elephant-physics e)
-	     :stage
-	     (aset (aval (elephant-physics e) :stage)
-		   :pos (aval stage-collision-result :pos)))
-       :timers (elephant-timers e)
-       :dead? (elephant-dead? e)
-       :health-amt (elephant-health-amt e)
-       :facing (aval stage-collision-result :facing)
-       :id (elephant-id e)
-       :player (elephant-player e)
-       :camera (elephant-camera e)
-       :damage-numbers (elephant-damage-numbers e)))))
-
-(defmethod stage-collision ((e elephant) stage)
-  (elephant-stage-collision e stage))
+      (aset e
+	    :physics 
+	    (aset (aval e :physics)
+		  :stage
+		  (aset (aval (aval e :physics) :stage)
+			:pos (aval stage-collision-result :pos)))
+	    :facing (aval stage-collision-result :facing)))))
