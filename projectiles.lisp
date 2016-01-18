@@ -161,31 +161,37 @@
 					   (rand-val-between 0.001 0.0015)
 					   t))))))
 
-(defstruct (polar-star-projectile (:include entity-state))
-  dir
-  lvl
-  sprite-rect)
+(defun polar-star-projectile-fns-alist ()
+  (alist :ai-fn #'polar-star-projectile-ai
+	 :bullet-hit-react-fn #'polar-star-projectile-hit-react
+	 :bullet-damage-amt-fn #'polar-star-projectile-damage-amt
+	 :draw-fn #'polar-star-projectile-drawing
+	 :bullet-rect-fn
+	 (lambda (p)
+	   (polar-star-projectile-collision-rect (aval p :lvl)
+						 (aval p :dir)
+						 (physics-pos p)))
+	 :stage-collision-fn #'polar-star-projectile-stage-collision))
 
 (defun make-default-polar-star-projectile (nozzle-pos dir lvl)
-  (make-polar-star-projectile :dir dir :lvl lvl
-			      :timers
-			      (alist :life
-				     (create-expiring-timer
-				      (s->ms
-				       (elt
-					'(1/8 1/4 1/2)
-					lvl))
-				      t))
-			      :physics
-			      (alist :kin-2d
-				     (make-offset-motion
-				      (sub-v
-				       nozzle-pos
-				       (tile-dims/2))
-				      dir 0.6 0))
-			      :sprite-rect
-			      (make-polar-star-projectile-sprite-rect
-			       lvl dir)))
+  (amerge
+   (polar-star-projectile-fns-alist)
+   (alist :dir dir :lvl lvl
+	  :timers
+	  (alist :life
+		 (create-expiring-timer
+		  (s->ms
+		   (elt
+		    '(1/8 1/4 1/2)
+		    lvl))
+		  t))
+	  :physics
+	  (alist :kin-2d
+		 (make-offset-motion
+		  (sub-v nozzle-pos (tile-dims/2))
+		  dir 0.6 0))
+	  :sprite-rect
+	  (make-polar-star-projectile-sprite-rect lvl dir))))
 
 (def-entity-constructor create-polar-star-projectile
     #'make-default-polar-star-projectile
@@ -193,70 +199,36 @@
 
 (defun polar-star-projectile-ai (p ticks)
   (declare (ignore ticks))
-  (cond ((not (timer-active? (aval (polar-star-projectile-timers p) :life)))
+  (cond ((not (timer-active? (aval (aval p :timers) :life)))
 	 (push-sound :dissipate)
 	 (make-projectile-star-particle
 	  (offset-in-dir-pos (+v (physics-pos p) (tile-dims/2))
 			     (tiles/2 1)
-			     (polar-star-projectile-dir p)))
+			     (aval p :dir)))
 
-	 (make-polar-star-projectile
-	  :physics (polar-star-projectile-physics p)
-	  :timers (polar-star-projectile-timers p)
-	  :dir (polar-star-projectile-dir p)
-	  :lvl (polar-star-projectile-lvl p)
-	  :sprite-rect (polar-star-projectile-sprite-rect p)
-	  :dead? t))
+	 (aset p :dead? t))
 	(t p)))
 
-(defmethod ai ((p polar-star-projectile) ticks)
-  (polar-star-projectile-ai p ticks))
 
-(defmethod draw ((p polar-star-projectile))
-  (polar-star-projectile-drawing (physics-pos p)
-				 (polar-star-projectile-sprite-rect p)))
-
-(defmethod bullet-rect ((p polar-star-projectile))
-  (polar-star-projectile-collision-rect (polar-star-projectile-lvl p)
-					(polar-star-projectile-dir p)
-					(physics-pos p)))
 
 (defun polar-star-projectile-hit-react (p)
-  (make-polar-star-projectile
-   :physics (polar-star-projectile-physics p)
-   :timers (polar-star-projectile-timers p)
-   :dir (polar-star-projectile-dir p)
-   :lvl (polar-star-projectile-lvl p)
-   :sprite-rect (polar-star-projectile-sprite-rect p)
-   :dead? t))
-
-(defmethod bullet-hit-react ((p polar-star-projectile))
-  (polar-star-projectile-hit-react p))
+  (aset p :dead? t))
 
 (defun polar-star-projectile-damage-amt (p)
-  (elt '(1 2 4) (polar-star-projectile-lvl p)))
+  (elt '(1 2 4) (aval p :lvl)))
 
-(defmethod bullet-damage-amt ((p polar-star-projectile))
-  (polar-star-projectile-damage-amt p))
 
 (defun polar-star-projectile-stage-collision (p stage)
   (let ((pos (physics-pos p))
-	(lvl (polar-star-projectile-lvl p))
-	(dir (polar-star-projectile-dir p)))
-    (make-polar-star-projectile
-     :physics (polar-star-projectile-physics p)
-     :timers (polar-star-projectile-timers p)
-     :dir dir
-     :lvl lvl
-     :sprite-rect (polar-star-projectile-sprite-rect p)
-     :dead? (polar-star-projectile-collisions
-	     (polar-star-projectile-collision-rect lvl dir pos)
-	     dir
-	     pos
-	     stage))))
+	(lvl (aval p :lvl))
+	(dir (aval p :dir)))
+    (aset p
+	  :dead? (polar-star-projectile-collisions
+		  (polar-star-projectile-collision-rect lvl dir pos)
+		  dir
+		  pos
+		  stage))))
 
-(defmethod stage-collision ((p polar-star-projectile) stage)
-  (polar-star-projectile-stage-collision p stage))
 
 (defun make-polar-star-projectile-group (lvl dir nozzle-pos)
   (push-sound :polar-star-shoot-3)
@@ -274,11 +246,11 @@
 		     (make-v (1+ (x tp)) (y tp))
 		     tp))))))
 
-(defun polar-star-projectile-drawing (pos sprite-rect)
-  (make-sprite-drawing :layer :projectile :sheet-key :bullet
-		       :src-rect
-		       sprite-rect
-		       :pos pos))
+(defun polar-star-projectile-drawing (p)
+  (make-sprite-drawing :layer :projectile
+		       :sheet-key :bullet
+		       :src-rect (aval p :sprite-rect)
+		       :pos (physics-pos p)))
 
 (defun polar-star-projectile-collision-rect (lvl dir pos)
   (let* ((short-side (ecase lvl
