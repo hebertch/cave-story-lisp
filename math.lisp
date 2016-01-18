@@ -148,37 +148,32 @@
 
 ;; Cycle (Animation Utilities?)
 
-(defstruct cycle seq (idx 0))
+(defun make-cycle (&key seq (idx 0))
+  (alist :seq seq
+	 :idx idx))
 
 (defun cycle-len (cycle)
-  (length (cycle-seq cycle)))
-
-(defun create-cycle (seq)
-  (make-cycle :seq seq))
+  (length (aval cycle :seq)))
 
 (defun cycle-current (c)
-  (elt (cycle-seq c) (cycle-idx c)))
+  (elt (aval c :seq) (aval c :idx)))
 
 (defun cycle-next (c)
-  (make-cycle
-   :seq (cycle-seq c)
-   :idx
-   (if (= (cycle-idx c) (1- (cycle-len c)))
-       0
-       (1+ (cycle-idx c)))))
+  (aset c
+	:idx
+	(if (= (aval c :idx) (1- (cycle-len c)))
+	    0
+	    (1+ (aval c :idx)))))
 
 (defun cycle-previous (c)
-  (make-cycle
-   :seq (cycle-seq c)
-   :idx
-   (if (= (cycle-idx c) 0)
-       (1- (cycle-len c))
-       (1- (cycle-idx c)))))
+  (aset c
+	:idx
+	(if (= (aval c :idx) 0)
+	    (1- (aval c :len))
+	    (1- (aval c :idx)))))
 
 (defun cycle-reset (c)
-  (make-cycle
-   :seq (cycle-seq c)
-   :idx 0))
+  (aset c :idx 0))
 
 (defun make-timed-cycle (&key timer cycle paused?)
   (alist :timer timer
@@ -188,7 +183,7 @@
 
 (defun create-timed-cycle (fps seq &optional start-paused?)
   (make-timed-cycle :timer (fps-make-timer fps)
-		    :cycle (create-cycle seq)
+		    :cycle (make-cycle :seq seq)
 		    :paused? start-paused?))
 
 (defun update-timed-cycle (tc)
