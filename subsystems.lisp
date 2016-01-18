@@ -84,8 +84,6 @@
     `(list* 'lambda (list ,@ (cdr interface))
 	    ,(interface-forms-name (car interface)))))
 
-(defvar *entity-system-type* :game)
-
 (defmacro def-subsystem (name update-args &body update-forms)
   "Creates a subsytem of NAME.
 REGISTER-name is the interface to add to name-REGISTRY.
@@ -197,11 +195,6 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 		  :layer :debug-damage-collision
 		  :filled? t))))
 
-(defstruct entity
-  state
-  subsystems
-  system-type)
-
 (let (entity-registry id)
   (defun current-entity-states ()
     (list id (copy-alist entity-registry)))
@@ -228,22 +221,19 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 
   (defun estate (id)
     (let ((lookup (cdr (assoc id entity-registry))))
-      (when lookup
-	(entity-state lookup))))
+      lookup))
 
   (defun estate-set (id obj)
     (setq entity-registry (copy-alist entity-registry))
-    (let ((e (copy-entity (cdr (assoc id entity-registry)))))
-      (setf (entity-state e) obj)
-      (setf (cdr (assoc id entity-registry)) e))))
+    (setf (cdr (assoc id entity-registry)) obj)))
 
 (defmethod dead? (obj)
   (declare (ignore obj))
   nil)
 
 (defun register-entity-subsystems (id entity)
-  (let ((system-type (entity-system-type entity)))
-    (dolist (s (entity-subsystems entity))
+  (let ((system-type :game))
+    (dolist (s (aval entity :subsystems))
       (ecase s
 	((:ai :timers) (register-timers system-type id))
 	(:bullet (register-bullet system-type id))
@@ -262,11 +252,10 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
       (setq initial-state (aset initial-state :id (gen-entity-id)))))
 
   (let ((id (aval initial-state :id))
-	(entity (make-entity :system-type *entity-system-type*
-			     :state initial-state
-			     :subsystems (aval initial-state :subsystems))))
+	(entity initial-state))
     (register-entity-subsystems id entity)
-    (register-entity id entity)))
+    (register-entity id entity)
+    id))
 
 (defun physics (o)
   (aupdate o #'motion-set-update :physics))
