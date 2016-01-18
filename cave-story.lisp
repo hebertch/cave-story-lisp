@@ -564,25 +564,26 @@ This can be abused with the machine gun in TAS."
 (defparameter *cursor-blink-time* 100)
 
 #+nil
-(defstruct (text-display (:include entity-state))
-  pos
-  text
-  num-chars
-  wait-for-input?
-  blink-time)
+(defparameter *text-display-subsystems*
+  '(:timers :drawable))
+
+#+nil
+(defun text-display-fns-alist ()
+  (alist :ai-fn #'text-display-ai
+	 :draw-fn #'text-display-draw))
 
 #+nil
 (defun make-text-display (pos text)
-  (make-text-display :pos pos
-		     :text text
-		     :num-chars 0
-		     :timers
-		     (alist :text (make-expiring-timer *text-speed* t))
-		     :wait-for-input? t
-		     :blink-time 0))
-#+nil
-(defparameter *text-display-subsystems*
-  '(:timers :drawable))
+  (amerge
+   (text-display-fns-alist)
+   (alist :subsystems *text-display-subsystems*)
+   (alist :pos pos
+	  :text text
+	  :num-chars 0
+	  :timers
+	  (alist :text (make-expiring-timer *text-speed* t))
+	  :wait-for-input? t
+	  :blink-time 0)))
 
 #+nil
 (defun text-display-ai (td ticks)
@@ -620,10 +621,6 @@ This can be abused with the machine gun in TAS."
     (t td)))
 
 #+nil
-(defmethod ai ((td text-display) ticks)
-  (text-display-ai td ticks))
-
-#+nil
 (defun text-display-drawing (td)
   (list* (make-text-line-drawing
 	  :pos (text-display-pos td)
@@ -632,10 +629,6 @@ This can be abused with the machine gun in TAS."
 			(text-display-num-chars td))
 	  :layer :text)
 	 (draw-textbox 5 21 30 8)))
-
-#+nil
-(defmethod draw ((td text-display))
-  (text-display-drawing td))
 
 (defun hud-fns-alist ()
   (alist :draw-fn #'hud-drawing))

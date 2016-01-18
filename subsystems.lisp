@@ -240,8 +240,3 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
   (multiple-value-bind (timers ticks)
       (timer-set-update (aval o :timers))
     (ai (aset o :timers timers) ticks)))
-
-(defun entity-constructor (constructor)
-  (lambda (&rest constructor-args)
-    (let ((state (apply constructor constructor-args)))
-      (create-entity state))))
