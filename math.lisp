@@ -32,9 +32,11 @@
 (defun make-v (x y)
   (make-v2 :x x :y y))
 
-(defstruct rect
-  pos
-  size)
+(defun make-rect (&key pos size)
+  (alist :pos pos
+	 :size size))
+(defun rect-pos (rect) (aval rect :pos))
+(defun rect-size (rect) (aval rect :size))
 
 (defun tiles (tl)
   (* tl *tile-size*))
