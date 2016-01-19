@@ -185,15 +185,15 @@ This can be abused with the machine gun in TAS."
 	 :draw-fn #'dorito-drawing
 	 :stage-collision-fn #'dorito-stage-collision
 	 :pickup-rect-fn #'dorito-pickup-rect
-	 :pickup-kill-fn #'dorito-pickup-kill
-	 :pickup-data-fn #'dorito-pickup-data))
+	 :pickup-kill-fn #'dorito-pickup-kill))
 
 (defparameter *dorito-subsystems*
   '(:timers :physics :stage-collision :drawable :pickup))
 (defun make-dorito (pos vel size)
-  (append
+  (amerge
    (dorito-fns-alist)
    (alist :subsystems *dorito-subsystems*)
+   (dorito-pickup-data size)
    (alist :timers
 	  (alist :life
 		 (make-expiring-timer (s->ms 8)
@@ -202,8 +202,8 @@ This can be abused with the machine gun in TAS."
 		 (make-fps-cycle 14 (alexandria.0.dev:iota 6)))
 	  :physics
 	  (alist :stage
-		 (make-kin-2d :pos (-v pos (rect-pos
-					    (dorito-collision-rect size)))
+		 (make-kin-2d :pos (-v pos
+				       (rect-pos (dorito-collision-rect size)))
 			      :vel vel
 			      :accelerator-x
 			      (friction-accelerator *dorito-friction-acc*)
@@ -236,9 +236,8 @@ This can be abused with the machine gun in TAS."
 
      :src-rect
      (create-rect
-      (+v
-       (anim-cycle-offset (aval d :timers))
-       (tile-v 0 (1+ (position (aval d :size) '(:small :medium :large)))))
+      (+v (anim-cycle-offset (aval d :timers))
+	  (tile-v 0 (1+ (position (aval d :size) '(:small :medium :large)))))
       (make-v (tiles 1) (1- (tiles 1))))
 
      :pos (physics-pos d))))
@@ -255,45 +254,52 @@ This can be abused with the machine gun in TAS."
 (defun max-y-v (v max-y)
   (make-v (x v) (max (y v) max-y)))
 
-(defun dorito-stage-collision (d stage)
-  (let* ((collision-rects (rect->collision-rects
-			   (dorito-collision-rect (aval d :size))))
-	 (physics (aval d :physics))
-	 (stage-physics (aval physics :stage))
-	 (data (alist :pos (aval stage-physics :pos)
-		      :vel (aval stage-physics :vel)))
+(defparameter *dorito-stage-collisions*
+  (alist
+   :bottom
+   (collision-lambda (data)
+     (push-sound :dorito-bounce)
+     (aset data
+	   :vel
+	   (set-y-v (aval data :vel)
+		    (- *dorito-bounce-speed*))))
+   :right
+   (collision-lambda (data)
+     (if (plusp (x (aval data :vel)))
+	 (aset data :vel (reverse-x-v (aval data :vel)))
+	 data))
+   :left
+   (collision-lambda (data)
+     (if (minusp (x (aval data :vel)))
+	 (aset data :vel (reverse-x-v (aval data :vel)))
+	 data))
+   :top
+   (collision-lambda (data)
+     (aset data :vel (max-y-v (aval data :vel) 0)))))
+
+(defun apply-dorito-stage-physics (kin-2d rect stage)
+  (let* ((collision-rects (rect->collision-rects rect))
+	 (data (alist :pos (aval kin-2d :pos)
+		      :vel (aval kin-2d :vel)))
 	 (res
-	  (stage-collisions
-	   data
-	   stage
-	   collision-rects
-	   (alist
-	    :bottom
-	    (collision-lambda (data)
-	      (push-sound :dorito-bounce)
-	      (aset data
-		    :vel
-		    (set-y-v (aval data :vel)
-			     (- *dorito-bounce-speed*))))
-	    :right
-	    (collision-lambda (data)
-	      (if (plusp (x (aval data :vel)))
-		  (aset data :vel (reverse-x-v (aval data :vel)))
-		  data))
-	    :left
-	    (collision-lambda (data)
-	      (if (minusp (x (aval data :vel)))
-		  (aset data :vel (reverse-x-v (aval data :vel)))
-		  data))
-	    :top
-	    (collision-lambda (data)
-	      (aset data :vel (max-y-v (aval data :vel) 0)))))))
-    (aset d :physics
-	  (aset physics
-		:stage
-		(aset stage-physics
-		      :pos (aval res :pos)
-		      :vel (aval res :vel))))))
+	  (stage-collisions data stage collision-rects
+			    *dorito-stage-collisions*)))
+    (aset kin-2d
+	  :pos (aval res :pos)
+	  :vel (aval res :vel))))
+
+(defun aupdate-stage-physics (obj fn)
+  (aset obj
+	:physics
+	(aupdate (aval obj :physics) fn :stage)))
+
+(defun dorito-stage-collision (d stage)
+  (aupdate-stage-physics
+   d
+   (lambda (stage-physics)
+     (apply-dorito-stage-physics stage-physics
+				 (dorito-collision-rect (aval d :size))
+				 stage))))
 
 (defun dorito-pickup-rect (d)
   (rect-offset (dorito-collision-rect (aval d :size)) (physics-pos d)))
@@ -302,9 +308,9 @@ This can be abused with the machine gun in TAS."
   (push-sound :pickup)
   (aset d :dead? t))
 
-(defun dorito-pickup-data (d)
+(defun dorito-pickup-data (size)
   (make-pickup :type :dorito
-	       :amt (ecase (aval d :size)
+	       :amt (ecase size
 		      (:small 1)
 		      (:medium 10)
 		      (:large 20))))

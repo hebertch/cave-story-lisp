@@ -152,7 +152,7 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
     (when (rects-collide? rect player-rect)
       (draw-rect! rect *yellow* :layer :debug-pickup :filled? t)
       (draw-rect! player-rect *yellow* :layer :debug-pickup :filled? t)
-      (player-pickup! (estate player) (pickup-data (estate entity-id)))
+      (player-pickup! (estate player) (estate entity-id))
       (replace-entity-state entity-id #'pickup-kill))))
 
 (def-subsystem damage-collision (player)
