@@ -181,7 +181,8 @@ This can be abused with the machine gun in TAS."
 (defparameter *dorito-friction-acc* 0.00002)
 (defparameter *dorito-bounce-speed* 0.225)
 
-(defstruct pickup type amt)
+(defun make-pickup (&key type amt)
+  (alist :type type :amt amt))
 
 (defun dorito-fns-alist ()
   (alist :ai-fn #'dorito-ai
@@ -1168,10 +1169,10 @@ This can be abused with the machine gun in TAS."
   (tile-v 0 (if (eq facing :left) 0 1)))
 
 (defun anim-cycle-offset (timers)
-  (tile-v (timed-cycle-current (aval timers :anim-cycle)) 0))
+  (tile-v (cycle-current (aval timers :anim-cycle)) 0))
 
 (defun anim-cycle-val (timers)
-  (timed-cycle-current (aval timers :anim-cycle)))
+  (cycle-current (aval timers :anim-cycle)))
 
 (defun point-rect (pos)
   (create-rect pos (both-v 1)))

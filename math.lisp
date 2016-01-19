@@ -197,9 +197,6 @@
 		   timer)
 	       tick?)))))
 
-(defun timed-cycle-current (tc)
-  (cycle-current tc))
-
 (defun timed-cycle-pause (tc)
   (aset tc :paused? t))
 

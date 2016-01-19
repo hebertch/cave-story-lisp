@@ -71,9 +71,9 @@
 			     (- bottom top)))))
 
 (defun player-pickup! (p pickup)
-  (ecase (pickup-type pickup)
+  (ecase (aval pickup :type)
     (:dorito
-     (player-gun-exp! p (pickup-amt pickup))))
+     (player-gun-exp! p (aval pickup :amt))))
   (values))
 
 (defun player-state (p)
@@ -131,7 +131,7 @@
 
 (defun player-ai (p ticks)
   (when (and (find :walk-cycle ticks)
-	     (/= 0 (timed-cycle-current (aval (aval p :timers) :walk-cycle))))
+	     (/= 0 (cycle-current (aval (aval p :timers) :walk-cycle))))
     (push-sound :step))
   (aset p :physics (apply-player-physics p)))
 
@@ -233,7 +233,7 @@
 	v-facing)))
 
 (defun player-walk-idx (player)
-  (timed-cycle-current (aval (aval player :timers) :walk-cycle)))
+  (cycle-current (aval (aval player :timers) :walk-cycle)))
 
 (defun player-walking? (p)
   (and (aval p :acc-dir) (player-on-ground? p)))
