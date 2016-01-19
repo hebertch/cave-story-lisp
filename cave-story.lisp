@@ -38,15 +38,16 @@
 		(setq *global-game*
 		      (update-and-render *global-game*)))))))
 
-(defstruct game
-  player
-  camera
-  stage
-  projectile-groups
-  damage-numbers
-  active-systems
-
-  (input (make-input)))
+(defun make-game
+    (&key player camera stage projectile-groups
+       damage-numbers active-systems (input (make-input)))
+  (alist :player player
+	 :camera camera
+	 :stage stage
+	 :projectile-groups projectile-groups
+	 :damage-numbers damage-numbers
+	 :active-systems active-systems
+	 :input input))
 
 (let (debug-toggle-off?)
   (defun handle-debug-input (transient-input)
@@ -95,14 +96,9 @@
 		  (let ((transient-input (gather-transient-input!)))
 		    (handle-debug-input transient-input)
 		    (setq *global-game*
-			  (make-game :player (game-player *global-game*)
-				     :camera (game-camera *global-game*)
-				     :stage (game-stage *global-game*)
-				     :projectile-groups (game-projectile-groups *global-game*)
-				     :damage-numbers (game-damage-numbers *global-game*)
-				     :active-systems (game-active-systems *global-game*)
-				     :input (gather-input (game-input *global-game*)
-							  transient-input)))))
+			  (aset *global-game*
+				:input (gather-input (aval *global-game* :input)
+						     transient-input)))))
 		
 		(when (>= frame-timer (* *update-period* *frame-time*))
 		  (if *global-paused?*
@@ -111,9 +107,9 @@
 		  (render! *renderer*
 			   *font*
 			   *render-list*
-			   (camera-pos
-			    (estate (game-camera *global-game*))
-			    (stage-dims->camera-bounds (stage-dims (game-stage *global-game*)))))
+			   (camera-pos (estate (aval *global-game* :camera))
+				       (stage-dims->camera-bounds
+					(stage-dims (aval *global-game* :stage)))))
 		  (setq frame-timer (- frame-timer
 				       (* *update-period* *frame-time*))))
 
@@ -131,15 +127,15 @@
   "Handles input. Often called many times between updates.
 This can be abused with the machine gun in TAS."
 
-  (let ((input (game-input game))
+  (let ((input (aval game :input))
 	(input-systems
-	 (aval (estate (game-active-systems game)) :input)))
+	 (aval (estate (aval game :active-systems)) :input)))
     (update-input-subsystem input-systems input)
     (ecase (first input-systems)
       (:game
        (when (or (joy-pressed? input :b) (key-pressed? input :x))
 	 ;; Fire Gun
-	 (player-fire-gun! (estate (game-player game)))))
+	 (player-fire-gun! (estate (aval game :player)))))
 
       (:dialog
        (cond
@@ -497,9 +493,9 @@ This can be abused with the machine gun in TAS."
 	:amt (+ (aval fn :amt) amount)))
 
 (defun remove-all-dead (game)
-  (replace-entity-state (game-projectile-groups game)
+  (replace-entity-state (aval game :projectile-groups)
 			#'projectile-groups-remove-dead)
-  (replace-entity-state (game-damage-numbers game)
+  (replace-entity-state (aval game :damage-numbers)
 			#'damage-numbers-remove-dead)
   (values))
 
@@ -807,13 +803,7 @@ This can be abused with the machine gun in TAS."
   "The Main Loop, called once per *FRAME-TIME*."
   (when (eq *input-playback* :playback)
     (setq game
-	  (make-game :player (game-player game)
-		     :camera (game-camera game)
-		     :stage (game-stage game)
-		     :projectile-groups (game-projectile-groups game)
-		     :damage-numbers (game-damage-numbers game)
-		     :active-systems (game-active-systems game)
-		     :input (next-playback-input))))
+	  (aset game :input (next-playback-input))))
   (handle-input game)
 
   (setq *render-list* nil)
@@ -824,9 +814,9 @@ This can be abused with the machine gun in TAS."
     (:playback
      (draw-text-line! (zero-v) "PLAYBACK")))
 
-  (let ((active-update-systems (aval (estate (game-active-systems game)) :update))
-	(stage (game-stage game))
-	(player (game-player game)))
+  (let ((active-update-systems (aval (estate (aval game :active-systems)) :update))
+	(stage (aval game :stage))
+	(player (aval game :player)))
     (update-timers-subsystem active-update-systems)
     (update-physics-subsystem active-update-systems)
     (update-bullet-subsystem active-update-systems)
@@ -836,7 +826,7 @@ This can be abused with the machine gun in TAS."
     (update-damage-collision-subsystem active-update-systems player)
     (update-dynamic-collision-subsystem active-update-systems player))
 
-  (let ((active-draw-systems (aval (estate (game-active-systems game)) :draw)))
+  (let ((active-draw-systems (aval (estate (aval game :active-systems)) :draw)))
     (update-drawable-subsystem active-draw-systems))
 
   (remove-all-dead game)
@@ -844,27 +834,21 @@ This can be abused with the machine gun in TAS."
   ;; Debug Drawings Below.
 
   ;; (draw-point! (player-nozzle-pos player) *red*)
-  (let ((focus (camera-focus (estate (game-camera game))))
-	(camera-bounds (stage-dims->camera-bounds (stage-dims (game-stage game)))))
+  (let ((focus (camera-focus (estate (aval game :camera))))
+	(camera-bounds (stage-dims->camera-bounds (stage-dims (aval game :stage)))))
     (draw-point! focus *cyan*)
     (draw-point! (clamp-pos focus camera-bounds) *red*)
     (draw-rect! camera-bounds *cyan*))
-  (draw-point! (camera-target-from-player (player-state (game-player game))) *white*)
+  (draw-point! (camera-target-from-player (player-state (aval game :player))) *white*)
   ;; End Debug Drawings.
 
   (play-sounds *sfx-play-list*)
   (setq *sfx-play-list* nil)
 
   (when (eq *input-playback* :recording)
-    (record-frame-input (game-input game)))
+    (record-frame-input (aval game :input)))
 
-  (make-game :player (game-player game)
-	     :camera (game-camera game)
-	     :stage (game-stage game)
-	     :projectile-groups (game-projectile-groups game)
-	     :damage-numbers (game-damage-numbers game)
-	     :active-systems (game-active-systems game)
-	     :input (reset-transient-input (game-input game))))
+  (aset game :input (reset-transient-input (aval game :input))))
 
 (defparameter *input-playback* nil)
 
@@ -991,7 +975,7 @@ This can be abused with the machine gun in TAS."
      gun-name)))
 
 (defun save-current-state ()
-  (list (current-entity-states) (copy-game *global-game*)))
+  (list (current-entity-states) *global-game*))
 
 (defun restore-state (state)
   (dolist (s *registry-syms*)
