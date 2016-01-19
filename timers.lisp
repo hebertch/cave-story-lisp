@@ -23,7 +23,6 @@
   (not (timer-active? tr)))
 
 (defun timer-update (tr)
-  ;; TODO: Admittedly the naming here sucks.
   (cond ((timer-active? tr)
 	 (let* ((tr2 (aset tr
 			   :ms-remaining (- (aval tr :ms-remaining)

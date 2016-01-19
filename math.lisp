@@ -169,17 +169,18 @@
   (aset c
 	:idx
 	(if (= (aval c :idx) 0)
-	    (1- (aval c :len))
+	    (1- (cycle-len c))
 	    (1- (aval c :idx)))))
 
 (defun cycle-reset (c)
   (aset c :idx 0))
 
 (defun make-timed-cycle (&key timer cycle paused?)
-  (alist :timer timer
-	 :cycle cycle
-	 :paused? paused?
-	 :update-fn #'update-timed-cycle))
+  (amerge
+   (alist :paused? paused?
+	  :update-fn #'update-timed-cycle)
+   timer
+   cycle))
 
 (defun make-fps-cycle (fps seq &optional start-paused?)
   (make-timed-cycle :timer (fps-make-timer fps)
@@ -190,17 +191,14 @@
   (cond
     ((aval tc :paused?) tc)
     (t
-     (multiple-value-bind (timer tick?) (timer-update (aval tc :timer))
-       (values (make-timed-cycle
-		:timer timer
-		:cycle (if tick?
-			   (cycle-next (aval tc :cycle))
-			   (aval tc :cycle))
-		:paused? nil)
+     (multiple-value-bind (timer tick?) (timer-update tc)
+       (values (if tick?
+		   (cycle-next timer)
+		   timer)
 	       tick?)))))
 
 (defun timed-cycle-current (tc)
-  (cycle-current (aval tc :cycle)))
+  (cycle-current tc))
 
 (defun timed-cycle-pause (tc)
   (aset tc :paused? t))
@@ -209,9 +207,7 @@
   (aset tc :paused? nil))
 
 (defun timed-cycle-restart (tc)
-  (aset tc
-	:timer (reset-timer (aval tc :timer))
-	:cycle (cycle-reset (aval tc :cycle))))
+  (cycle-reset (reset-timer tc)))
 
 ;; Clamps
 
