@@ -1292,27 +1292,38 @@ This can be abused with the machine gun in TAS."
 (defun origin-dist (a b)
   (dist (origin a) (origin b)))
 
-(defun critter-ai (c ticks)
-  (declare (ignore ticks))
+(defun shake-ai (obj)
+  (let ((physics (aval obj :physics))
+	(timers (aval obj :timers)))
+    (if (not (timer-active? (aval timers :shake)))
+	(aset obj :physics (arem physics :shake))
+	obj)))
+
+(defun face-player-ai (obj)
+  (aset obj :facing (face-player (physics-pos obj) (aval obj :player))))
+
+(defun critter-jump-ai (c)
   (let ((physics (aval c :physics))
 	(timers (aval c :timers))
 	(facing (aval c :facing)))
-    (unless (timer-active? (aval timers :shake))
-      (setq physics (arem physics :shake)))
 
-    (when (and (not (timer-active? (aval timers :sleep)))
-	       (< (origin-dist c (estate (aval c :player))) (tiles 4)))
-      (when (aval c :ground-tile)
-	(setq physics
+    (if (and (not (timer-active? (aval timers :sleep)))
+	     (< (origin-dist c (estate (aval c :player))) (tiles 4))
+	     (aval c :ground-tile))
+	(aset c
+	      :physics
 	      (aupdate physics
 		       (lambda (kin-2d)
 			 (aset kin-2d
 			       :vel
 			       (make-v (* 0.04 (if (eq facing :left) -1 1))
 				       (- 0.35))))
-		       :stage))))
-    (aset c :physics physics
-	  :facing (face-player (physics-pos c) (aval c :player)))))
+		       :stage))
+	c)))
+
+(defun critter-ai (c ticks)
+  (declare (ignore ticks))
+  (face-player-ai (critter-jump-ai (shake-ai c))))
 
 (defun critter-drawing (c)
   (let* ((sleep-timer (aval (aval c :timers) :sleep))
