@@ -247,24 +247,18 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
     (aupdate
      (aupdate
       (aupdate
-       (aupdate
-	(aupdate
-	 (aupdate o :physics #'motion-set-update)
-	 :stage-physics #'motion-physics)
-	:offset #'motion-physics)
-       :target #'motion-physics)
-      :shake-h #'motion-physics)
-     :shake-v #'motion-physics)
+       (motion-set-update o)
+       :stage-physics #'motion-physics)
+      :offset #'motion-physics)
+     :target #'motion-physics)
     :shake #'motion-physics)
    :wave #'motion-physics))
 
 (defun physics-pos (o)
-  (+v (motion-set-pos (aval o :physics))
+  (+v (motion-set-pos o)
       (or (motion-pos (aval o :stage-physics)) (zero-v))
       (or (motion-pos (aval o :offset)) (zero-v))
       (or (motion-pos (aval o :target)) (zero-v))
-      (or (motion-pos (aval o :shake-h)) (zero-v))
-      (or (motion-pos (aval o :shake-v)) (zero-v))
       (or (motion-pos (aval o :shake)) (zero-v))
       (or (motion-pos (aval o :wave)) (zero-v))))
 

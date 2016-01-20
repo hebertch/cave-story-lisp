@@ -31,6 +31,7 @@
      focus vel
      (camera-target-from-player (estate player))
      (player-vel (estate player)))
+    :physics '(:target)
     :player player)))
 
 (defun make-shake ()
@@ -39,9 +40,14 @@
 		    :speed (rand-val-between 0.017 0.022)))
 
 (setfn add-camera-shake
-       (asetfn
-	:shake-v (make-shake)
-	:shake-h (make-shake)))
+       (compose
+	(aupdatefn
+	 :physics
+	 (lambda (p)
+	   (union p '(:shake-v :shake-h))))
+	(asetfn
+	 :shake-v (make-shake)
+	 :shake-h (make-shake))))
 
 (defun camera-ai (c)
   (let ((shake-tick? (member :shake (aval c :ticks))))
@@ -51,8 +57,9 @@
 	   (aval c :target)
 	   (camera-target-from-player (estate (aval c :player)))
 	   (player-vel (estate (aval c :player))))
-	  :shake-h (if shake-tick? nil (aval c :shake-h))
-	  :shake-v (if shake-tick? nil (aval c :shake-v))
+	  :physics (if shake-tick?
+		       (set-difference (aval c :physics) '(:shake-v :shake-h))
+		       (aval c :physics))
 	  :timers (if shake-tick?
 		      (arem (aval c :timers) :shake)
 		      (aval c :timers)))))

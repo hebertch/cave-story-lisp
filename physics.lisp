@@ -104,15 +104,16 @@ new (values DELTA-POS VEL)."
 	  :speed speed
 	  :rads rads)))
 
-(defun motion-set-update (physics)
-  (loop for asc in physics
-     collecting
-       (cons (car asc) (motion-physics (cdr asc)))))
+(defun motion-set-update (e)
+  (loop for key in (aval e :physics) do
+       (setq e
+	     (aupdate e key #'motion-physics)))
+  e)
 
-(defun motion-set-pos (physics)
+(defun motion-set-pos (e)
   (let ((pos (zero-v)))
-    (loop for (k . m) in physics do
-	 (setq pos (+v pos (motion-pos m))))
+    (loop for key in (aval e :physics) do
+	 (setq pos (+v pos (motion-pos (aval e key)))))
     pos))
 
 (defun wave-physics (w)
