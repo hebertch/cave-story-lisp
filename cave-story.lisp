@@ -320,7 +320,8 @@ This can be abused with the machine gun in TAS."
   (amerge
    (single-loop-sprite-fns-alist)
    (alist :subsystems *single-loop-sprite-subsystems*)
-   (alist :timers (alist :cycle (make-fps-cycle fps seq))
+   (alist :anim-cycle (make-fps-cycle fps seq)
+	  :timers '(:anim-cycle)
 	  :sheet-key sheet-key
 	  :layer layer
 	  :tile-y tile-y)))
@@ -331,15 +332,14 @@ This can be abused with the machine gun in TAS."
 			 :sheet-key (aval s :sheet-key)
 			 :src-rect
 			 (tile-rect (tile-v (cycle-current
-					     (aval (aval s :timers) :cycle))
+					     (aval s :anim-cycle))
 					    (aval s :tile-y)))
 			 :pos pos)))
 
 (defun single-loop-sprite-ai (p)
-  (let ((dead? (and (find :cycle (aval p :ticks))
-		    (zerop (aval (aval (aval p :timers) :cycle) :idx)))))
+  (let ((dead? (and (find :anim-cycle (aval p :ticks))
+		    (zerop (aval (aval p :anim-cycle) :idx)))))
     (aset p :dead? dead?)))
-
 
 (defun particle-fns-alist ()
   (alist :draw-fn #'particle-drawing
@@ -364,7 +364,7 @@ This can be abused with the machine gun in TAS."
     (if (aval sp :dead?)
 	nil
 	(let ((cycle-current (cycle-current
-			      (aval (aval sp :timers) :cycle))))
+			      (aval sp :anim-cycle))))
 	  (make-sprite-drawing :layer :particle
 			       :sheet-key (aval sp :sheet-key)
 			       :src-rect
@@ -439,9 +439,8 @@ This can be abused with the machine gun in TAS."
    (alist :subsystems *floating-number-subsystems*)
    (alist :entity entity
 	  :amt amt
-	  :timers
-	  (alist
-	   :life (make-expiring-timer (s->ms 2) t))
+	  :timers '(:life-timer)
+	  :life-timer (make-expiring-timer (s->ms 2) t)
 	  :physics '(:offset)
 	  :offset (make-offset-motion (zero-v)
 				      :up
@@ -454,7 +453,7 @@ This can be abused with the machine gun in TAS."
 		  :layer :floating-text))
 
 (defun floating-number-ai (fn)
-  (let ((dead? (not (timer-active? (aval (aval fn :timers) :life)))))
+  (let ((dead? (not (timer-active? (aval fn :life-timer)))))
     (cond ((< (y (motion-pos (aval fn :offset)))
 	      (- (tiles 1)))
 	   (aset fn
@@ -464,9 +463,9 @@ This can be abused with the machine gun in TAS."
 	  (t (aset fn :dead? dead?)))))
 
 (defun floating-number-add-amt (fn amount)
-  (aset fn
-	:timers (aupdate (aval fn :timers) :life #'reset-timer)
-	:amt (+ (aval fn :amt) amount)))
+  (aupdate fn
+	   :life-timer #'reset-timer
+	   :amt (lambda (amt) (+ amt amount))))
 
 (defun remove-all-dead (game)
   (replace-entity-state (aval game :projectile-groups)
