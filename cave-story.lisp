@@ -1083,6 +1083,7 @@ This can be abused with the machine gun in TAS."
    (bat-fns-alist)
    (alist :subsystems *bat-subsystems*)
    (alist
+    :physics '(:wave)
     :wave (make-wave-motion
 	   :origin (tile-v tile-x
 			   tile-y)
@@ -1095,8 +1096,6 @@ This can be abused with the machine gun in TAS."
      :anim-cycle (make-fps-cycle 14 #(0 2 1 2)))
     :health-amt 1
     :player player)))
-
-
 
 (defun bat-drawing (b)
   (make-sprite-drawing :layer :enemy

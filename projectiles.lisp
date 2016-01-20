@@ -38,6 +38,7 @@
 	    :timers
 	    (alist :life
 		   (make-expiring-timer (s->ms 3/2) t))
+	    :physics (list* :wave (when oscillate? '(:offset)))
 	    :offset
 	    (make-offset-motion
 	     (offset-in-dir-pos
