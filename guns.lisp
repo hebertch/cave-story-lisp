@@ -138,7 +138,7 @@
 
 (defun player-nozzle-pos (p)
   (let ((actual-v-facing (player-actual-v-facing p))
-	(k (cdr (assoc :stage (aval p :physics)))))
+	(k (aval p :stage-physics)))
     (+v (nozzle-offset (aval p :h-facing)
 		       actual-v-facing
 		       (player-current-gun-name p))

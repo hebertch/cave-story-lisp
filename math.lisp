@@ -36,6 +36,9 @@
       collecting (cons k (funcall fn (aval alist k))))
    alist))
 
+(defun aupdatefn (&rest keys-and-fns)
+  (lambda (a) (apply #'aupdate a keys-and-fns)))
+
 (defstruct (v2 (:conc-name nil))
   x y)
 

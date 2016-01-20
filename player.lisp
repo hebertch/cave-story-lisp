@@ -29,16 +29,14 @@
 		 (make-fps-cycle 12 #(0 1 0 2) t)
 		 :invincible
 		 (make-expiring-timer (s->ms 3)))
-	  :physics
-	  (alist
-	   :stage
-	   (make-kin-2d
-	    :pos (scale-v *window-dims* 1/2)
-	    :vel (zero-v)
-	    :clamper-vx
-	    (clamper+- *player-max-speed-x*)
-	    :clamper-vy
-	    (clamper+- *terminal-speed*))))))
+	  :stage-physics
+	  (make-kin-2d
+	   :pos (scale-v *window-dims* 1/2)
+	   :vel (zero-v)
+	   :clamper-vx
+	   (clamper+- *player-max-speed-x*)
+	   :clamper-vy
+	   (clamper+- *terminal-speed*)))))
 
 (defparameter *player-walk-acc* 0.00083007812)
 (defparameter *player-max-speed-x* 0.15859375)
@@ -124,8 +122,8 @@
 	(player-inertia-vel p (estate (aval p :ground-inertia-entity)))))
 
 (defun apply-player-physics (p)
-  (aupdate (aval p :physics)
-	   :stage
+  (aupdate p
+	   :stage-physics
 	   (lambda (kin-2d)
 	     (player-kin-2d-physics p kin-2d))))
 
@@ -133,7 +131,7 @@
   (when (and (find :walk-cycle (aval p :ticks))
 	     (/= 0 (cycle-current (aval (aval p :timers) :walk-cycle))))
     (push-sound :step))
-  (aset p :physics (apply-player-physics p)))
+  (apply-player-physics p))
 
 (defun player-fire-gun! (p)
   (let ((gun-name (player-current-gun-name p)))
@@ -192,10 +190,8 @@
 	       :timers (aupdate (aval p :timers) :invincible #'reset-timer)
 	       :ground-tile nil
 	       :health-amt (- (aval p :health-amt) dmg-amt)
-	       :physics
-	       (aupdate (aval p :physics)
-			:stage
-			#'player-short-hop-physics))))
+	       :stage-physics
+	       (player-short-hop-physics (aval p :stage-physics)))))
       p))
 
 (defun player-gun-exp! (p amt)
@@ -263,10 +259,9 @@
 		   (progn
 		     (push-sound :jump)
 		     (aset p
-			   :physics
-			   (aupdate (aval p :physics)
-				    :stage
-				    #'player-jump-physics)
+			   :stage-physics
+			   (player-jump-physics
+			    (aval p :stage-physics))
 			   :interacting? nil
 			   :ground-tile nil
 			   :timers (aupdate (aval p :timers)
@@ -355,8 +350,7 @@
 
 (defun player-stage-collision (p stage)
   (let* ((collision-rects *player-collision-rectangles-alist*)
-	 (physics (aval p :physics))
-	 (stage-physics (aval physics :stage))
+	 (stage-physics (aval p :stage-physics))
 	 (data (alist :pos (aval stage-physics :pos)
 		      :vel (aval stage-physics :vel)
 		      :ground-tile (aval p :ground-tile)
@@ -388,12 +382,10 @@
 	       (aval p :ground-tile))))
     (amerge
      (alist
-      :physics
-      (aset (aval p :physics)
-	    :stage
-	    (aset stage-physics
-		  :pos (aval res :pos)
-		  :vel (aval res :vel)))
+      :stage-physics
+      (aset stage-physics
+	    :pos (aval res :pos)
+	    :vel (aval res :vel))
       :ground-tile (aval res :new-ground-tile))
      (unless (aval p :ground-tile)
        (alist :timers
@@ -402,7 +394,7 @@
      p)))
 
 (defun player-drawing (p)
-  (let ((kin-2d (cdr (assoc :stage (aval p :physics)))))
+  (let ((kin-2d (aval p :stage-physics)))
     (make-sprite-drawing :layer :player
 			 :sheet-key :my-char
 			 :src-rect (player-sprite-rect (aval p :h-facing)
@@ -414,7 +406,7 @@
 			 :pos (pixel-v (aval kin-2d :pos)))))
 
 (defun player-and-gun-drawing (p)
-  (let ((kin-2d (cdr (assoc :stage (aval p :physics)))))
+  (let ((kin-2d (aval p :stage-physics)))
     (unless
 	(and (timer-active? (aval (aval p :timers) :invincible))
 	     (plusp (chunk-timer-period
@@ -429,7 +421,7 @@
 			   (player-walk-idx p))))))
 
 (defun player-vel (p)
-  (aval (aval (aval p :physics) :stage) :vel))
+  (aval (aval p :stage-physics) :vel))
 
 (defun player-damage-collision-rect (p)
   (rect-offset *player-damage-rect* (physics-pos p)))

@@ -1298,43 +1298,39 @@ This can be abused with the machine gun in TAS."
 
 (defun dynamic-collision-enemy-react
     (pos origin id dynamic-collision-rect side player-collision-rect player-state)
-  (let* ((physics (aval player-state :physics))
-	 (kin-2d (aval physics :stage))
+  (let* ((kin-2d (aval player-state :stage-physics))
 	 (ground-tile (aval player-state :ground-tile))
 	 (ground-inertia-entity (aval player-state :ground-inertia-entity)))
     (setq player-state
 	  (aset player-state
-		:physics
-		(aset
-		 physics
-		 :stage
-		 (let ((player-rect (rect-offset player-collision-rect
-						 (aval kin-2d :pos))))
-		   (case side
-		     (:bottom
-		      (cond
-			((and (not (player-on-ground? player-state))
-			      (<= (y pos) (bottom player-rect) (+ (y origin))))
-			 (setq ground-tile :dynamic
-			       ground-inertia-entity id)
-			 (aset
-			  kin-2d
-			  :vel (zero-v :x (x (aval kin-2d :vel)))
-			  :pos (-v
-				(flush-rect-pos player-rect
-						(y (rect-pos dynamic-collision-rect))
-						:up)
-				(rect-pos player-collision-rect))))
-			(t kin-2d)))
-		     ((:left :right)
-		      (let ((disp (- (x (aval kin-2d :pos)) (x pos))))
-			(cond ((> (abs disp) (tiles 1/4))
-			       (aset
-				kin-2d
-				(make-v (* (/ *terminal-speed* 70) disp) (y (aval kin-2d :vel)))
-				:vel))
-			      (t kin-2d))))
-		     (t kin-2d))))))
+		:stage-physics
+		(let ((player-rect (rect-offset player-collision-rect
+						(aval kin-2d :pos))))
+		  (case side
+		    (:bottom
+		     (cond
+		       ((and (not (player-on-ground? player-state))
+			     (<= (y pos) (bottom player-rect) (+ (y origin))))
+			(setq ground-tile :dynamic
+			      ground-inertia-entity id)
+			(aset
+			 kin-2d
+			 :vel (zero-v :x (x (aval kin-2d :vel)))
+			 :pos (-v
+			       (flush-rect-pos player-rect
+					       (y (rect-pos dynamic-collision-rect))
+					       :up)
+			       (rect-pos player-collision-rect))))
+		       (t kin-2d)))
+		    ((:left :right)
+		     (let ((disp (- (x (aval kin-2d :pos)) (x pos))))
+		       (cond ((> (abs disp) (tiles 1/4))
+			      (aset
+			       kin-2d
+			       (make-v (* (/ *terminal-speed* 70) disp) (y (aval kin-2d :vel)))
+			       :vel))
+			     (t kin-2d))))
+		    (t kin-2d)))))
     (aset player-state
 	  :ground-tile ground-tile
 	  :ground-inertia-entity ground-inertia-entity)))
@@ -1460,15 +1456,13 @@ This can be abused with the machine gun in TAS."
 (defun elephant-damageable-rect (e)
   (create-rect (physics-pos e) *elephant-dims*))
 
-(defun shake-hit-react (obj)
-  (aupdate obj
-	   :timers
-	   (asetfn
-	    :shake (make-expiring-timer (s->ms 1/3) t))
-	   :physics
-	   (asetfn
-	    :shake
-	    (make-wave-motion :dir :left :amp 2 :speed 0.1 :rads 0))))
+(setfn shake-hit-react
+       (aupdatefn
+	:timers
+	(asetfn :shake (make-expiring-timer (s->ms 1/3) t))
+	:physics
+	(asetfn :shake
+		(make-wave-motion :dir :left :amp 2 :speed 0.1 :rads 0))))
 
 (defun elephant-rage-hit-react (e)
   (let ((timers (aval e :timers)))
