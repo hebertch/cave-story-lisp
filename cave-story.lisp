@@ -201,6 +201,7 @@ This can be abused with the machine gun in TAS."
 				      t)
 		 :anim-cycle
 		 (make-fps-cycle 14 (alexandria.0.dev:iota 6)))
+	  :physics '(:stage-physics)
 	  :stage-physics
 	  (make-kin-2d :pos (-v pos
 				(rect-pos (dorito-collision-rect size)))
@@ -455,6 +456,7 @@ This can be abused with the machine gun in TAS."
 	  :timers
 	  (alist
 	   :life (make-expiring-timer (s->ms 2) t))
+	  :physics '(:offset)
 	  :offset (make-offset-motion (zero-v)
 				      :up
 				      (/ (tiles 1/30) *frame-time*)))))
@@ -1144,6 +1146,7 @@ This can be abused with the machine gun in TAS."
 	   (make-single-loop-sprite
 	    15 (mapcar #'1+ (alexandria.0.dev:iota 7))
 	    :npc-sym 0 :particle))
+	  :physics '(:stage-physics)
 	  :stage-physics
 	  (make-kin-2d
 	   :pos (-v pos (tile-dims/2))
@@ -1214,6 +1217,7 @@ This can be abused with the machine gun in TAS."
      (alist :subsystems *critter-subsystems*)
      (alist
       :stage-physics (gravity-kin-2d :pos pos)
+      :physics '(:stage-physics)
       :player player
       :health-amt 2
       :damage-numbers damage-numbers
@@ -1229,7 +1233,7 @@ This can be abused with the machine gun in TAS."
 (defun shake-ai (obj)
   (let ((timers (aval obj :timers)))
     (if (not (timer-active? (aval timers :shake)))
-	(arem obj :shake)
+	(aset obj :physics (remove :shake (aval obj :physics)))
 	obj)))
 
 (defun face-player-ai (obj)
@@ -1386,6 +1390,7 @@ This can be abused with the machine gun in TAS."
    (alist :stage-physics
 	  (gravity-kin-2d :pos pos
 			  :vel (make-v (- *elephant-speed*) 0))
+	  :physics '(:stage-physics)
 	  :timers
 	  (alist
 	   :anim-cycle (make-fps-cycle 12 #(0 2 4)))
@@ -1428,7 +1433,9 @@ This can be abused with the machine gun in TAS."
        (compose
 	(aupdatefn
 	 :timers
-	 (asetfn :shake (make-expiring-timer (s->ms 1/3) t)))
+	 (asetfn :shake (make-expiring-timer (s->ms 1/3) t))
+	 :physics
+	 (lambda (p) (adjoin :shake p)))
 	(asetfn
 	 :shake
 	 (make-wave-motion :dir :left :amp 2 :speed 0.1 :rads 0))))

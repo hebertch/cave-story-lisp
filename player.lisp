@@ -29,6 +29,7 @@
 		 (make-fps-cycle 12 #(0 1 0 2) t)
 		 :invincible
 		 (make-expiring-timer (s->ms 3)))
+	  :physics '(:stage-physics)
 	  :stage-physics
 	  (make-kin-2d
 	   :pos (scale-v *window-dims* 1/2)

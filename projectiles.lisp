@@ -38,7 +38,7 @@
 	    :timers
 	    (alist :life
 		   (make-expiring-timer (s->ms 3/2) t))
-	    :physics (list* :wave (when oscillate? '(:offset)))
+	    :physics (list* :offset (when oscillate? '(:wave)))
 	    :offset
 	    (make-offset-motion
 	     (offset-in-dir-pos
@@ -181,6 +181,7 @@
 	  :timers
 	  (alist :life
 		 (make-expiring-timer (s->ms (elt '(1/8 1/4 1/2) lvl)) t))
+	  :physics '(:offset)
 	  :offset
 	  (make-offset-motion
 	   (sub-v nozzle-pos (tile-dims/2))
