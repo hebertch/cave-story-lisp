@@ -1075,7 +1075,7 @@ This can be abused with the machine gun in TAS."
 	 :draw-fn #'bat-drawing
 	 :ai-fn #'bat-ai
 	 :damage-collision-rect-fn
-	 (compose #'point-rect #'origin)
+	 (comp point-rect origin)
 	 :damage-collision-amt-fn (constantly 1)
 	 :damageable-rect-fn #'physics-tile-rect))
 
@@ -1494,29 +1494,27 @@ This can be abused with the machine gun in TAS."
 		  (make-v (tiles 1) y))))
     (create-rect (+v (physics-pos e) pos) dims)))
 
-(defun apply-elephant-stage-physics (kin-2d timers facing)
-  (let ((x-vel
-	 (cond
-	   ((timer-active? (aval timers :rage))
-	    (if (eq facing :right)
-		(* 2 *elephant-speed*)
-		(- (* 2 *elephant-speed*))))
-	   ((timer-active? (aval timers :recover))
-	    0)
-	   (t
-	    (if (eq facing :right)
-		*elephant-speed*
-		(- *elephant-speed*))))))
-    (aset kin-2d
-	  :vel
-	  (make-v x-vel (y (aval kin-2d :vel))))))
+(defun rage-timer (e)
+  (aval (aval e :timers) :rage))
+(defun recover-timer (e)
+  (aval (aval e :timers) :recover))
 
 (defun elephant-stage-physics-ai (e)
-  (aupdate e
-	   :stage-physics
-	   (lambda (kin-2d)
-	     (apply-elephant-stage-physics
-	      kin-2d (aval e :timers) (aval e :facing)))))
+  (let ((x-vel
+	 (cond
+	   ((timer-active? (rage-timer e))
+	    (if (eq (aval e :facing) :right)
+		(* 2 *elephant-speed*)
+		(- (* 2 *elephant-speed*))))
+	   ((timer-active? (recover-timer e))
+	    0)
+	   (t
+	    (if (eq (aval e :facing) :right)
+		*elephant-speed*
+		(- *elephant-speed*))))))
+    (aupdate e
+	     :stage-physics
+	     (asetfn :vel (make-v x-vel (y (stage-vel e)))))))
 
 (defun elephant-rage-ai (e)
   (let* ((timers (aval e :timers))
@@ -1524,13 +1522,17 @@ This can be abused with the machine gun in TAS."
 	 (rage-timer (aval timers :rage)))
     
     (cond ((member :rage ticks)
-	   (aset e :timers (aset timers
-				 :rage nil
-				 :anim-cycle (make-fps-cycle 12 #(0 2 4)))))
+	   (aupdate e
+		    :timers
+		    (asetfn
+		     :rage nil
+		     :anim-cycle (make-fps-cycle 12 #(0 2 4)))))
 	  ((and rage-timer (member :recover ticks))
-	   (aset e :timers (aset timers
-				 :rage (reset-timer rage-timer)
-				 :anim-cycle (make-fps-cycle 14 #(8 10)))))
+	   (aupdate e
+		    :timers
+		    (asetfn
+		     :rage (reset-timer rage-timer)
+		     :anim-cycle (make-fps-cycle 14 #(8 10)))))
 	  (t e))))
 
 (defun elephant-rage-effects (e)

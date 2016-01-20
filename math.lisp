@@ -2,7 +2,16 @@
 
 (defmacro setfn (function-name fn)
   "Sets the function-value of function name to be fn."
-  `(setf (symbol-function ',function-name) ,fn))
+  `(setf (fdefinition ',function-name) ,fn))
+
+(defmacro comp (fn-name &rest fn-names)
+  "Composes using function names."
+  `(lambda (arg)
+     (funcall (compose
+	       (function ,fn-name)
+	       ,@(mapcar (lambda (name) `(function ,name))
+			 fn-names))
+	      arg)))
 
 ;; Alist utilities
 (defun alist (&rest plist)
@@ -36,7 +45,9 @@
 (defun aupdate (alist &rest keys-and-fns)
   (amerge
    (loop for (k fn) on keys-and-fns by #'cddr
-      collecting (cons k (funcall fn (aval alist k))))
+      collecting (progn
+		   (assert (typep k 'keyword))
+		   (cons k (funcall fn (aval alist k)))))
    alist))
 
 (defun aupdatefn (&rest keys-and-fns)
@@ -222,8 +233,8 @@
   (aset tc :paused? nil))
 
 (setfn timed-cycle-restart
-       (compose #'cycle-reset
-		#'reset-timer))
+       (comp cycle-reset
+	     reset-timer))
 
 ;; Clamps
 

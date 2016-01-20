@@ -347,39 +347,42 @@
       (setq p (aset p :gun-name-cycle (cycle-next (aval p :gun-name-cycle)))))
     p))
 
+(defparameter *player-stage-collisions*
+  (let ((stop-x
+	 (collision-lambda (data)
+	   (aset data
+		 :stage-physics
+		 (aset (aval data :stage-physics)
+		       :vel (zero-v :y (y (stage-vel data))))))))
+    (alist :bottom
+	   (collision-lambda (data)
+	     (unless (aval data :ground-tile)
+	       (push-sound :land))
+
+	     (aset
+	      data
+	      :stage-physics
+	      (aset (aval data :stage-physics)
+		    :vel (zero-v :x (x (stage-vel data))))
+	      :new-ground-tile (aval data :tile-type)))
+	   :left stop-x :right stop-x
+	   :top
+	   (collision-lambda (data)
+	     (when (minusp (y (stage-vel data)))
+	       (push-sound :head-bump))
+	     (aset data
+		   :stage-physics
+		   (aset (aval data :stage-physics)
+			 :vel (make-v
+			       (x (stage-vel data))
+			       (max (y (stage-vel data)) 0))))))))
+
 (defun player-stage-collision (p stage)
   (let* ((collision-rects *player-collision-rectangles-alist*)
 	 (res (stage-collisions
 	       (aset p :new-ground-tile nil)
 	       stage collision-rects
-	       (let ((stop-x
-		      (collision-lambda (data)
-			(aset data
-			      :stage-physics
-			      (aset (aval data :stage-physics)
-				    :vel (zero-v :y (y (stage-vel data))))))))
-		 (alist :bottom
-			(collision-lambda (data)
-			  (unless (aval data :ground-tile)
-			    (push-sound :land))
-
-			  (aset
-			   data
-			   :stage-physics
-			   (aset (aval data :stage-physics)
-				 :vel (zero-v :x (x (stage-vel data))))
-			   :new-ground-tile (aval data :tile-type)))
-			:left stop-x :right stop-x
-			:top
-			(collision-lambda (data)
-			  (when (minusp (y (stage-vel data)))
-			    (push-sound :head-bump))
-			  (aset data
-				:stage-physics
-				(aset (aval data :stage-physics)
-				      :vel (make-v
-					    (x (stage-vel data))
-					    (max (y (stage-vel data)) 0)))))))
+	       *player-stage-collisions*
 	       (aval p :ground-tile))))
     (amerge
      (alist :ground-tile (aval res :new-ground-tile))
