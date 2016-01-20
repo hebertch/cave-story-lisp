@@ -21,6 +21,9 @@
   (anorm (amerge
 	  (apply #'alist keys-and-vals)
 	  alist)))
+(defun asetfn (&rest keys-and-vals)
+  (lambda (a)
+    (apply #'aset a keys-and-vals)))
 
 (defun arem (alist &rest keys)
   (remove-if (lambda (pair)

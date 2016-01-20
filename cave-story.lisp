@@ -287,11 +287,6 @@ This can be abused with the machine gun in TAS."
 	  :pos (aval res :pos)
 	  :vel (aval res :vel))))
 
-(defun aupdate-stage-physics (obj fn)
-  (aset obj
-	:physics
-	(aupdate (aval obj :physics) :stage fn)))
-
 (defun dorito-stage-collision (d stage)
   (aupdate
    d
@@ -1387,11 +1382,11 @@ This can be abused with the machine gun in TAS."
 (defun physics-tile-rect (c)
   (tile-rect (physics-pos c)))
 
-(defun stage-vel (physics)
-  (aval (aval physics :stage) :vel))
+(defun stage-vel (e)
+  (aval (aval e :stage-physics) :vel))
 
 (defun critter-inertia-vel (c)
-  (stage-vel (aval c :physics)))
+  (stage-vel c))
 
 (defparameter *elephant-speed* 0.08)
 
@@ -1424,11 +1419,9 @@ This can be abused with the machine gun in TAS."
   (amerge
    (elephant-fns-alist)
    (alist :subsystems *elephant-subsystems*)
-   (alist :physics
-	  (alist
-	   :stage
-	   (gravity-kin-2d :pos pos
-			   :vel (make-v (- *elephant-speed*) 0)))
+   (alist :stage-physics
+	  (gravity-kin-2d :pos pos
+			  :vel (make-v (- *elephant-speed*) 0))
 	  :timers
 	  (alist
 	   :anim-cycle (make-fps-cycle 12 #(0 2 4)))
@@ -1462,21 +1455,20 @@ This can be abused with the machine gun in TAS."
       (scale-v *elephant-dims* 1/2)))
 
 (defun elephant-inertia-vel (e)
-  (scale-v (stage-vel (aval e :physics)) 1/3))
+  (scale-v (stage-vel e) 1/3))
 
 (defun elephant-damageable-rect (e)
   (create-rect (physics-pos e) *elephant-dims*))
 
 (defun shake-hit-react (obj)
-  (let ((timers (aval obj :timers))
-	(physics (aval obj :physics)))
-    (aset obj
-	  :timers
-	  (aset timers :shake (make-expiring-timer (s->ms 1/3) t))
-	  :physics
-	  (aset physics
-		:shake
-		(make-wave-motion :dir :left :amp 2 :speed 0.1 :rads 0)))))
+  (aupdate obj
+	   :timers
+	   (asetfn
+	    :shake (make-expiring-timer (s->ms 1/3) t))
+	   :physics
+	   (asetfn
+	    :shake
+	    (make-wave-motion :dir :left :amp 2 :speed 0.1 :rads 0))))
 
 (defun elephant-rage-hit-react (e)
   (let ((timers (aval e :timers)))
@@ -1509,8 +1501,6 @@ This can be abused with the machine gun in TAS."
 	  (create-death-cloud-particles num-particles origin)
 
 	  (aset obj :dead? t)))))
-
-
 
 (defun elephant-dynamic-collision-rect (e)
   (let ((pos (physics-pos e)))
@@ -1552,10 +1542,11 @@ This can be abused with the machine gun in TAS."
 	  (make-v x-vel (y (aval kin-2d :vel))))))
 
 (defun elephant-stage-physics-ai (e)
-  (aupdate-stage-physics e
-			 (lambda (kin-2d)
-			   (apply-elephant-stage-physics
-			    kin-2d (aval e :timers) (aval e :facing)))))
+  (aupdate e
+	   :stage-physics
+	   (lambda (kin-2d)
+	     (apply-elephant-stage-physics
+	      kin-2d (aval e :timers) (aval e :facing)))))
 
 (defun elephant-rage-ai (e)
   (let* ((timers (aval e :timers))
@@ -1594,7 +1585,7 @@ This can be abused with the machine gun in TAS."
 	6)))
   (defun elephant-stage-collision (e stage)
     (let* ((data (alist :facing (aval e :facing)
-			:pos (aval (aval (aval e :physics) :stage) :pos)))
+			:pos (aval (aval e :stage-physics) :pos)))
 	   (res
 	    (stage-collisions
 	     data stage collision-rects
@@ -1610,11 +1601,9 @@ This can be abused with the machine gun in TAS."
 		    (aset data :facing :left)
 		    data))))))
       (aset e
-	    :physics 
-	    (aset (aval e :physics)
-		  :stage
-		  (aset (aval (aval e :physics) :stage)
-			:pos (aval res :pos)))
+	    :stage-physics 
+	    (aset (aval e :stage-physics)
+		  :pos (aval res :pos))
 	    :facing (aval res :facing)))))
 
 (setfn bat-hit-react
