@@ -28,7 +28,10 @@
 (defun damageable-rect (obj)
   (funcall (aval obj :damageable-rect-fn) obj))
 (defun damageable-hit-react (obj bullet-hit-amt)
-  (funcall (aval obj :damageable-hit-react-fn) obj bullet-hit-amt))
+  "Calls the obj's :damageable-hit-react-fn.
+Binds :damage-amt (in obj) to the bullet hit amount."
+  (funcall (aval obj :damageable-hit-react-fn)
+	   (aset obj :damage-amt bullet-hit-amt)))
 
 (defun bullet-rect (obj)
   (funcall (aval obj :bullet-rect-fn) obj))

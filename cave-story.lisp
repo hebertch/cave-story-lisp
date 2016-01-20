@@ -1112,32 +1112,8 @@ This can be abused with the machine gun in TAS."
 	  :health-amt 1
 	  :player player)))
 
-(defun bat-hit-react (b amt)
-  (let ((physics (aset (aval b :physics)
-		       :shake
-		       (make-wave-motion :dir :left :amp 2 :speed 0.1 :rads 0)))
-	(timers (aset (aval b :timers)
-		      :shake (make-expiring-timer (s->ms 1/3) t)))
-	(damage-numbers (aval b :damage-numbers))
-	(id (aval b :id))
-	(health-amt (aval b :health-amt)))
-    (cond ((< amt health-amt)
-	   (update-damage-number-amt damage-numbers id amt)
-	   (push-sound :enemy-hurt)
-	   (aset b
-		 :physics physics
-		 :timers timers
-		 :health-amt (- health-amt amt)))
-	  (t
-	   (let ((origin (origin b)))
-	     (push-sound :enemy-explode)
-	     (create-entity
-	      (make-dorito origin (polar-vec->v (rand-angle) 0.07) :small))
-	     (create-entity
-	      (make-dorito origin (polar-vec->v (rand-angle) 0.07) :small))
-	     (create-death-cloud-particles 3 origin)
-
-	     (aset b :dead? t))))))
+(setfn bat-hit-react
+       (curry #'damage-reaction 3))
 
 (defun bat-drawing (b)
   (make-sprite-drawing :layer :enemy
@@ -1148,8 +1124,7 @@ This can be abused with the machine gun in TAS."
 				      (facing-offset (aval b :facing))))
 		       :pos (physics-pos b)))
 
-(defun bat-ai (b)
-  (aset b :facing (face-player (physics-pos b) (aval b :player))))
+(setfn bat-ai #'face-player-ai)
 
 (defun facing-offset (facing)
   (tile-v 0 (if (eq facing :left) 0 1)))
@@ -1336,29 +1311,10 @@ This can be abused with the machine gun in TAS."
 						  (facing-offset (aval c :facing))))
 			 :pos (physics-pos c))))
 
-(defun critter-hit-react (c amt)
-  (let ((health-amt (aval c :health-amt)))
-    (if (< amt health-amt)
-	(progn
-	  (update-damage-number-amt (aval c :damage-numbers) (aval c :id) amt)
-	  (push-sound :enemy-hurt)
-
-	  (aset c
-		:physics
-		(aset (aval c :physics)
-		      :shake
-		      (make-wave-motion :dir :left :amp 2 :speed 0.1 :rads 0))
-		:timers
-		(aset (aval c :timers) :shake (make-expiring-timer (s->ms 1/3) t))
-		:health-amt (- health-amt amt)))
-	(let ((origin (origin c)))
-	  (push-sound :enemy-explode)
-	  (create-entity
-	   (make-dorito origin (polar-vec->v (rand-angle) 0.07) :small))
-	  (create-entity
-	   (make-dorito origin (polar-vec->v (rand-angle) 0.07) :small))
-	  (create-death-cloud-particles 6 origin)
-	  (aset c :dead? t)))))
+(setfn critter-hit-react
+       (compose
+	(curry #'damage-reaction 6)
+	#'shake-hit-react))
 
 (defun critter-damage-collision-rect (c)
   (rect-offset *critter-dynamic-collision-rect* (physics-pos c)))
@@ -1406,6 +1362,22 @@ This can be abused with the machine gun in TAS."
 	  :ground-tile ground-tile
 	  :ground-inertia-entity ground-inertia-entity)))
 
+(defparameter *critter-stage-collisions*
+  (alist
+   :bottom
+   (collision-lambda (data)
+     (aset data
+	   :timers (if (aval data :last-ground-tile)
+		       (aval data :timers)
+		       (aset (aval data :timers)
+			     :sleep
+			     (make-expiring-timer (s->ms 1/3) t)))
+	   :ground-tile (aval data :tile-type)
+	   :vel (zero-v)))
+   :top
+   (collision-lambda (data)
+     (aset data :vel (max-y-v (aval data :vel) 0)))))
+
 (let ((collision-rects (rect->collision-rects
 			(centered-rect (tile-dims/2) (both-v (tiles 3/4))) 6)))
   (defun critter-stage-collision (c stage)
@@ -1420,21 +1392,7 @@ This can be abused with the machine gun in TAS."
 	   (res
 	    (stage-collisions
 	     data stage collision-rects
-	     (alist
-	      :bottom
-	      (collision-lambda (data)
-		(amerge
-		 (unless last-tile
-		   (alist :timers
-			  (aset (aval data :timers)
-				:sleep
-				(make-expiring-timer (s->ms 1/3) t))))
-		 (alist :ground-tile (aval data :tile-type)
-			:vel (zero-v))
-		 data))
-	      :top
-	      (collision-lambda (data)
-		(aset data :vel (max-y-v (aval data :vel) 0)))))))
+	     *critter-stage-collisions*)))
       (aset c
 	    :physics (aset physics
 			   :stage
@@ -1529,43 +1487,54 @@ This can be abused with the machine gun in TAS."
 (defun elephant-damageable-rect (e)
   (create-rect (physics-pos e) *elephant-dims*))
 
-(defun elephant-hit-react (e amt)
-  (let ((timers (aval e :timers))
-	(physics (aval e :physics))
-	(health-amt (aval e :health-amt))
-	(dead? (aval e :dead?)))
-    (setq physics
+(defun shake-hit-react (obj)
+  (let ((timers (aval obj :timers))
+	(physics (aval obj :physics)))
+    (aset obj
+	  :timers
+	  (aset timers :shake (make-expiring-timer (s->ms 1/3) t))
+	  :physics
 	  (aset physics
 		:shake
-		(make-wave-motion :dir :left :amp 2 :speed 0.1 :rads 0)))
-    (setq timers (aset timers :shake (make-expiring-timer (s->ms 1/3) t)))
-    (if (< amt (aval e :health-amt))
-	(progn
-	  (update-damage-number-amt (aval e :damage-numbers) (aval e :id) amt)
-	  (push-sound :enemy-hurt)
+		(make-wave-motion :dir :left :amp 2 :speed 0.1 :rads 0)))))
 
-	  (setq health-amt (- health-amt amt)))
-	(let ((origin (origin e)))
+(defun elephant-rage-hit-react (e)
+  (let ((timers (aval e :timers)))
+    (if (timer-active? (aval timers :rage))
+	e
+	(aset e
+	      :timers
+	      (if (timer-active? (aval timers :recover))
+		  (if (< (aval (aval timers :recover) :ms-remaining) (s->ms 1/2))
+		      (aset timers :rage (make-expiring-timer (s->ms 3)))
+		      timers)
+		  (aset timers :recover (make-expiring-timer (s->ms 3/4) t)))))))
+
+(defun damage-reaction (num-particles obj)
+  (let ((health-amt (aval obj :health-amt))
+	(amt (aval obj :damage-amt)))
+    (if (< amt (aval obj :health-amt))
+	(progn
+	  (update-damage-number-amt (aval obj :damage-numbers)
+				    (aval obj :id)
+				    amt)
+	  (push-sound :enemy-hurt)
+	  (aset obj :health-amt (- health-amt amt)))
+	(let ((origin (origin obj)))
 	  (push-sound :enemy-explode)
 	  (create-entity
 	   (make-dorito origin (polar-vec->v (rand-angle) 0.07) :small))
 	  (create-entity
 	   (make-dorito origin (polar-vec->v (rand-angle) 0.07) :small))
-	  (create-death-cloud-particles amt origin)
+	  (create-death-cloud-particles num-particles origin)
 
-	  (setq dead? t)))
+	  (aset obj :dead? t)))))
 
-    (unless (timer-active? (aval timers :rage))
-      (if (timer-active? (aval timers :recover))
-	  (when (< (aval (aval timers :recover) :ms-remaining) (s->ms 1/2))
-	    (setq timers (aset timers :rage (make-expiring-timer (s->ms 3)))))
-	  (setq timers (aset timers :recover (make-expiring-timer (s->ms 3/4) t)))))
-    
-    (aset e
-	  :physics physics
-	  :timers timers
-	  :dead? dead?
-	  :health-amt health-amt)))
+(setfn elephant-hit-react 
+       (compose
+	(curry #'damage-reaction 6)
+	#'elephant-rage-hit-react
+	#'shake-hit-react))
 
 (defun elephant-dynamic-collision-rect (e)
   (let ((pos (physics-pos e)))
@@ -1576,12 +1545,10 @@ This can be abused with the machine gun in TAS."
        (setq pos (+v pos (make-v 0 (tiles 1/8))))))
     (create-rect pos *elephant-dims*)))
 
-
 (defun elephant-damage-collision-amt (e)
   (if (timer-active? (aval (aval e :timers) :rage))
       5
       1))
-
 
 (defun elephant-damage-collision-rect (e)
   (let* ((dims (make-v (tiles 1) (tiles 3/4)))
@@ -1591,59 +1558,66 @@ This can be abused with the machine gun in TAS."
 		  (make-v (tiles 1) y))))
     (create-rect (+v (physics-pos e) pos) dims)))
 
+(defun apply-elephant-stage-physics (kin-2d timers facing)
+  (let ((x-vel
+	 (cond
+	   ((timer-active? (aval timers :rage))
+	    (if (eq facing :right)
+		(* 2 *elephant-speed*)
+		(- (* 2 *elephant-speed*))))
+	   ((timer-active? (aval timers :recover))
+	    0)
+	   (t
+	    (if (eq facing :right)
+		*elephant-speed*
+		(- *elephant-speed*))))))
+    (aset kin-2d
+	  :vel
+	  (make-v x-vel (y (aval kin-2d :vel))))))
 
-(defun elephant-ai (e)
-  (let ((timers (aval e :timers))
-	(physics (aval e :physics))
-	(ticks (aval e :ticks)))
-    (unless (timer-active? (aval timers :shake))
-      (removef physics :shake :key #'car :test #'eq))
+(defun elephant-stage-physics-ai (e)
+  (aupdate-stage-physics e
+			 (lambda (kin-2d)
+			   (apply-elephant-stage-physics
+			    kin-2d (aval e :timers) (aval e :facing)))))
+
+(defun elephant-rage-ai (e)
+  (let* ((timers (aval e :timers))
+	 (ticks (aval e :ticks))
+	 (rage-timer (aval timers :rage)))
     
-    (when (member :recover ticks)
-      (when (aval timers :rage)
-	(setq timers (aupdate timers #'reset-timer :rage))
-	(setq timers (aset timers :anim-cycle (make-fps-cycle 14 #(8 10))))))
+    (cond ((member :rage ticks)
+	   (aset e :timers (aset timers
+				 :rage nil
+				 :anim-cycle (make-fps-cycle 12 #(0 2 4)))))
+	  ((and rage-timer (member :recover ticks))
+	   (aset e :timers (aset timers
+				 :rage (reset-timer rage-timer)
+				 :anim-cycle (make-fps-cycle 14 #(8 10)))))
+	  (t e))))
 
-    (when (member :rage ticks)
-      (setq timers (arem timers :rage))
-      (setq timers (aset timers :anim-cycle (make-fps-cycle 12 #(0 2 4)))))
+(defun elephant-rage-effects (e)
+  (let ((timers (aval e :timers))
+	(ticks (aval e :ticks)))
+    (when (and (timer-active? (aval timers :rage))
+	       (member :anim-cycle ticks)
+	       (zerop (aval (aval timers :anim-cycle) :idx)))
+      (push-sound :big-footstep)
+      (replace-entity-state (aval e :camera) (rcurry #'timed-camera-shake (s->ms 1/2)))
+      (create-death-cloud-particles 3
+				    (+v (physics-pos e)
+					(make-v (if (eq (aval e :facing) :left)
+						    (tiles 3/2)
+						    (tiles 1/2))
+						(tiles 5/4))))))
+  e)
 
-    (when (timer-active? (aval timers :rage))
-      (when (and (member :anim-cycle ticks)
-		 (zerop (aval (aval timers :anim-cycle) :idx)))
-	(push-sound :big-footstep)
-	(replace-entity-state (aval e :camera) (rcurry #'timed-camera-shake (s->ms 1/2)))
-	(create-death-cloud-particles 3
-				      (+v (physics-pos e)
-					  (make-v (if (eq (aval e :facing) :left)
-						      (tiles 3/2)
-						      (tiles 1/2))
-						  (tiles 5/4))))))
-
-    (setq physics
-	  (aupdate physics
-		   (lambda (kin-2d)
-		     (let ((x-vel 0))
-		       (cond
-			 ((timer-active? (aval timers :rage))
-			  (let ((*elephant-speed* (* 2 *elephant-speed*)))
-			    (if (eq (aval e :facing) :right)
-				(setq x-vel *elephant-speed*)
-				(setq x-vel (- *elephant-speed*)))))
-			 ((timer-active? (aval timers :recover))
-			  (setq x-vel 0))
-			 (t
-			  (if (eq (aval e :facing) :right)
-			      (setq x-vel *elephant-speed*)
-			      (setq x-vel (- *elephant-speed*)))))
-		       (aset kin-2d
-			     :vel
-			     (make-v x-vel (y (aval kin-2d :vel))))))
-		   :stage))
-
-    (aset e
-	  :physics physics
-	  :timers timers)))
+(setfn elephant-ai
+       (compose
+	#'elephant-stage-physics-ai
+	#'elephant-rage-effects
+	#'elephant-rage-ai
+	#'shake-ai))
 
 (let ((collision-rects
        (rect->collision-rects
@@ -1652,7 +1626,7 @@ This can be abused with the machine gun in TAS."
   (defun elephant-stage-collision (e stage)
     (let* ((data (alist :facing (aval e :facing)
 			:pos (aval (aval (aval e :physics) :stage) :pos)))
-	   (stage-collision-result
+	   (res
 	    (stage-collisions
 	     data stage collision-rects
 	     (alist
@@ -1671,5 +1645,5 @@ This can be abused with the machine gun in TAS."
 	    (aset (aval e :physics)
 		  :stage
 		  (aset (aval (aval e :physics) :stage)
-			:pos (aval stage-collision-result :pos)))
-	    :facing (aval stage-collision-result :facing)))))
+			:pos (aval res :pos)))
+	    :facing (aval res :facing)))))
