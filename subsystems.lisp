@@ -1,7 +1,10 @@
 (in-package :cave-story)
 
 (defun motion-physics (obj)
-  (funcall (aval obj :physics-fn) obj))
+  (let ((fn (aval obj :physics-fn)))
+    (if fn
+	(funcall fn obj)
+	obj)))
 (defun motion-pos (obj)
   (funcall (aval obj :pos-fn) obj))
 (defun origin (obj)
@@ -235,10 +238,15 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
     id))
 
 (defun physics (o)
-  (aupdate o :physics #'motion-set-update))
+  (aupdate (aupdate o :physics #'motion-set-update)
+	   :stage-physics #'motion-physics))
 
 (defun physics-pos (o)
-  (motion-set-pos (aval o :physics)))
+  (let ((stage (aval o :stage-physics))
+	(set-pos (motion-set-pos (aval o :physics))))
+    (if stage
+	(+v set-pos (aval stage :pos))
+	set-pos)))
 
 (defun timers (o)
   "Return o with its :timers updated :ticks set, and ai applied."

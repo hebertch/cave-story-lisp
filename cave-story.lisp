@@ -189,6 +189,7 @@ This can be abused with the machine gun in TAS."
 
 (defparameter *dorito-subsystems*
   '(:timers :physics :stage-collision :drawable :pickup))
+
 (defun make-dorito (pos vel size)
   (amerge
    (dorito-fns-alist)
@@ -200,17 +201,16 @@ This can be abused with the machine gun in TAS."
 				      t)
 		 :anim-cycle
 		 (make-fps-cycle 14 (alexandria.0.dev:iota 6)))
-	  :physics
-	  (alist :stage
-		 (make-kin-2d :pos (-v pos
-				       (rect-pos (dorito-collision-rect size)))
-			      :vel vel
-			      :accelerator-x
-			      (friction-accelerator *dorito-friction-acc*)
-			      :accelerator-y
-			      (const-accelerator *gravity-acc*)
-			      :clamper-vy
-			      (clamper+- *terminal-speed*)))
+	  :stage-physics
+	  (make-kin-2d :pos (-v pos
+				(rect-pos (dorito-collision-rect size)))
+		       :vel vel
+		       :accelerator-x
+		       (friction-accelerator *dorito-friction-acc*)
+		       :accelerator-y
+		       (const-accelerator *gravity-acc*)
+		       :clamper-vy
+		       (clamper+- *terminal-speed*))
 	  :size size)))
 
 (defun dorito-ai (d)
@@ -293,8 +293,9 @@ This can be abused with the machine gun in TAS."
 	(aupdate (aval obj :physics) :stage fn)))
 
 (defun dorito-stage-collision (d stage)
-  (aupdate-stage-physics
+  (aupdate
    d
+   :stage-physics
    (lambda (stage-physics)
      (apply-dorito-stage-physics stage-physics
 				 (dorito-collision-rect (aval d :size))
