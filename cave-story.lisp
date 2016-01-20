@@ -1112,8 +1112,7 @@ This can be abused with the machine gun in TAS."
 	  :health-amt 1
 	  :player player)))
 
-(setfn bat-hit-react
-       (curry #'damage-reaction 3))
+
 
 (defun bat-drawing (b)
   (make-sprite-drawing :layer :enemy
@@ -1124,7 +1123,7 @@ This can be abused with the machine gun in TAS."
 				      (facing-offset (aval b :facing))))
 		       :pos (physics-pos b)))
 
-(setfn bat-ai #'face-player-ai)
+
 
 (defun facing-offset (facing)
   (tile-v 0 (if (eq facing :left) 0 1)))
@@ -1226,10 +1225,6 @@ This can be abused with the machine gun in TAS."
 	       :accelerator-y (const-accelerator *gravity-acc*)
 	       :clamper-vy (clamper+- *terminal-speed*)))
 
-(setfn critter-ai
-       (compose #'face-player-ai
-		#'critter-jump-ai
-		#'shake-ai))
 
 (defun critter-fns-alist ()
   (alist :ai-fn #'critter-ai
@@ -1311,10 +1306,7 @@ This can be abused with the machine gun in TAS."
 						  (facing-offset (aval c :facing))))
 			 :pos (physics-pos c))))
 
-(setfn critter-hit-react
-       (compose
-	(curry #'damage-reaction 6)
-	#'shake-hit-react))
+
 
 (defun critter-damage-collision-rect (c)
   (rect-offset *critter-dynamic-collision-rect* (physics-pos c)))
@@ -1530,11 +1522,7 @@ This can be abused with the machine gun in TAS."
 
 	  (aset obj :dead? t)))))
 
-(setfn elephant-hit-react 
-       (compose
-	(curry #'damage-reaction 6)
-	#'elephant-rage-hit-react
-	#'shake-hit-react))
+
 
 (defun elephant-dynamic-collision-rect (e)
   (let ((pos (physics-pos e)))
@@ -1612,13 +1600,6 @@ This can be abused with the machine gun in TAS."
 						(tiles 5/4))))))
   e)
 
-(setfn elephant-ai
-       (compose
-	#'elephant-stage-physics-ai
-	#'elephant-rage-effects
-	#'elephant-rage-ai
-	#'shake-ai))
-
 (let ((collision-rects
        (rect->collision-rects
 	(centered-rect (scale-v *elephant-dims* 1/2) *elephant-dims*)
@@ -1647,3 +1628,27 @@ This can be abused with the machine gun in TAS."
 		  (aset (aval (aval e :physics) :stage)
 			:pos (aval res :pos)))
 	    :facing (aval res :facing)))))
+
+(setfn bat-hit-react
+       (curry #'damage-reaction 3))
+
+(setfn bat-ai #'face-player-ai)
+(setfn critter-ai
+       (compose #'face-player-ai
+		#'critter-jump-ai
+		#'shake-ai))
+(setfn critter-hit-react
+       (compose
+	(curry #'damage-reaction 6)
+	#'shake-hit-react))
+(setfn elephant-hit-react 
+       (compose
+	(curry #'damage-reaction 6)
+	#'elephant-rage-hit-react
+	#'shake-hit-react))
+(setfn elephant-ai
+       (compose
+	#'elephant-stage-physics-ai
+	#'elephant-rage-effects
+	#'elephant-rage-ai
+	#'shake-ai))
