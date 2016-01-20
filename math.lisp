@@ -212,8 +212,9 @@
 (defun timed-cycle-resume (tc)
   (aset tc :paused? nil))
 
-(defun timed-cycle-restart (tc)
-  (cycle-reset (reset-timer tc)))
+(setfn timed-cycle-restart
+       (compose #'cycle-reset
+		#'reset-timer))
 
 ;; Clamps
 

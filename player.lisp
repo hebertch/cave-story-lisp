@@ -259,20 +259,20 @@
 
 (defun player-jump (p)
   (cond ((not (aval p :jumping?))
-	 (amerge
-	  (when (player-on-ground? p)
-	    (push-sound :jump)
-
-	    (alist :physics
-		   (aupdate (aval p :physics)
-			    :stage
-			    #'player-jump-physics)
-		   :interacting? nil
-		   :ground-tile nil
-		   :timers (aupdate (aval p :timers) :walk-cycle #'timed-cycle-pause)))
-
-	  (alist :jumping? t)
-	  p))
+	 (aset (if (player-on-ground? p)
+		   (progn
+		     (push-sound :jump)
+		     (aset p
+			   :physics
+			   (aupdate (aval p :physics)
+				    :stage
+				    #'player-jump-physics)
+			   :interacting? nil
+			   :ground-tile nil
+			   :timers (aupdate (aval p :timers)
+					    :walk-cycle #'timed-cycle-pause)))
+		   p)
+	       :jumping? t))
 	(t p)))
 
 (defun player-move (p dir)
