@@ -26,13 +26,11 @@
    (camera-fns-alist)
    (alist :subsystems *camera-subsystems*)
    (alist
-    :physics
-    (alist
-     :target
-     (make-target-kin-2d
-      focus vel
-      (camera-target-from-player (estate player))
-      (player-vel (estate player))))
+    :target
+    (make-target-kin-2d
+     focus vel
+     (camera-target-from-player (estate player))
+     (player-vel (estate player)))
     :player player)))
 
 (defun make-shake ()
@@ -47,20 +45,17 @@
 	  :shake-h (make-shake))))
 
 (defun camera-ai (c)
-  (let ((physics (aupdate
-		  (aval c :physics)
-		  :target
-		  (lambda (m)
-		    (target-kin-2d-update-target
-		     m
-		     (camera-target-from-player (estate (aval c :player)))
-		     (player-vel (estate (aval c :player)))))))
-	(shake-tick? (member :shake (aval c :ticks))))
+  (let ((shake-tick? (member :shake (aval c :ticks))))
 
     (aset c
+	  :target
+	  (target-kin-2d-update-target
+	   (aval c :target)
+	   (camera-target-from-player (estate (aval c :player)))
+	   (player-vel (estate (aval c :player))))
 	  :physics (if shake-tick?
-		       (arem physics :shake-h :shake-v)
-		       physics)
+		       (arem (aval c :physics) :shake-h :shake-v)
+		       (aval c :physics))
 	  :timers (if shake-tick?
 		      (arem (aval c :timers) :shake)
 		      (aval c :timers)))))
@@ -78,7 +73,7 @@
 	       (sub-v stage-dims *window-dims*)))
 
 (defun camera-focus (c)
-  (aval (aval (aval c :physics) :target) :pos))
+  (aval (aval c :target) :pos))
 
 (defun camera-pos (camera camera-bounds)
   (let ((pos (clamp-pos (camera-focus camera) camera-bounds))
