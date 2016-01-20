@@ -1,5 +1,9 @@
 (in-package :cave-story)
 
+(defmacro setfn (function-name fn)
+  "Sets the function-value of function name to be fn."
+  `(setf (symbol-function ',function-name) ,fn))
+
 ;; Alist utilities
 (defun alist (&rest plist)
   (plist-alist plist))

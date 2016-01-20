@@ -129,8 +129,8 @@
 	     (player-kin-2d-physics p kin-2d))
 	   :stage))
 
-(defun player-ai (p ticks)
-  (when (and (find :walk-cycle ticks)
+(defun player-ai (p)
+  (when (and (find :walk-cycle (aval p :ticks))
 	     (/= 0 (cycle-current (aval (aval p :timers) :walk-cycle))))
     (push-sound :step))
   (aset p :physics (apply-player-physics p)))

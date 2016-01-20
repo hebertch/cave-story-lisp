@@ -59,8 +59,8 @@
 			  :down))
 	      lvl))))))
 
-(defun missile-projectile-ai (p ticks)
-  (aset p :dead? (member :life ticks)))
+(defun missile-projectile-ai (p)
+  (aset p :dead? (member :life (aval p :ticks))))
 
 (defun projectile-collision? (rect dir stage)
   (loop for (tile-pos tile-type) in (stage-get-colliding-tiles stage rect)
@@ -193,8 +193,7 @@
 	  :sprite-rect
 	  (make-polar-star-projectile-sprite-rect lvl dir))))
 
-(defun polar-star-projectile-ai (p ticks)
-  (declare (ignore ticks))
+(defun polar-star-projectile-ai (p)
   (cond ((not (timer-active? (aval (aval p :timers) :life)))
 	 (push-sound :dissipate)
 	 (create-entity

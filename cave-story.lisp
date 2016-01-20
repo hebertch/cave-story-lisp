@@ -213,8 +213,7 @@ This can be abused with the machine gun in TAS."
 			      (clamper+- *terminal-speed*)))
 	  :size size)))
 
-(defun dorito-ai (d ticks)
-  (declare (ignore ticks))
+(defun dorito-ai (d)
   (aset d :dead? (not (timer-active? (aval (aval d :timers) :life)))))
 
 (defun dorito-pos (d)
@@ -360,8 +359,8 @@ This can be abused with the machine gun in TAS."
 					    (aval s :tile-y)))
 			 :pos pos)))
 
-(defun single-loop-sprite-ai (p ticks)
-  (let ((dead? (and (find :cycle ticks)
+(defun single-loop-sprite-ai (p)
+  (let ((dead? (and (find :cycle (aval p :ticks))
 		    (zerop (aval (aval (aval p :timers) :cycle) :idx)))))
     (aset p :dead? dead?)))
 
@@ -369,8 +368,7 @@ This can be abused with the machine gun in TAS."
 (defun particle-fns-alist ()
   (alist :draw-fn #'particle-drawing
 	 :ai-fn
-	 (lambda (p ticks)
-	   (declare (ignore ticks))
+	 (lambda (p)
 	   (aset p :dead? (aval (estate (aval p :single-loop-sprite)) :dead?)))))
 
 ;; NOTE: This (ai/timers) is a kludge to make it so particle can set its
@@ -480,8 +478,7 @@ This can be abused with the machine gun in TAS."
 		  (aval fn :amt)
 		  :layer :floating-text))
 
-(defun floating-number-ai (fn ticks)
-  (declare (ignore ticks))
+(defun floating-number-ai (fn)
   (let ((dead? (not (timer-active? (aval (aval fn :timers) :life)))))
     (cond ((< (y (motion-pos (cdr (assoc :offset (aval fn :physics)))))
 	      (- (tiles 1)))
@@ -589,7 +586,7 @@ This can be abused with the machine gun in TAS."
 	  :blink-time 0)))
 
 #+nil
-(defun text-display-ai (td ticks)
+(defun text-display-ai (td)
   (cond
     ((= (text-display-num-chars td) (length (text-display-text td)))
      (when (and (text-display-wait-for-input? td)
@@ -1151,8 +1148,7 @@ This can be abused with the machine gun in TAS."
 				      (facing-offset (aval b :facing))))
 		       :pos (physics-pos b)))
 
-(defun bat-ai (b ticks)
-  (declare (ignore ticks))
+(defun bat-ai (b)
   (aset b :facing (face-player (physics-pos b) (aval b :player))))
 
 (defun facing-offset (facing)
@@ -1174,8 +1170,7 @@ This can be abused with the machine gun in TAS."
 (defun death-cloud-particle-fns-alist ()
   (alist :draw-fn #'death-cloud-particle-drawing
 	 :stage-collision-fn #'death-cloud-particle-stage-collision
-	 :ai-fn (lambda (p ticks)
-		  (declare (ignore ticks))
+	 :ai-fn (lambda (p)
 		  (aset p
 			:dead?
 			(aval (estate (aval p :single-loop-sprite))
@@ -1256,6 +1251,11 @@ This can be abused with the machine gun in TAS."
 	       :accelerator-y (const-accelerator *gravity-acc*)
 	       :clamper-vy (clamper+- *terminal-speed*)))
 
+(setfn critter-ai
+       (compose #'face-player-ai
+		#'critter-jump-ai
+		#'shake-ai))
+
 (defun critter-fns-alist ()
   (alist :ai-fn #'critter-ai
 	 :draw-fn #'critter-drawing
@@ -1320,10 +1320,6 @@ This can be abused with the machine gun in TAS."
 				       (- 0.35))))
 		       :stage))
 	c)))
-
-(defun critter-ai (c ticks)
-  (declare (ignore ticks))
-  (face-player-ai (critter-jump-ai (shake-ai c))))
 
 (defun critter-drawing (c)
   (let* ((sleep-timer (aval (aval c :timers) :sleep))
@@ -1596,9 +1592,10 @@ This can be abused with the machine gun in TAS."
     (create-rect (+v (physics-pos e) pos) dims)))
 
 
-(defun elephant-ai (e ticks)
+(defun elephant-ai (e)
   (let ((timers (aval e :timers))
-	(physics (aval e :physics)))
+	(physics (aval e :physics))
+	(ticks (aval e :ticks)))
     (unless (timer-active? (aval timers :shake))
       (removef physics :shake :key #'car :test #'eq))
     

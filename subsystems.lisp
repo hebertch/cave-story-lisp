@@ -8,10 +8,11 @@
   (funcall (aval obj :origin-fn) obj))
 (defun inertia-vel (obj)
   (funcall (aval obj :inertia-vel-fn) obj))
-(defun ai (obj ticks)
+(defun ai (obj)
+  "Call the objects :ai-fn on obj if it has one."
   (let ((fn (aval obj :ai-fn)))
     (if fn
-	(funcall fn obj ticks)
+	(funcall fn obj)
 	obj)))
 
 (defun draw (obj)
@@ -237,6 +238,7 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
   (motion-set-pos (aval o :physics)))
 
 (defun timers (o)
+  "Return o with its :timers updated :ticks set, and ai applied."
   (multiple-value-bind (timers ticks)
       (timer-set-update (aval o :timers))
-    (ai (aset o :timers timers) ticks)))
+    (ai (aset o :timers timers :ticks ticks))))

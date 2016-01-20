@@ -46,7 +46,7 @@
 	  :shake-v (make-shake)
 	  :shake-h (make-shake))))
 
-(defun camera-ai (c ticks)
+(defun camera-ai (c)
   (let ((physics (aupdate
 		  (aval c :physics)
 		  (lambda (m)
@@ -55,7 +55,7 @@
 		     (camera-target-from-player (estate (aval c :player)))
 		     (player-vel (estate (aval c :player)))))
 		  :target))
-	(shake-tick? (member :shake ticks)))
+	(shake-tick? (member :shake (aval c :ticks))))
 
     (aset c
 	  :physics (if shake-tick?
