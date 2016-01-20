@@ -48,16 +48,9 @@
 (defun reset-timer (tr)
   (aset tr :ms-remaining (aval tr :length)))
 
-(defun timer-set-update (ts)
-  (let ((ticks))
-    (values (mapcar
-	     (lambda (pair)
-	       (let ((k (car pair))
-		     (v (cdr pair)))
-		 (when v
-		   (multiple-value-bind (tr tick?) (update-timer v)
-		     (when tick?
-		       (push k ticks))
-		     (cons k tr)))))
-	     ts)
-	    ticks)))
+(defun timer-set-update (o)
+  (let ((ts (aval o :timers)))
+    (if (consp (first tsoo
+		      (cons k (aval o :ticks))
+		      (aval o :ticks))))))))
+	  o))))

@@ -196,11 +196,11 @@ This can be abused with the machine gun in TAS."
    (alist :subsystems *dorito-subsystems*)
    (dorito-pickup-data size)
    (alist :timers
-	  (alist :life
-		 (make-expiring-timer (s->ms 8)
-				      t)
-		 :anim-cycle
-		 (make-fps-cycle 14 (alexandria.0.dev:iota 6)))
+	  '(:life-timer :anim-cycle)
+	  :life-timer
+	  (make-expiring-timer (s->ms 8) t)
+	  :anim-cycle
+	  (make-fps-cycle 14 (alexandria.0.dev:iota 6))
 	  :physics '(:stage-physics)
 	  :stage-physics
 	  (make-kin-2d :pos (-v pos
@@ -215,7 +215,7 @@ This can be abused with the machine gun in TAS."
 	  :size size)))
 
 (defun dorito-ai (d)
-  (aset d :dead? (not (timer-active? (aval (aval d :timers) :life)))))
+  (aset d :dead? (not (timer-active? (aval d :life-timer)))))
 
 (defun dorito-pos (d)
   (physics-pos d))
@@ -223,20 +223,19 @@ This can be abused with the machine gun in TAS."
 (defun flash-time? (tr)
   (and (timer-active? tr) (zerop (chunk-timer-period tr 50))))
 
-(defun death-flash? (timers)
-  (let ((tr (aval timers :life)))
-    (and (< (aval tr :ms-remaining) (s->ms 1))
-	 (flash-time? tr))))
+(defun death-flash? (tr)
+  (and (< (aval tr :ms-remaining) (s->ms 1))
+       (flash-time? tr)))
 
 (defun dorito-drawing (d)
-  (unless (death-flash? (aval d :timers))
+  (unless (death-flash? (aval d :life-timer))
     (make-sprite-drawing
      :layer :pickup
      :sheet-key :npc-sym
 
      :src-rect
      (create-rect
-      (+v (anim-cycle-offset (aval d :timers))
+      (+v (anim-cycle-offset (aval d :anim-cycle))
 	  (tile-v 0 (1+ (position (aval d :size) '(:small :medium :large)))))
       (make-v (tiles 1) (1- (tiles 1))))
 
@@ -303,19 +302,6 @@ This can be abused with the machine gun in TAS."
 		      (:small 1)
 		      (:medium 10)
 		      (:large 20))))
-
-(defun dorito-draw (life-tr anim-cycle-current size pos)
-  (unless (and (< (aval life-tr :ms-remaining) (s->ms 1))
-	       (zerop (chunk-timer-period life-tr 50)))
-    (draw-sprite!
-     :pickup :npc-sym
-
-     (create-rect
-      (tile-v anim-cycle-current
-	      (1+ (position size '(:small :medium :large))))
-      (make-v (tiles 1) (1- (tiles 1))))
-
-     pos)))
 
 (defun dorito-collision-rect (size)
   (centered-rect (tile-dims/2)
@@ -1104,7 +1090,8 @@ This can be abused with the machine gun in TAS."
 		       :sheet-key :npc-cemet
 		       :src-rect
 		       (tile-rect (+v (tile-v 2 2)
-				      (anim-cycle-offset (aval b :timers))
+				      (anim-cycle-offset
+				       (aval (aval b :timers) :anim-cycle))
 				      (facing-offset (aval b :facing))))
 		       :pos (physics-pos b)))
 
@@ -1112,8 +1099,8 @@ This can be abused with the machine gun in TAS."
 (defun facing-offset (facing)
   (tile-v 0 (if (eq facing :left) 0 1)))
 
-(defun anim-cycle-offset (timers)
-  (tile-v (cycle-current (aval timers :anim-cycle)) 0))
+(defun anim-cycle-offset (c)
+  (tile-v (cycle-current c) 0))
 
 (defun anim-cycle-val (timers)
   (cycle-current (aval timers :anim-cycle)))
@@ -1406,7 +1393,7 @@ This can be abused with the machine gun in TAS."
 	 (cond
 	   ((timer-active? (aval (aval e :timers) :recover))
 	    (make-v (tiles (* 2 3)) 0))
-	   (t (anim-cycle-offset (aval e :timers))))))
+	   (t (anim-cycle-offset (aval (aval e :timers) :anim-cycle))))))
     (make-sprite-drawing :layer :enemy
 			 :sheet-key :npc-eggs1
 			 :src-rect

@@ -248,6 +248,4 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 
 (defun timers (o)
   "Return o with its :timers updated :ticks set, and ai applied."
-  (multiple-value-bind (timers ticks)
-      (timer-set-update (aval o :timers))
-    (ai (aset o :timers timers :ticks ticks))))
+  (ai (timer-set-update (aset o :ticks nil))))
