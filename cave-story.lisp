@@ -613,10 +613,9 @@ This can be abused with the machine gun in TAS."
    (alist :player player
 	  :gun-exps gun-exps
 	  :id id
-	  :timers
-	  (alist
-	   :exp-change (make-expiring-timer (s->ms 1))
-	   :health-change (make-expiring-timer (s->ms 1/2))))))
+	  :timers '(:exp-change-timer :health-change-timer)
+	  :exp-change-timer (make-expiring-timer (s->ms 1))
+	  :health-change-timer (make-expiring-timer (s->ms 1/2)))))
 
 (defun hud-drawing (hud)
   (let ((bar-tile/2-w 5)
@@ -626,12 +625,13 @@ This can be abused with the machine gun in TAS."
      (make-sprite-drawing :layer
 			  :hud-bg :sheet-key :text-box
 			  :src-rect
-			  (create-rect-cmpts 0 (tiles/2 5) (tiles/2 8) (tiles/2 1))
+			  (create-rect-cmpts 0 (tiles/2 5)
+					     (tiles/2 8) (tiles/2 1))
 			  :pos (tile-v 1 2))
      drawings)
 
     (let ((health (aval (player-state (aval hud :player)) :health-amt)))
-      (when (timer-active? (aval (aval hud :timers) :health-change))
+      (when (timer-active? (aval hud :health-change-timer))
 	(push
 	 (make-sprite-drawing
 	  :layer :hud
@@ -669,7 +669,7 @@ This can be abused with the machine gun in TAS."
 			    :pos exp-pos)
        drawings)
 
-      (when (flash-time? (aval (aval hud :timers) :exp-change))
+      (when (flash-time? (aval hud :exp-change-timer))
 	(push
 	 (make-sprite-drawing :layer :hud-fg
 			      :sheet-key :text-box
@@ -721,14 +721,16 @@ This can be abused with the machine gun in TAS."
 	  (appendf drawings (hud-number-drawing 3 (1+ current-level))))))
     drawings))
 
-(defun hud-exp-changed (hud)
-  (aset hud
-	:timers (aupdate (aval hud :timers) :exp-change #'reset-timer)))
+(setfn hud-exp-changed
+       (aupdatefn :exp-change-timer #'reset-timer))
 
-(defun hud-health-changed (hud)
-  (aset hud
-	:timers (aupdate (aval hud :timers) :health-change #'reset-timer)
-	:last-health-amt (aval (player-state (aval hud :player)) :health-amt)))
+(setfn hud-health-changed
+       (compose
+	(aupdatefn :health-change-timer #'reset-timer)
+	(lambda (hud)
+	  (aset hud
+		:last-health-amt
+		(aval (player-state (aval hud :player)) :health-amt)))))
 
 (defun textbox-tile-drawing (src-pos pos)
   (let ((size (both-v (tiles/2 1))))
