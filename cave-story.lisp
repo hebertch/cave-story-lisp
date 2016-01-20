@@ -258,43 +258,36 @@ This can be abused with the machine gun in TAS."
    :bottom
    (collision-lambda (data)
      (push-sound :dorito-bounce)
-     (aset data
-	   :vel
-	   (set-y-v (aval data :vel)
-		    (- *dorito-bounce-speed*))))
+     (aupdate data
+	      :stage-physics
+	      (asetfn :vel
+		      (set-y-v (stage-vel data)
+			       (- *dorito-bounce-speed*)))))
    :right
    (collision-lambda (data)
-     (if (plusp (x (aval data :vel)))
-	 (aset data :vel (reverse-x-v (aval data :vel)))
+     (if (plusp (x (stage-vel data)))
+	 (aupdate data
+		  :stage-physics
+		  (asetfn :vel (reverse-x-v (stage-vel data))))
 	 data))
    :left
    (collision-lambda (data)
-     (if (minusp (x (aval data :vel)))
-	 (aset data :vel (reverse-x-v (aval data :vel)))
+     (if (minusp (x (stage-vel data)))
+	 (aupdate data
+		  :stage-physics
+		  (asetfn :vel (reverse-x-v (stage-vel data))))
 	 data))
    :top
    (collision-lambda (data)
-     (aset data :vel (max-y-v (aval data :vel) 0)))))
-
-(defun apply-dorito-stage-physics (kin-2d rect stage)
-  (let* ((collision-rects (rect->collision-rects rect))
-	 (data (alist :pos (aval kin-2d :pos)
-		      :vel (aval kin-2d :vel)))
-	 (res
-	  (stage-collisions data stage collision-rects
-			    *dorito-stage-collisions*)))
-    (aset kin-2d
-	  :pos (aval res :pos)
-	  :vel (aval res :vel))))
+     (aupdate data
+	      :stage-physics
+	      (asetfn :vel (max-y-v (stage-vel data) 0))))))
 
 (defun dorito-stage-collision (d stage)
-  (aupdate
-   d
-   :stage-physics
-   (lambda (stage-physics)
-     (apply-dorito-stage-physics stage-physics
-				 (dorito-collision-rect (aval d :size))
-				 stage))))
+  (let ((collision-rects (rect->collision-rects
+			  (dorito-collision-rect (aval d :size)))))
+    (stage-collisions d stage collision-rects
+		      *dorito-stage-collisions*)))
 
 (defun dorito-pickup-rect (d)
   (rect-offset (dorito-collision-rect (aval d :size)) (physics-pos d)))
@@ -1175,30 +1168,20 @@ This can be abused with the machine gun in TAS."
 (let ((collision-rects (rect->collision-rects
 			(centered-rect (tile-dims/2) (both-v (tiles 2/5))))))
   (defun death-cloud-particle-stage-collision (d stage)
-    (let* ((stage-physics (aval d :stage-physics))
-	   (data (alist :pos (aval stage-physics :pos)
-			:vel (aval stage-physics :vel)))
-	   (res
-	    (stage-collisions
-	     data stage collision-rects
-	     (let ((stop-x
-		    (collision-lambda (data)
-		      (aset data
-			    :vel
-			    (set-x-v (aval data :vel) 0))))
-		   (stop-y
-		    (collision-lambda (data)
-		      (aset data
-			    :vel
-			    (set-y-v (aval data :vel) 0)))))
-	       (alist :bottom stop-y :left stop-x
-		      :right stop-x :top stop-y)))))
-
-      (aset d
-	    :stage-physics
-	    (aset stage-physics
-		  :pos (aval res :pos)
-		  :vel (aval res :vel))))))
+    (stage-collisions
+     d stage collision-rects
+     (let ((stop-x
+	    (collision-lambda (data)
+	      (aset data
+		    :vel
+		    (set-x-v (stage-vel data) 0))))
+	   (stop-y
+	    (collision-lambda (data)
+	      (aset data
+		    :vel
+		    (set-y-v (stage-vel data) 0)))))
+       (alist :bottom stop-y :left stop-x
+	      :right stop-x :top stop-y)))))
 
 (defun create-death-cloud-particles (num pos)
   (dotimes (i num)
@@ -1317,9 +1300,10 @@ This can be abused with the machine gun in TAS."
 			 kin-2d
 			 :vel (zero-v :x (x (aval kin-2d :vel)))
 			 :pos (-v
-			       (flush-rect-pos player-rect
-					       (y (rect-pos dynamic-collision-rect))
-					       :up)
+			       (flush-rect-pos
+				player-rect
+				(y (rect-pos dynamic-collision-rect))
+				:up)
 			       (rect-pos player-collision-rect))))
 		       (t kin-2d)))
 		    ((:left :right)
@@ -1327,8 +1311,8 @@ This can be abused with the machine gun in TAS."
 		       (cond ((> (abs disp) (tiles 1/4))
 			      (aset
 			       kin-2d
-			       (make-v (* (/ *terminal-speed* 70) disp) (y (aval kin-2d :vel)))
-			       :vel))
+			       :vel
+			       (make-v (* (/ *terminal-speed* 70) disp) (y (aval kin-2d :vel)))))
 			     (t kin-2d))))
 		    (t kin-2d)))))
     (aset player-state
@@ -1346,32 +1330,24 @@ This can be abused with the machine gun in TAS."
 			     :sleep
 			     (make-expiring-timer (s->ms 1/3) t)))
 	   :ground-tile (aval data :tile-type)
-	   :vel (zero-v)))
+	   :stage-physics
+	   (aset (aval data :stage-physics) :vel (zero-v))))
    :top
    (collision-lambda (data)
-     (aset data :vel (max-y-v (aval data :vel) 0)))))
+     (aset data :stage-physics
+	   (aset (aval data :stage-physics)
+		 :vel (max-y-v (stage-vel data) 0))))))
 
 (let ((collision-rects (rect->collision-rects
 			(centered-rect (tile-dims/2) (both-v (tiles 3/4))) 6)))
   (defun critter-stage-collision (c stage)
-    (let* ((last-tile (aval c :ground-tile))
-	   (stage-physics (aval c :stage-physics))
-	   (data (alist :pos (aval stage-physics :pos)
-			:vel (aval stage-physics :vel)
-			:ground-tile nil
-			:last-ground-tile last-tile
-			:timers (aval c :timers)))
-	   (res
-	    (stage-collisions
-	     data stage collision-rects
-	     *critter-stage-collisions*)))
-      (aset c
-	    :stage-physics
-	    (aset stage-physics
-		  :pos (aval res :pos)
-		  :vel (aval res :vel))
-	    :timers (aval res :timers)
-	    :ground-tile (aval res :ground-tile)))))
+    (let ((last-tile (aval c :ground-tile)))
+      (stage-collisions
+       (aset c
+	     :last-ground-tile last-tile
+	     :ground-tile nil)
+       stage collision-rects
+       *critter-stage-collisions*))))
 
 (defun physics-tile-origin (c)
   (+v (physics-pos c) (tile-dims/2)))
@@ -1578,27 +1554,19 @@ This can be abused with the machine gun in TAS."
 	(centered-rect (scale-v *elephant-dims* 1/2) *elephant-dims*)
 	6)))
   (defun elephant-stage-collision (e stage)
-    (let* ((data (alist :facing (aval e :facing)
-			:pos (aval (aval e :stage-physics) :pos)))
-	   (res
-	    (stage-collisions
-	     data stage collision-rects
-	     (alist
-	      :left
-	      (collision-lambda (data)
-		(if (eq (aval data :facing) :left)
-		    (aset data :facing :right)
-		    data))
-	      :right
-	      (collision-lambda (data)
-		(if (eq (aval data :facing) :right)
-		    (aset data :facing :left)
-		    data))))))
-      (aset e
-	    :stage-physics 
-	    (aset (aval e :stage-physics)
-		  :pos (aval res :pos))
-	    :facing (aval res :facing)))))
+    (stage-collisions
+     e stage collision-rects
+     (alist
+      :left
+      (collision-lambda (data)
+	(if (eq (aval data :facing) :left)
+	    (aset data :facing :right)
+	    data))
+      :right
+      (collision-lambda (data)
+	(if (eq (aval data :facing) :right)
+	    (aset data :facing :left)
+	    data))))))
 
 (setfn bat-hit-react
        (curry #'damage-reaction 3))

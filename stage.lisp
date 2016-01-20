@@ -127,16 +127,17 @@ Returns the TILE-TYPE of the colliding tile."
 (defun stage-collisions
     (data stage collision-rects collision-reactions
      &optional (ground-tile nil ground-tile-provided-p))
-  "Data is an alist with at least ((:pos . position)). It is passed to
+  "Data is an alist with :stage-physics. It is passed to
 and returned from each collision reaction, so that results can be accumulated.
- (:tile-type . tile-type) will be added before calling the collision reaction.
+ (:tile-type . tile-type) will be added before calling each collision reaction.
 Stage-collisions returns the final data argument."
   (dolist (side *collision-order*)
     (let* ((fn (cdr (assoc side collision-reactions)))
 	   (collision-rect (cdr (assoc side collision-rects))))
       (multiple-value-bind (new-pos tile-type)
 	  (let ((args (list stage
-			    (rect-offset collision-rect (aval data :pos))
+			    (rect-offset collision-rect
+					 (aval (aval data :stage-physics) :pos))
 			    (opposite-dir side))))
 	    (when ground-tile-provided-p
 	      (appendf args (list :ground-tile ground-tile)))
@@ -144,11 +145,14 @@ Stage-collisions returns the final data argument."
 	(when new-pos
 	  (setq data (aset
 		      data
-		      :pos (sub-v new-pos (rect-pos collision-rect))
+		      :stage-physics
+		      (aset (aval data :stage-physics)
+			    :pos (sub-v new-pos (rect-pos collision-rect)))
 		      :tile-type tile-type))
 	  (when fn
 	    (setq data (funcall fn data))))
-	(draw-rect! (rect-offset collision-rect (aval data :pos))
+	(draw-rect! (rect-offset collision-rect (aval (aval data :stage-physics)
+						      :pos))
 		    *blue*
 		    :layer
 		    :debug-stage-collision))))

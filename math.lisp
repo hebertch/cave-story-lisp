@@ -18,9 +18,12 @@
   (anorm (apply #'append alists)))
 
 (defun aset (alist &rest keys-and-vals)
-  (anorm (amerge
-	  (apply #'alist keys-and-vals)
-	  alist)))
+  (amerge
+   (loop for (k v) on keys-and-vals by #'cddr
+      collecting (progn
+		   (assert (typep k 'keyword))
+		   (cons k v)))
+   alist))
 (defun asetfn (&rest keys-and-vals)
   (lambda (a)
     (apply #'aset a keys-and-vals)))

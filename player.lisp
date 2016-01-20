@@ -347,19 +347,17 @@
       (setq p (aset p :gun-name-cycle (cycle-next (aval p :gun-name-cycle)))))
     p))
 
-
 (defun player-stage-collision (p stage)
   (let* ((collision-rects *player-collision-rectangles-alist*)
-	 (stage-physics (aval p :stage-physics))
-	 (data (alist :pos (aval stage-physics :pos)
-		      :vel (aval stage-physics :vel)
-		      :ground-tile (aval p :ground-tile)
-		      :new-ground-tile nil))
 	 (res (stage-collisions
-	       data stage collision-rects
+	       (aset p :new-ground-tile nil)
+	       stage collision-rects
 	       (let ((stop-x
 		      (collision-lambda (data)
-			(aset data :vel (zero-v :y (y (aval data :vel)))))))
+			(aset data
+			      :stage-physics
+			      (aset (aval data :stage-physics)
+				    :vel (zero-v :y (y (stage-vel data))))))))
 		 (alist :bottom
 			(collision-lambda (data)
 			  (unless (aval data :ground-tile)
@@ -367,31 +365,26 @@
 
 			  (aset
 			   data
-			   :vel (zero-v :x (x (aval data :vel)))
+			   :stage-physics
+			   (aset (aval data :stage-physics)
+				 :vel (zero-v :x (x (stage-vel data))))
 			   :new-ground-tile (aval data :tile-type)))
 			:left stop-x :right stop-x
 			:top
-			(collision-lambda (tile-type)
-			  (when (minusp (y (aval data :vel)))
+			(collision-lambda (data)
+			  (when (minusp (y (stage-vel data)))
 			    (push-sound :head-bump))
 			  (aset data
-				:vel
-				(make-v
-				 (x (aval data :vel))
-				 (max (y (aval data :vel)) 0))))))
+				:stage-physics
+				(aset (aval data :stage-physics)
+				      :vel (make-v
+					    (x (stage-vel data))
+					    (max (y (stage-vel data)) 0)))))))
 	       (aval p :ground-tile))))
     (amerge
-     (alist
-      :stage-physics
-      (aset stage-physics
-	    :pos (aval res :pos)
-	    :vel (aval res :vel))
-      :ground-tile (aval res :new-ground-tile))
-     (unless (aval p :ground-tile)
-       (alist :timers
-	      (aupdate (aval p :timers) :walk-cycle #'timed-cycle-pause)
-	      :ground-tile nil))
-     p)))
+     (alist :ground-tile (aval res :new-ground-tile))
+     (alist :timers (aupdate (aval p :timers) :walk-cycle #'timed-cycle-pause))
+     res)))
 
 (defun player-drawing (p)
   (let ((kin-2d (aval p :stage-physics)))
