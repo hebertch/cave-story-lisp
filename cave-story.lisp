@@ -1082,20 +1082,19 @@ This can be abused with the machine gun in TAS."
   (amerge
    (bat-fns-alist)
    (alist :subsystems *bat-subsystems*)
-   (alist :physics
-	  (alist
-	   :wave (make-wave-motion
-		  :origin (tile-v tile-x
-				  tile-y)
-		  :dir :up
-		  :amp (tiles 2)
-		  :speed (/ 0.0325
-			    *frame-time*)))
-	  :timers
-	  (alist
-	   :anim-cycle (make-fps-cycle 14 #(0 2 1 2)))
-	  :health-amt 1
-	  :player player)))
+   (alist
+    :wave (make-wave-motion
+	   :origin (tile-v tile-x
+			   tile-y)
+	   :dir :up
+	   :amp (tiles 2)
+	   :speed (/ 0.0325
+		     *frame-time*))
+    :timers
+    (alist
+     :anim-cycle (make-fps-cycle 14 #(0 2 1 2)))
+    :health-amt 1
+    :player player)))
 
 
 
@@ -1107,7 +1106,6 @@ This can be abused with the machine gun in TAS."
 				      (anim-cycle-offset (aval b :timers))
 				      (facing-offset (aval b :facing))))
 		       :pos (physics-pos b)))
-
 
 
 (defun facing-offset (facing)
@@ -1230,10 +1228,9 @@ This can be abused with the machine gun in TAS."
   (dist (origin a) (origin b)))
 
 (defun shake-ai (obj)
-  (let ((physics (aval obj :physics))
-	(timers (aval obj :timers)))
+  (let ((timers (aval obj :timers)))
     (if (not (timer-active? (aval timers :shake)))
-	(aset obj :physics (arem physics :shake))
+	(arem obj :shake)
 	obj)))
 
 (defun face-player-ai (obj)
@@ -1429,12 +1426,13 @@ This can be abused with the machine gun in TAS."
   (create-rect (physics-pos e) *elephant-dims*))
 
 (setfn shake-hit-react
-       (aupdatefn
-	:timers
-	(asetfn :shake (make-expiring-timer (s->ms 1/3) t))
-	:physics
-	(asetfn :shake
-		(make-wave-motion :dir :left :amp 2 :speed 0.1 :rads 0))))
+       (compose
+	(aupdatefn
+	 :timers
+	 (asetfn :shake (make-expiring-timer (s->ms 1/3) t)))
+	(asetfn
+	 :shake
+	 (make-wave-motion :dir :left :amp 2 :speed 0.1 :rads 0))))
 
 (defun elephant-rage-hit-react (e)
   (let ((timers (aval e :timers)))
@@ -1571,9 +1569,9 @@ This can be abused with the machine gun in TAS."
 
 (setfn bat-ai #'face-player-ai)
 (setfn critter-ai
-       (compose #'face-player-ai
-		#'critter-jump-ai
-		#'shake-ai))
+       (comp face-player-ai
+	     critter-jump-ai
+	     shake-ai))
 (setfn critter-hit-react
        (compose
 	(curry #'damage-reaction 6)
@@ -1584,8 +1582,8 @@ This can be abused with the machine gun in TAS."
 	#'elephant-rage-hit-react
 	#'shake-hit-react))
 (setfn elephant-ai
-       (compose
-	#'elephant-stage-physics-ai
-	#'elephant-rage-effects
-	#'elephant-rage-ai
-	#'shake-ai))
+       (comp
+	elephant-stage-physics-ai
+	elephant-rage-effects
+	elephant-rage-ai
+	shake-ai))

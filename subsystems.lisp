@@ -241,17 +241,22 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
     id))
 
 (defun physics (o)
+  ;; TODO!!
   (aupdate
    (aupdate
     (aupdate
      (aupdate
       (aupdate
-       (aupdate o :physics #'motion-set-update)
-       :stage-physics #'motion-physics)
-      :offset #'motion-physics)
-     :target #'motion-physics)
-    :shake-h #'motion-physics)
-   :shake-v #'motion-physics))
+       (aupdate
+	(aupdate
+	 (aupdate o :physics #'motion-set-update)
+	 :stage-physics #'motion-physics)
+	:offset #'motion-physics)
+       :target #'motion-physics)
+      :shake-h #'motion-physics)
+     :shake-v #'motion-physics)
+    :shake #'motion-physics)
+   :wave #'motion-physics))
 
 (defun physics-pos (o)
   (+v (motion-set-pos (aval o :physics))
@@ -259,7 +264,9 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
       (or (motion-pos (aval o :offset)) (zero-v))
       (or (motion-pos (aval o :target)) (zero-v))
       (or (motion-pos (aval o :shake-h)) (zero-v))
-      (or (motion-pos (aval o :shake-v)) (zero-v))))
+      (or (motion-pos (aval o :shake-v)) (zero-v))
+      (or (motion-pos (aval o :shake)) (zero-v))
+      (or (motion-pos (aval o :wave)) (zero-v))))
 
 (defun timers (o)
   "Return o with its :timers updated :ticks set, and ai applied."

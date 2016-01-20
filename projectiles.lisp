@@ -24,32 +24,27 @@
     (amerge
      (missile-projectile-fns-alist)
      (alist :subsystems *missile-projectile-subsystems*)
+     (when oscillate?
+       (alist
+	:wave
+	(make-wave-motion
+	 :dir perp-dir
+	 :amp
+	 *missile-projectile-amplitude*
+	 :speed
+	 *missile-radial-speed*)))
      (alist :lvl lvl
 	    :dir dir
 	    :timers
 	    (alist :life
 		   (make-expiring-timer (s->ms 3/2) t))
-	    :physics
-	    (let ((physics
-		   (alist
-		    :kin-2d
-		    (make-offset-motion
-		     (offset-in-dir-pos
-		      pos
-		      perp-offset-amt
-		      perp-dir)
-		     dir speed acc))))
-	      (when oscillate?
-		(setq physics
-		      (aset physics
-			    :wave-motion
-			    (make-wave-motion
-			     :dir perp-dir
-			     :amp
-			     *missile-projectile-amplitude*
-			     :speed
-			     *missile-radial-speed*))))
-	      physics)
+	    :offset
+	    (make-offset-motion
+	     (offset-in-dir-pos
+	      pos
+	      perp-offset-amt
+	      perp-dir)
+	     dir speed acc)
 	    :sprite-rect
 	    (tile-rect
 	     (tile-v
@@ -112,7 +107,7 @@
     dead?))
 
 (defun missile-projectile-pos (m)
-  (motion-set-pos (aval m :physics)))
+  (physics-pos m))
 
 (defun missile-projectile-drawing (p)
   (make-sprite-drawing :layer :projectile
@@ -185,11 +180,10 @@
 	  :timers
 	  (alist :life
 		 (make-expiring-timer (s->ms (elt '(1/8 1/4 1/2) lvl)) t))
-	  :physics
-	  (alist :kin-2d
-		 (make-offset-motion
-		  (sub-v nozzle-pos (tile-dims/2))
-		  dir 0.6 0))
+	  :offset
+	  (make-offset-motion
+	   (sub-v nozzle-pos (tile-dims/2))
+	   dir 0.6 0)
 	  :sprite-rect
 	  (make-polar-star-projectile-sprite-rect lvl dir))))
 
