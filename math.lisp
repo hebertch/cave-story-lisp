@@ -27,8 +27,11 @@
 	       (member (car pair) keys))
 	     alist))
 
-(defun aupdate (alist fn key)
-  (anorm (acons key (funcall fn (aval alist key)) alist)))
+(defun aupdate (alist &rest keys-and-fns)
+  (amerge
+   (loop for (k fn) on keys-and-fns by #'cddr
+      collecting (cons k (funcall fn (aval alist k))))
+   alist))
 
 (defstruct (v2 (:conc-name nil))
   x y)

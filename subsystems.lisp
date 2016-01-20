@@ -235,7 +235,7 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
     id))
 
 (defun physics (o)
-  (aupdate o #'motion-set-update :physics))
+  (aupdate o :physics #'motion-set-update))
 
 (defun physics-pos (o)
   (motion-set-pos (aval o :physics)))

@@ -290,7 +290,7 @@ This can be abused with the machine gun in TAS."
 (defun aupdate-stage-physics (obj fn)
   (aset obj
 	:physics
-	(aupdate (aval obj :physics) fn :stage)))
+	(aupdate (aval obj :physics) :stage fn)))
 
 (defun dorito-stage-collision (d stage)
   (aupdate-stage-physics
@@ -492,7 +492,7 @@ This can be abused with the machine gun in TAS."
 
 (defun floating-number-add-amt (fn amount)
   (aset fn
-	:timers (aupdate (aval fn :timers) #'reset-timer :life)
+	:timers (aupdate (aval fn :timers) :life #'reset-timer)
 	:amt (+ (aval fn :amt) amount)))
 
 (defun remove-all-dead (game)
@@ -751,11 +751,11 @@ This can be abused with the machine gun in TAS."
 
 (defun hud-exp-changed (hud)
   (aset hud
-	:timers (aupdate (aval hud :timers) #'reset-timer :exp-change)))
+	:timers (aupdate (aval hud :timers) :exp-change #'reset-timer)))
 
 (defun hud-health-changed (hud)
   (aset hud
-	:timers (aupdate (aval hud :timers) #'reset-timer :health-change)
+	:timers (aupdate (aval hud :timers) :health-change #'reset-timer)
 	:last-health-amt (aval (player-state (aval hud :player)) :health-amt)))
 
 (defun textbox-tile-drawing (src-pos pos)
@@ -1283,12 +1283,12 @@ This can be abused with the machine gun in TAS."
 	(aset c
 	      :physics
 	      (aupdate physics
+		       :stage
 		       (lambda (kin-2d)
 			 (aset kin-2d
 			       :vel
 			       (make-v (* 0.04 (if (eq facing :left) -1 1))
-				       (- 0.35))))
-		       :stage))
+				       (- 0.35))))))
 	c)))
 
 (defun critter-drawing (c)

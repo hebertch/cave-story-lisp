@@ -205,14 +205,11 @@
 	 (aset p :dead? t))
 	(t p)))
 
-
-
 (defun polar-star-projectile-hit-react (p)
   (aset p :dead? t))
 
 (defun polar-star-projectile-damage-amt (p)
   (elt '(1 2 4) (aval p :lvl)))
-
 
 (defun polar-star-projectile-stage-collision (p stage)
   (let ((pos (physics-pos p))
@@ -224,7 +221,6 @@
 		  dir
 		  pos
 		  stage))))
-
 
 (defun make-polar-star-projectile-group (lvl dir nozzle-pos)
   (push-sound :polar-star-shoot-3)

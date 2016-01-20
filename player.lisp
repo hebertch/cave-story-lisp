@@ -125,9 +125,9 @@
 
 (defun apply-player-physics (p)
   (aupdate (aval p :physics)
+	   :stage
 	   (lambda (kin-2d)
-	     (player-kin-2d-physics p kin-2d))
-	   :stage))
+	     (player-kin-2d-physics p kin-2d))))
 
 (defun player-ai (p)
   (when (and (find :walk-cycle (aval p :ticks))
@@ -189,13 +189,13 @@
 				   (aval p :id)
 				   dmg-amt)
 	 (aset p
-	       :timers (aupdate (aval p :timers) #'reset-timer :invincible)
+	       :timers (aupdate (aval p :timers) :invincible #'reset-timer)
 	       :ground-tile nil
 	       :health-amt (- (aval p :health-amt) dmg-amt)
 	       :physics
 	       (aupdate (aval p :physics)
-			#'player-short-hop-physics
-			:stage))))
+			:stage
+			#'player-short-hop-physics))))
       p))
 
 (defun player-gun-exp! (p amt)
@@ -265,11 +265,11 @@
 
 	    (alist :physics
 		   (aupdate (aval p :physics)
-			    #'player-jump-physics
-			    :stage)
+			    :stage
+			    #'player-jump-physics)
 		   :interacting? nil
 		   :ground-tile nil
-		   :timers (aupdate (aval p :timers) #'timed-cycle-pause :walk-cycle)))
+		   :timers (aupdate (aval p :timers) :walk-cycle #'timed-cycle-pause)))
 
 	  (alist :jumping? t)
 	  p))
@@ -280,12 +280,12 @@
   (let ((timers (aval p :timers)))
     (when (player-on-ground? p)
       (setq timers (aupdate timers
-			    #'timed-cycle-resume
-			    :walk-cycle))
+			    :walk-cycle
+			    #'timed-cycle-resume))
       (when (null (aval p :acc-dir))
 	(setq timers (aupdate timers
-			      #'timed-cycle-restart
-			      :walk-cycle))))
+			      :walk-cycle
+			      #'timed-cycle-restart))))
     (aset p
 	  :timers timers
 	  :interacting? nil
@@ -317,8 +317,8 @@
 			 :v-facing :down
 			 :timers
 			 (aupdate (aval p :timers)
-				  #'timed-cycle-pause
-				  :walk-cycle)
+				  :walk-cycle
+				  #'timed-cycle-pause)
 			 :interacting? on-ground?))))
 
 	(t (setq p (aset p :v-facing nil))))
@@ -336,8 +336,8 @@
 	   (setq p (aset p
 			 :timers
 			 (aupdate (aval p :timers)
-				  #'timed-cycle-pause
-				  :walk-cycle)))
+				  :walk-cycle
+				  #'timed-cycle-pause)))
 	   (push-sound :step))
 	 (setq p (aset p :acc-dir nil))))
 
@@ -397,7 +397,7 @@
       :ground-tile (aval res :new-ground-tile))
      (unless (aval p :ground-tile)
        (alist :timers
-	      (aupdate (aval p :timers) #'timed-cycle-pause :walk-cycle)
+	      (aupdate (aval p :timers) :walk-cycle #'timed-cycle-pause)
 	      :ground-tile nil))
      p)))
 

@@ -49,12 +49,12 @@
 (defun camera-ai (c)
   (let ((physics (aupdate
 		  (aval c :physics)
+		  :target
 		  (lambda (m)
 		    (target-kin-2d-update-target
 		     m
 		     (camera-target-from-player (estate (aval c :player)))
-		     (player-vel (estate (aval c :player)))))
-		  :target))
+		     (player-vel (estate (aval c :player)))))))
 	(shake-tick? (member :shake (aval c :ticks))))
 
     (aset c
