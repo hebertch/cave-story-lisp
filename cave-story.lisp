@@ -1163,28 +1163,24 @@ This can be abused with the machine gun in TAS."
 	   (make-single-loop-sprite
 	    15 (mapcar #'1+ (alexandria.0.dev:iota 7))
 	    :npc-sym 0 :particle))
-	  :physics
-	  (alist
-	   :stage
-	   (make-kin-2d
-	    :pos (-v pos (tile-dims/2))
-	    :vel (polar-vec->v (rand-angle)
-			       (rand-val-between 0.1 0.3))
-	    :clamper-vx
-	    (clamper+- *terminal-speed*)
-	    :clamper-vy
-	    (clamper+- *terminal-speed*))))))
+	  :stage-physics
+	  (make-kin-2d
+	   :pos (-v pos (tile-dims/2))
+	   :vel (polar-vec->v (rand-angle)
+			      (rand-val-between 0.1 0.3))
+	   :clamper-vx
+	   (clamper+- *terminal-speed*)
+	   :clamper-vy
+	   (clamper+- *terminal-speed*)))))
 
 (defun death-cloud-particle-drawing (d)
   (single-loop-sprite-drawing (estate (aval d :single-loop-sprite))
 			      (physics-pos d)))
 
-
 (let ((collision-rects (rect->collision-rects
 			(centered-rect (tile-dims/2) (both-v (tiles 2/5))))))
   (defun death-cloud-particle-stage-collision (d stage)
-    (let* ((physics (aval d :physics))
-	   (stage-physics (aval physics :stage))
+    (let* ((stage-physics (aval d :stage-physics))
 	   (data (alist :pos (aval stage-physics :pos)
 			:vel (aval stage-physics :vel)))
 	   (res
@@ -1204,13 +1200,10 @@ This can be abused with the machine gun in TAS."
 		      :right stop-x :top stop-y)))))
 
       (aset d
-	    :physics (aset physics
-			   :stage
-			   (aset stage-physics
-				 :pos (aval res :pos)
-				 :vel (aval res :vel)))))))
-
-
+	    :stage-physics
+	    (aset stage-physics
+		  :pos (aval res :pos)
+		  :vel (aval res :vel))))))
 
 (defun create-death-cloud-particles (num pos)
   (dotimes (i num)
@@ -1225,7 +1218,6 @@ This can be abused with the machine gun in TAS."
 	       :vel vel
 	       :accelerator-y (const-accelerator *gravity-acc*)
 	       :clamper-vy (clamper+- *terminal-speed*)))
-
 
 (defun critter-fns-alist ()
   (alist :ai-fn #'critter-ai
@@ -1250,7 +1242,7 @@ This can be abused with the machine gun in TAS."
      (critter-fns-alist)
      (alist :subsystems *critter-subsystems*)
      (alist
-      :physics (alist :stage (gravity-kin-2d :pos pos))
+      :stage-physics (gravity-kin-2d :pos pos)
       :player player
       :health-amt 2
       :damage-numbers damage-numbers
@@ -1274,22 +1266,19 @@ This can be abused with the machine gun in TAS."
   (aset obj :facing (face-player (physics-pos obj) (aval obj :player))))
 
 (defun critter-jump-ai (c)
-  (let ((physics (aval c :physics))
-	(timers (aval c :timers))
+  (let ((timers (aval c :timers))
 	(facing (aval c :facing)))
 
     (if (and (not (timer-active? (aval timers :sleep)))
 	     (< (origin-dist c (estate (aval c :player))) (tiles 4))
 	     (aval c :ground-tile))
-	(aset c
-	      :physics
-	      (aupdate physics
-		       :stage
-		       (lambda (kin-2d)
-			 (aset kin-2d
-			       :vel
-			       (make-v (* 0.04 (if (eq facing :left) -1 1))
-				       (- 0.35))))))
+	(aupdate c
+		 :stage-physics
+		 (lambda (kin-2d)
+		   (aset kin-2d
+			 :vel
+			 (make-v (* 0.04 (if (eq facing :left) -1 1))
+				 (- 0.35)))))
 	c)))
 
 (defun critter-drawing (c)
@@ -1374,9 +1363,8 @@ This can be abused with the machine gun in TAS."
 (let ((collision-rects (rect->collision-rects
 			(centered-rect (tile-dims/2) (both-v (tiles 3/4))) 6)))
   (defun critter-stage-collision (c stage)
-    (let* ((physics (aval c :physics))
-	   (last-tile (aval c :ground-tile))
-	   (stage-physics (aval physics :stage))
+    (let* ((last-tile (aval c :ground-tile))
+	   (stage-physics (aval c :stage-physics))
 	   (data (alist :pos (aval stage-physics :pos)
 			:vel (aval stage-physics :vel)
 			:ground-tile nil
@@ -1387,11 +1375,10 @@ This can be abused with the machine gun in TAS."
 	     data stage collision-rects
 	     *critter-stage-collisions*)))
       (aset c
-	    :physics (aset physics
-			   :stage
-			   (aset stage-physics
-				 :pos (aval res :pos)
-				 :vel (aval res :vel)))
+	    :stage-physics
+	    (aset stage-physics
+		  :pos (aval res :pos)
+		  :vel (aval res :vel))
 	    :timers (aval res :timers)
 	    :ground-tile (aval res :ground-tile)))))
 
