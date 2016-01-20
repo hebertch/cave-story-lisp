@@ -6,7 +6,10 @@
 	(funcall fn obj)
 	obj)))
 (defun motion-pos (obj)
-  (funcall (aval obj :pos-fn) obj))
+  (let ((fn (aval obj :pos-fn)))
+    (if fn
+	(funcall fn obj)
+	obj)))
 (defun origin (obj)
   (funcall (aval obj :origin-fn) obj))
 (defun inertia-vel (obj)
@@ -238,15 +241,16 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
     id))
 
 (defun physics (o)
-  (aupdate (aupdate o :physics #'motion-set-update)
-	   :stage-physics #'motion-physics))
+  (aupdate
+   (aupdate
+    (aupdate o :physics #'motion-set-update)
+    :stage-physics #'motion-physics)
+   :offset #'motion-physics))
 
 (defun physics-pos (o)
-  (let ((stage (aval o :stage-physics))
-	(set-pos (motion-set-pos (aval o :physics))))
-    (if stage
-	(+v set-pos (aval stage :pos))
-	set-pos)))
+  (+v (motion-set-pos (aval o :physics))
+      (or (motion-pos (aval o :stage-physics)) (zero-v))
+      (or (motion-pos (aval o :offset)) (zero-v))))
 
 (defun timers (o)
   "Return o with its :timers updated :ticks set, and ai applied."

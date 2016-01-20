@@ -455,11 +455,9 @@ This can be abused with the machine gun in TAS."
 	  :timers
 	  (alist
 	   :life (make-expiring-timer (s->ms 2) t))
-	  :physics
-	  (alist
-	   :offset (make-offset-motion (zero-v)
-				       :up
-				       (/ (tiles 1/30) *frame-time*))))))
+	  :offset (make-offset-motion (zero-v)
+				      :up
+				      (/ (tiles 1/30) *frame-time*)))))
 
 (defun floating-number-drawing (fn)
   (number-drawing (+v (origin (estate (aval fn :entity)))
@@ -469,14 +467,12 @@ This can be abused with the machine gun in TAS."
 
 (defun floating-number-ai (fn)
   (let ((dead? (not (timer-active? (aval (aval fn :timers) :life)))))
-    (cond ((< (y (motion-pos (cdr (assoc :offset (aval fn :physics)))))
+    (cond ((< (y (motion-pos (aval fn :offset)))
 	      (- (tiles 1)))
 	   (aset fn
 		 :dead? dead?
-		 :physics
-		 (aset (aval fn :physics)
-		       :offset
-		       (make-offset-motion (zero-v :y (- (tiles 1))) :up 0))))
+		 :offset
+		 (make-offset-motion (zero-v :y (- (tiles 1))) :up 0)))
 	  (t (aset fn :dead? dead?)))))
 
 (defun floating-number-add-amt (fn amount)
