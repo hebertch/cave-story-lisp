@@ -1412,8 +1412,8 @@ This can be abused with the machine gun in TAS."
 
 (setfn shake-hit-react
        #j((aupdatefn
-	   :timers #i(adjoin :shake-timer _)
-	   :physics #i(adjoin :shake _))
+	   :timers #_(adjoin :shake-timer _)
+	   :physics #_(adjoin :shake _))
 	  (asetfn
 	   :shake-timer
 	   (make-expiring-timer (s->ms 1/3) t)
@@ -1511,8 +1511,8 @@ This can be abused with the machine gun in TAS."
     
     (cond ((member :rage-timer ticks)
 	   (aupdate e
-		    :timers (compose #i(remove :rage-timer _)
-				     #i(adjoin :anim-cycle _))
+		    :timers (compose #_(remove :rage-timer _)
+				     #_(adjoin :anim-cycle _))
 		    :anim-cycle (constantly (make-fps-cycle 12 #(0 2 4)))
 		    :rage-timer (constantly nil)))
 	  ((and rage-timer (member :recover-timer ticks))
@@ -1559,17 +1559,17 @@ This can be abused with the machine gun in TAS."
 	    data))))))
 
 (setfn bat-hit-react
-       #i(damage-reaction 3 _))
+       #_(damage-reaction 3 _))
 (setfn bat-ai #'face-player-ai)
 (setfn critter-ai
        #j(face-player-ai
 	  critter-jump-ai
 	  shake-ai))
 (setfn critter-hit-react
-       #j(#i(damage-reaction 6 _)
+       #j(#_(damage-reaction 6 _)
 	    shake-hit-react))
 (setfn elephant-hit-react 
-       #j(#i(damage-reaction 6 _)
+       #j(#_(damage-reaction 6 _)
 	    elephant-rage-hit-react
 	    shake-hit-react))
 (setfn elephant-ai

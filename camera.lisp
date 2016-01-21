@@ -42,7 +42,7 @@
 (setfn add-camera-shake
        #j((aupdatefn
 	   :physics
-	   #i(union _ '(:shake-v :shake-h)))
+	   #_(union _ '(:shake-v :shake-h)))
 	  (asetfn
 	   :shake-v (make-shake)
 	   :shake-h (make-shake))))
