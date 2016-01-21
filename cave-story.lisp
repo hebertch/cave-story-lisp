@@ -1539,22 +1539,21 @@ This can be abused with the machine gun in TAS."
     (if (and (timer-active? (rage-timer e))
 	     (member :anim-cycle ticks)
 	     (zerop (aval (aval e :anim-cycle) :idx)))
-	(progn
-	  (estate-set (aval e :camera)
-		      (timed-camera-shake (estate (aval e :camera))
-					  (s->ms 1/2)))
-
-	  (aupdate e
-		   :sound-effects #_(cons :big-footstep _)
-		   :new-entities
-		   #_ (append
-		       _
-		       (make-num-death-cloud-particles
-			3 (+v (physics-pos e)
-			      (make-v (if (eq (aval e :facing) :left)
-					  (tiles 3/2)
-					  (tiles 1/2))
-				      (tiles 5/4)))))))
+	(aupdate e
+		 :sound-effects #_(cons :big-footstep _)
+		 :new-states
+		 #_(cons (timed-camera-shake (estate (aval e :camera))
+					     (s->ms 1/2))
+			 _)
+		 :new-entities
+		 #_ (append
+		     _
+		     (make-num-death-cloud-particles
+		      3 (+v (physics-pos e)
+			    (make-v (if (eq (aval e :facing) :left)
+					(tiles 3/2)
+					(tiles 1/2))
+				    (tiles 5/4))))))
 	e)))
 
 (let ((collision-rects
