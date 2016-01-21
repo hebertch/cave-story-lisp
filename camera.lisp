@@ -40,14 +40,12 @@
 		    :speed (rand-val-between 0.017 0.022)))
 
 (setfn add-camera-shake
-       (compose
-	(aupdatefn
-	 :physics
-	 (lambda (p)
-	   (union p '(:shake-v :shake-h))))
-	(asetfn
-	 :shake-v (make-shake)
-	 :shake-h (make-shake))))
+       #j((aupdatefn
+	   :physics
+	   #i(union _ '(:shake-v :shake-h)))
+	  (asetfn
+	   :shake-v (make-shake)
+	   :shake-h (make-shake))))
 
 (defun camera-ai (c)
   (let ((shake-tick? (member :shake-timer (aval c :ticks))))

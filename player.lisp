@@ -177,8 +177,9 @@
 	       :dead? t))
 	(t
 	 (push-sound :hurt)
-	 (estate-set (aval p :hud) (hud-health-changed
-				    (estate (aval p :hud))))
+	 (estate-set (aval p :hud) 
+		     (hud-health-changed
+		      (estate (aval p :hud))))
 	 (estate-set
 	  (aval p :gun-exps)
 	  (incr-gun-exp

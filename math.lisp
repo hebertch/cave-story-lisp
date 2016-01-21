@@ -4,14 +4,49 @@
   "Sets the function-value of function name to be fn."
   `(setf (fdefinition ',function-name) ,fn))
 
-(defmacro comp (fn-name &rest fn-names)
-  "Composes using function names."
-  `(lambda (arg)
-     (funcall (compose
-	       (function ,fn-name)
-	       ,@(mapcar (lambda (name) `(function ,name))
-			 fn-names))
-	      arg)))
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defun expand-partial-application (lst)
+    (let* ((rest? (not (null (cdr (last lst)))))
+	   (lst (if rest?
+		    (append (butlast lst) (list (car (last lst))
+						(cdr (last lst))))
+		    lst))
+	   (num-args (count '_ lst))
+	   (args (loop for n from 1 to num-args
+		    collecting (symbolicate 'a (format nil "~A" n))))
+	   (arg-list (loop
+			for a in (rest lst)
+			with i = 0
+			collecting
+			  (if (eq '_ a)
+			      (progn
+				(incf i)
+				(symbolicate 'a (format nil "~A" i)))
+			      a))))
+      `(lambda ,args
+	 (,@(if rest?
+		`(apply #',(first lst))
+		(list (first lst)))
+	    ,@arg-list))))
+
+  (defun expand-composition (lst)
+    `(lambda (arg)
+       (funcall (compose
+		 ,@(loop for i in lst
+		      collecting (if (symbolp i)
+				     `(function ,i)
+				     i)))
+		arg)))
+
+  (defun hash-i-reader (stream char arg)
+    (declare (ignore char arg))
+    (expand-partial-application (read stream t nil t)))
+  (defun hash-j-reader (stream char arg)
+    (declare (ignore char arg))
+    (expand-composition (read stream t nil t))))
+
+(set-dispatch-macro-character #\# #\i #'hash-i-reader)
+(set-dispatch-macro-character #\# #\j #'hash-j-reader)
 
 ;; Alist utilities
 (defun alist (&rest plist)
@@ -33,6 +68,7 @@
 		   (assert (typep k 'keyword))
 		   (cons k v)))
    alist))
+
 (defun asetfn (&rest keys-and-vals)
   (lambda (a)
     (apply #'aset a keys-and-vals)))
@@ -233,8 +269,8 @@
   (aset tc :paused? nil))
 
 (setfn timed-cycle-restart
-       (comp cycle-reset
-	     reset-timer))
+       #j(cycle-reset
+	  reset-timer))
 
 ;; Clamps
 

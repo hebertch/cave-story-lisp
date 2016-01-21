@@ -727,12 +727,11 @@ This can be abused with the machine gun in TAS."
        (aupdatefn :exp-change-timer #'reset-timer))
 
 (setfn hud-health-changed
-       (compose
-	(aupdatefn :health-change-timer #'reset-timer)
-	(lambda (hud)
-	  (aset hud
-		:last-health-amt
-		(aval (player-state (aval hud :player)) :health-amt)))))
+       #j((aupdatefn :health-change-timer #'reset-timer)
+	  (lambda (hud)
+	    (aset hud
+		  :last-health-amt
+		  (aval (player-state (aval hud :player)) :health-amt)))))
 
 (defun textbox-tile-drawing (src-pos pos)
   (let ((size (both-v (tiles/2 1))))
@@ -1061,7 +1060,7 @@ This can be abused with the machine gun in TAS."
 	 :draw-fn #'bat-drawing
 	 :ai-fn #'bat-ai
 	 :damage-collision-rect-fn
-	 (comp point-rect origin)
+	 #j(point-rect origin)
 	 :damage-collision-amt-fn (constantly 1)
 	 :damageable-rect-fn #'physics-tile-rect))
 
@@ -1412,15 +1411,14 @@ This can be abused with the machine gun in TAS."
   (create-rect (physics-pos e) *elephant-dims*))
 
 (setfn shake-hit-react
-       (compose
-	(aupdatefn
-	 :timers (curry #'adjoin :shake-timer)
-	 :physics (curry #'adjoin :shake))
-	(asetfn
-	 :shake-timer
-	 (make-expiring-timer (s->ms 1/3) t)
-	 :shake
-	 (make-wave-motion :dir :left :amp 2 :speed 0.1 :rads 0))))
+       #j((aupdatefn
+	   :timers #i(adjoin :shake-timer _)
+	   :physics #i(adjoin :shake _))
+	  (asetfn
+	   :shake-timer
+	   (make-expiring-timer (s->ms 1/3) t)
+	   :shake
+	   (make-wave-motion :dir :left :amp 2 :speed 0.1 :rads 0))))
 
 (defun elephant-rage-hit-react (e)
   (if (timer-active? (aval e :rage-timer))
@@ -1513,8 +1511,8 @@ This can be abused with the machine gun in TAS."
     
     (cond ((member :rage-timer ticks)
 	   (aupdate e
-		    :timers (compose (curry #'remove :rage-timer)
-				     (curry #'adjoin :anim-cycle))
+		    :timers (compose #i(remove :rage-timer _)
+				     #i(adjoin :anim-cycle _))
 		    :anim-cycle (constantly (make-fps-cycle 12 #(0 2 4)))
 		    :rage-timer (constantly nil)))
 	  ((and rage-timer (member :recover-timer ticks))
@@ -1561,24 +1559,21 @@ This can be abused with the machine gun in TAS."
 	    data))))))
 
 (setfn bat-hit-react
-       (curry #'damage-reaction 3))
+       #i(damage-reaction 3 _))
 (setfn bat-ai #'face-player-ai)
 (setfn critter-ai
-       (comp face-player-ai
-	     critter-jump-ai
-	     shake-ai))
+       #j(face-player-ai
+	  critter-jump-ai
+	  shake-ai))
 (setfn critter-hit-react
-       (compose
-	(curry #'damage-reaction 6)
-	#'shake-hit-react))
+       #j(#i(damage-reaction 6 _)
+	    shake-hit-react))
 (setfn elephant-hit-react 
-       (compose
-	(curry #'damage-reaction 6)
-	#'elephant-rage-hit-react
-	#'shake-hit-react))
+       #j(#i(damage-reaction 6 _)
+	    elephant-rage-hit-react
+	    shake-hit-react))
 (setfn elephant-ai
-       (comp
-	elephant-stage-physics-ai
-	elephant-rage-effects
-	elephant-rage-ai
-	shake-ai))
+       #j(elephant-stage-physics-ai
+	  elephant-rage-effects
+	  elephant-rage-ai
+	  shake-ai))
