@@ -69,11 +69,11 @@
 	       :size (make-v (- right left)
 			     (- bottom top)))))
 
-(defun player-pickup! (p pickup)
+(defun player-pickup (p pickup)
   (ecase (aval pickup :type)
     (:dorito
-     (player-gun-exp! p (aval pickup :amt))))
-  (values))
+     (player-gun-exp p (aval pickup :amt)))
+    (t p)))
 
 (defun player-state (p)
   (estate p))
@@ -197,15 +197,14 @@
        p)
       p))
 
-(defun player-gun-exp! (p amt)
-  (estate-set
-   (aval p :gun-exps)
-   (incr-gun-exp (estate (aval p :gun-exps))
-		 (player-current-gun-name p) amt))
-  (estate-set
-   (aval p :hud)
-   (hud-exp-changed (estate (aval p :hud))))
-  (values))
+(defun player-gun-exp (p amt)
+  (aupdate p
+	   :new-states
+	   #_ (append
+	       (list (incr-gun-exp (estate (aval p :gun-exps))
+				   (player-current-gun-name p) amt)
+		     (hud-exp-changed (estate (aval p :hud))))
+	       _)))
 
 (defun char-sprite-pos (h-facing v-facing interacting? walk-idx)
   "Grabs the tile-pos for the character given the character's state."
