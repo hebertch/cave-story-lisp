@@ -35,9 +35,9 @@
 	 *missile-radial-speed*)))
      (alist :lvl lvl
 	    :dir dir
-	    :timers
-	    (alist :life
-		   (make-expiring-timer (s->ms 3/2) t))
+	    :timers '(:life-timer)
+	    :life-timer
+	    (make-expiring-timer (s->ms 3/2) t)
 	    :physics (list* :offset (when oscillate? '(:wave)))
 	    :offset
 	    (make-offset-motion
@@ -56,7 +56,7 @@
 	      lvl))))))
 
 (defun missile-projectile-ai (p)
-  (aset p :dead? (member :life (aval p :ticks))))
+  (aset p :dead? (member :life-timer (aval p :ticks))))
 
 (defun projectile-collision? (rect dir stage)
   (loop for (tile-pos tile-type) in (stage-get-colliding-tiles stage rect)
@@ -178,9 +178,9 @@
    (polar-star-projectile-fns-alist)
    (alist :subsystems *polar-star-projectile-subsystems*)
    (alist :dir dir :lvl lvl
-	  :timers
-	  (alist :life
-		 (make-expiring-timer (s->ms (elt '(1/8 1/4 1/2) lvl)) t))
+	  :timers '(:life-timer)
+	  :life-timer
+	  (make-expiring-timer (s->ms (elt '(1/8 1/4 1/2) lvl)) t)
 	  :physics '(:offset)
 	  :offset
 	  (make-offset-motion
@@ -190,7 +190,7 @@
 	  (make-polar-star-projectile-sprite-rect lvl dir))))
 
 (defun polar-star-projectile-ai (p)
-  (cond ((not (timer-active? (aval (aval p :timers) :life)))
+  (cond ((not (timer-active? (aval p :life-timer)))
 	 (push-sound :dissipate)
 	 (create-entity
 	  (make-projectile-star-particle
