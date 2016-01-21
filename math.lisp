@@ -41,12 +41,15 @@
   (defun hash-underscore-reader (stream char arg)
     (declare (ignore char arg))
     (expand-partial-application (read stream t nil t)))
-  (defun hash-j-reader (stream char arg)
+  (defun hash-g-reader (stream char arg)
     (declare (ignore char arg))
-    (expand-composition (read stream t nil t))))
+    (expand-composition (read stream t nil t)))
 
-(set-dispatch-macro-character #\# #\_ #'hash-underscore-reader)
-(set-dispatch-macro-character #\# #\j #'hash-j-reader)
+  (defun install-function-syntax! ()
+    (set-dispatch-macro-character #\# #\_ #'hash-underscore-reader)
+    (set-dispatch-macro-character #\# #\g #'hash-g-reader)))
+
+(install-function-syntax!)
 
 ;; Alist utilities
 (defun alist (&rest plist)
@@ -268,7 +271,7 @@
 (defun timed-cycle-resume (tc)
   (aset tc :paused? nil))
 
-(setfn timed-cycle-restart #j(cycle-reset reset-timer))
+(setfn timed-cycle-restart #g(cycle-reset reset-timer))
 
 ;; Clamps
 

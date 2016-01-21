@@ -727,7 +727,7 @@ This can be abused with the machine gun in TAS."
        (aupdatefn :exp-change-timer #'reset-timer))
 
 (setfn hud-health-changed
-       #j((aupdatefn :health-change-timer #'reset-timer)
+       #g((aupdatefn :health-change-timer #'reset-timer)
 	  (lambda (hud)
 	    (aset hud
 		  :last-health-amt
@@ -1060,7 +1060,7 @@ This can be abused with the machine gun in TAS."
 	 :draw-fn #'bat-drawing
 	 :ai-fn #'bat-ai
 	 :damage-collision-rect-fn
-	 #j(point-rect origin)
+	 #g(point-rect origin)
 	 :damage-collision-amt-fn (constantly 1)
 	 :damageable-rect-fn #'physics-tile-rect))
 
@@ -1411,7 +1411,7 @@ This can be abused with the machine gun in TAS."
   (create-rect (physics-pos e) *elephant-dims*))
 
 (setfn shake-hit-react
-       #j((aupdatefn
+       #g((aupdatefn
 	   :timers #_(adjoin :shake-timer _)
 	   :physics #_(adjoin :shake _))
 	  (asetfn
@@ -1562,18 +1562,18 @@ This can be abused with the machine gun in TAS."
        #_(damage-reaction 3 _))
 (setfn bat-ai #'face-player-ai)
 (setfn critter-ai
-       #j(face-player-ai
+       #g(face-player-ai
 	  critter-jump-ai
 	  shake-ai))
 (setfn critter-hit-react
-       #j(#_(damage-reaction 6 _)
+       #g(#_(damage-reaction 6 _)
 	    shake-hit-react))
 (setfn elephant-hit-react 
-       #j(#_(damage-reaction 6 _)
+       #g(#_(damage-reaction 6 _)
 	    elephant-rage-hit-react
 	    shake-hit-react))
 (setfn elephant-ai
-       #j(elephant-stage-physics-ai
+       #g(elephant-stage-physics-ai
 	  elephant-rage-effects
 	  elephant-rage-ai
 	  shake-ai))

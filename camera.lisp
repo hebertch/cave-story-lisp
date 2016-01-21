@@ -40,7 +40,7 @@
 		    :speed (rand-val-between 0.017 0.022)))
 
 (setfn add-camera-shake
-       #j((aupdatefn
+       #g((aupdatefn
 	   :physics
 	   #_(union _ '(:shake-v :shake-h)))
 	  (asetfn
