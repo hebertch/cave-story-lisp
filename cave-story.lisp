@@ -119,7 +119,7 @@
 			(+ frame-timer
 			   (min dt (* 2 *frame-time*)))))
 		(setq last-update-time (sdl:get-ticks))
-		(music-update)
+		(music-update!)
 		(sdl:delay 1)))
       (cleanup))))
 
@@ -135,7 +135,7 @@ This can be abused with the machine gun in TAS."
       (:game
        (when (or (joy-pressed? input :b) (key-pressed? input :x))
 	 ;; Fire Gun
-	 (player-fire-gun! (estate (aval game :player)))))
+	 (update-world! (aval game :player) #'player-fire-gun)))
 
       (:dialog
        (cond
@@ -257,8 +257,9 @@ This can be abused with the machine gun in TAS."
   (alist
    :bottom
    (collision-lambda (data)
-     (push-sound :dorito-bounce)
      (aupdate data
+	      :sound-effects
+	      #_ (cons :dorito-bounce _)
 	      :stage-physics
 	      (asetfn :vel
 		      (set-y-v (stage-vel data)
@@ -823,7 +824,7 @@ This can be abused with the machine gun in TAS."
   (draw-point! (camera-target-from-player (player-state (aval game :player))) *white*)
   ;; End Debug Drawings.
 
-  (play-sounds *sfx-play-list*)
+  (play-sounds! *sfx-play-list*)
   (setq *sfx-play-list* nil)
 
   (when (eq *input-playback* :recording)
@@ -923,7 +924,7 @@ This can be abused with the machine gun in TAS."
   (count gun-name (aval g :groups) :key #'car))
 
 (defun projectile-groups-add (g pg)
-  (aset g :groups (cons pg (aval g :groups))))
+  (aupdate g :groups #_(cons pg _)))
 
 (defun make-projectile-groups ()
   (alist :id (gen-entity-id)))
@@ -984,8 +985,8 @@ This can be abused with the machine gun in TAS."
 		 :damage-numbers damage-numbers))))
 
 (defun reset ()
-  (switch-to-new-song :lastcave)
-  (set-music-volume 20)
+  (switch-to-new-song! :lastcave)
+  (set-music-volume! 20)
 
   (dolist (s *registry-syms*)
     (set s nil))
@@ -1008,7 +1009,7 @@ This can be abused with the machine gun in TAS."
   (init-input!)
   (sdl:show-cursor :disable)
 
-  (put-all-resources)
+  (put-all-resources!)
   (setq *current-song* nil)
 
   (multiple-value-setq
@@ -1022,7 +1023,7 @@ This can be abused with the machine gun in TAS."
 (defun cleanup ()
   "Called at application closing to cleanup all subsystems."
   (cleanup-input!)
-  (cleanup-all-resources)
+  (cleanup-all-resources!)
   (clrhash *character-textures*)
 
   (setq *input-playback* nil)

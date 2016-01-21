@@ -90,11 +90,11 @@ the get- function that is produced."
 				,@load-args))
 		 ss)))))))
 
-(defun put-all-resources ()
+(defun put-all-resources! ()
   (dolist (rt *resource-types*)
     (funcall (resource-type-put-fn rt))))
 
-(defun cleanup-all-resources ()
+(defun cleanup-all-resources! ()
   (dolist (rt *resource-types*)
     (funcall (resource-type-cleanup-fn rt))))
 
@@ -123,27 +123,27 @@ the get- function that is produced."
 (defstruct song intro loop name)
 (defvar *current-song*)
 
-(defun load-song (name)
+(defun load-song! (name)
   (make-song
    :name name
    :loop  (sdl.mixer:load-mus (format nil "./content/remastered-music/~A_loop.ogg" name))
    :intro (sdl.mixer:load-mus (format nil "./content/remastered-music/~A_intro.ogg" name))))
 
-(defun destroy-song (s)
+(defun destroy-song! (s)
   (sdl.mixer:free-music (song-intro s))
   (sdl.mixer:free-music (song-loop s)))
 
-(defun music-update ()
+(defun music-update! ()
   "Call as often as possible."
   (when (and *current-song* (= 0 (sdl.mixer:playing-music)))
     ;; When the song intro has finished, switch to the loop portion.
     (sdl.mixer:play-music (song-loop *current-song*) -1)))
 
-(defun stop-music ()
+(defun stop-music! ()
   (sdl.mixer:halt-music)
   (setq *current-song* nil))
 
-(defun switch-to-new-song (song-key)
+(defun switch-to-new-song! (song-key)
   (sdl.mixer:halt-music)
   (setq *current-song* (get-song song-key))
   (sdl.mixer:play-music (song-intro *current-song*) 0))
@@ -151,7 +151,7 @@ the get- function that is produced."
 (defun percent->volume (fixnum-percent)
   (floor (* 128 fixnum-percent) 100))
 
-(defun set-music-volume (fixnum-percent)
+(defun set-music-volume! (fixnum-percent)
   "Given an integer from 1-100 sets the volume of the music."
   (sdl.mixer:volume-music (percent->volume fixnum-percent)))
 
@@ -166,9 +166,9 @@ the get- function that is produced."
 
 (def-resource-type song
     (()
-     (load-song fname))
+     (load-song! fname))
   *song-names*
-  #'destroy-song)
+  #'destroy-song!)
 
 ;;; SOUNDS
 
@@ -176,14 +176,14 @@ the get- function that is produced."
 (defun wav-path (fname)
   (format nil "./content/sfx/~A.wav" fname))
 
-(defun play-sounds (sfx-play-list)
+(defun play-sounds! (sfx-play-list)
   ;; This works like the renderer. Merge?
   (dolist (s sfx-play-list)
     (sdl.mixer:play-channel -1 (get-sound s) 0)))
 
 (defvar *sfx-play-list* nil)
 
-(defun push-sound (key-sym)
+(defun push-sound! (key-sym)
   (push key-sym *sfx-play-list*))
 
 (def-resource-type sound

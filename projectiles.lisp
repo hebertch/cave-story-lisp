@@ -36,6 +36,7 @@
      (alist :lvl lvl
 	    :dir dir
 	    :timers '(:life-timer)
+	    :id (gen-entity-id)
 	    :life-timer
 	    (make-expiring-timer (s->ms 3/2) t)
 	    :physics (list* :offset (when oscillate? '(:wave)))
@@ -138,25 +139,30 @@
 (defun missile-projectile-hit-react (p)
   (aset p :dead? t))
 
-
-(defun make-missile-projectile-group (lvl dir nozzle-pos)
-  (let ((pos (sub-v nozzle-pos
-		    ;; Subtract the size of the sprite-rect to center it.
-		    (tile-dims/2))))
-    (if (< lvl 2)
-	(list (create-entity
-	       (make-missile-projectile lvl dir pos 0 0.05 0.001)))
-	(let ((speed 0.0005))
-	  (mapcar #'create-entity
-		  (list (make-missile-projectile lvl dir pos 12 speed
-						 (rand-val-between 0.0005 0.001)
-						 t)
-			(make-missile-projectile lvl dir pos 8 speed
-						 (rand-val-between 0.001 0.0015)
-						 t)
-			(make-missile-projectile lvl dir pos 0 speed
-						 (rand-val-between 0.001 0.0015)
-						 t)))))))
+(defun add-missile-projectile-group (obj lvl dir nozzle-pos)
+  (let* ((pos (sub-v nozzle-pos
+		     ;; Subtract the size of the sprite-rect to center it.
+		     (tile-dims/2)))
+	 (pg
+	  (if (< lvl 2)
+	      (list (make-missile-projectile lvl dir pos 0 0.05 0.001))
+	      (let ((speed 0.0005))
+		(list (make-missile-projectile lvl dir pos 12 speed
+					       (rand-val-between 0.0005 0.001)
+					       t)
+		      (make-missile-projectile lvl dir pos 8 speed
+					       (rand-val-between 0.001 0.0015)
+					       t)
+		      (make-missile-projectile lvl dir pos 0 speed
+					       (rand-val-between 0.001 0.0015)
+					       t))))))
+    (aupdate obj
+	     :new-states #_(cons (projectile-groups-add
+				  (estate (aval obj :projectile-groups))
+				  (cons :missile-launcher
+					(mapcar #_ (aval _ :id) pg)))
+				 _)
+	     :new-entities #_(append _ pg))))
 
 (defun polar-star-projectile-fns-alist ()
   (alist :ai-fn #'polar-star-projectile-ai
@@ -179,6 +185,7 @@
    (alist :subsystems *polar-star-projectile-subsystems*)
    (alist :dir dir :lvl lvl
 	  :timers '(:life-timer)
+	  :id (gen-entity-id)
 	  :life-timer
 	  (make-expiring-timer (s->ms (elt '(1/8 1/4 1/2) lvl)) t)
 	  :physics '(:offset)
@@ -225,9 +232,19 @@
 		(cons :hit-wall (aval p :sound-effects)))
 	  p))))
 
-(defun make-polar-star-projectile-group (lvl dir nozzle-pos)
-  (push-sound :polar-star-shoot-3)
-  (list (create-entity (make-polar-star-projectile nozzle-pos dir lvl))))
+(defun add-polar-star-projectile-group (obj lvl dir nozzle-pos)
+  (let ((pg (list (make-polar-star-projectile nozzle-pos dir lvl))))
+    (aupdate obj
+	     :sound-effects #_(cons :polar-star-shoot-3  _)
+	     :new-states
+	     #_(cons (projectile-groups-add
+		      (estate (aval obj :projectile-groups))
+		      (cons :polar-star (mapcar #_(aval _ :id) pg)))
+		     _)
+	     :new-entities
+	     #_(append _
+		       (list (make-projectile-star-particle nozzle-pos))
+		       pg))))
 
 (defun make-polar-star-projectile-sprite-rect (lvl dir)
   (let ((lvl-tile-positions (mapcar
@@ -272,11 +289,9 @@
       (setq dead? t))
     dead?))
 
-(defun make-projectile-group (gun-name lvl dir nozzle-pos)
-  (cons gun-name
-	(case gun-name
-	  (:polar-star
-	   (create-entity (make-projectile-star-particle nozzle-pos))
-	   (make-polar-star-projectile-group lvl dir nozzle-pos))
-	  (:missile-launcher
-	   (make-missile-projectile-group lvl dir nozzle-pos)))))
+(defun add-projectile-group (obj gun-name lvl dir nozzle-pos)
+  (case gun-name
+    (:polar-star
+     (add-polar-star-projectile-group obj lvl dir nozzle-pos))
+    (:missile-launcher
+     (add-missile-projectile-group obj lvl dir nozzle-pos))))

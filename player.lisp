@@ -137,7 +137,7 @@
 	      p))
 	apply-player-physics))
 
-(defun player-fire-gun! (p)
+(defun player-fire-gun (p)
   (let ((gun-name (player-current-gun-name p)))
     (let ((num-projectile-groups
 	   (projectile-groups-count (estate (aval p :projectile-groups))
@@ -149,14 +149,10 @@
 	  (lvl (gun-level (gun-exp-for (estate (aval p :gun-exps)) gun-name)
 			  (cdr (assoc gun-name *gun-level-exps*))))
 	  (max-projectiles (cdr (assoc gun-name *max-projectile-groups*))))
-      (unless (null max-projectiles)
-	(when (< num-projectile-groups max-projectiles)
-	  (estate-set
-	   (aval p :projectile-groups)
-	   (projectile-groups-add
-	    (estate (aval p :projectile-groups))
-	    (make-projectile-group gun-name lvl dir nozzle-pos)))))))
-  (values))
+      (if (and (not (null max-projectiles))
+	       (< num-projectile-groups max-projectiles))
+	  (add-projectile-group p gun-name lvl dir nozzle-pos)
+	  p))))
 
 (defun player-short-hop-physics (kin-2d)
   (aset kin-2d
@@ -170,7 +166,7 @@
       (funcall
        (cond
 	 ((>= (abs dmg-amt) (aval p :health-amt))
-	  (stop-music)
+	  (stop-music!)
 	  
 	  (comp
 	   (asetfn :health-amt 0
@@ -359,11 +355,12 @@
 		       :vel (zero-v :y (y (stage-vel data))))))))
     (alist :bottom
 	   (collision-lambda (data)
-	     (unless (aval data :ground-tile)
-	       (push-sound :land))
-
 	     (aset
 	      data
+	      :sound-effects
+	      (if (aval data :ground-tile)
+		  (aval data :sound-effects)
+		  (cons :land (aval data :sound-effects)))
 	      :stage-physics
 	      (aset (aval data :stage-physics)
 		    :vel (zero-v :x (x (stage-vel data))))
