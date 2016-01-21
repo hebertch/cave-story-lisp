@@ -50,7 +50,7 @@
 	 :shake-h (make-shake))))
 
 (defun camera-ai (c)
-  (let ((shake-tick? (member :shake (aval c :ticks))))
+  (let ((shake-tick? (member :shake-timer (aval c :ticks))))
     (aset c
 	  :target
 	  (target-kin-2d-update-target
@@ -61,13 +61,14 @@
 		       (set-difference (aval c :physics) '(:shake-v :shake-h))
 		       (aval c :physics))
 	  :timers (if shake-tick?
-		      (arem (aval c :timers) :shake)
-		      (aval c :timers)))))
+		      (remove :shake-timer (aval c :timers))
+		      (aval c :timers))
+	  :shake-timer (if shake-tick? nil (aval c :shake-timer)))))
 
 (defun timed-camera-shake (c time)
   (aset (add-camera-shake c)
-	:timers (aset (aval c :timers)
-		      :shake (make-expiring-timer time t))))
+	:shake-timer (make-expiring-timer time t)
+	:timers (adjoin :shake-timer (aval c :timers))))
 
 (defun stage-dims->camera-bounds (stage-dims)
   (create-rect (scale-v *window-dims* 1/2)
