@@ -1080,9 +1080,8 @@ This can be abused with the machine gun in TAS."
 	   :amp (tiles 2)
 	   :speed (/ 0.0325
 		     *frame-time*))
-    :timers
-    (alist
-     :anim-cycle (make-fps-cycle 14 #(0 2 1 2)))
+    :timers '(:anim-cycle)
+    :anim-cycle (make-fps-cycle 14 #(0 2 1 2))
     :health-amt 1
     :player player)))
 
@@ -1092,19 +1091,15 @@ This can be abused with the machine gun in TAS."
 		       :src-rect
 		       (tile-rect (+v (tile-v 2 2)
 				      (anim-cycle-offset
-				       (aval (aval b :timers) :anim-cycle))
+				       (aval b :anim-cycle))
 				      (facing-offset (aval b :facing))))
 		       :pos (physics-pos b)))
-
 
 (defun facing-offset (facing)
   (tile-v 0 (if (eq facing :left) 0 1)))
 
 (defun anim-cycle-offset (c)
   (tile-v (cycle-current c) 0))
-
-(defun anim-cycle-val (timers)
-  (cycle-current (aval timers :anim-cycle)))
 
 (defun point-rect (pos)
   (create-rect pos (both-v 1)))
@@ -1405,8 +1400,6 @@ This can be abused with the machine gun in TAS."
 				      *elephant-dims*)
 			 :pos (physics-pos e))))
 
-
-
 (defun elephant-origin (e)
   (+v (physics-pos e)
       (scale-v *elephant-dims* 1/2)))
@@ -1513,8 +1506,8 @@ This can be abused with the machine gun in TAS."
 	   (aupdate e
 		    :timers
 		    (asetfn
-		     :rage nil
-		     :anim-cycle (make-fps-cycle 12 #(0 2 4)))))
+		     :anim-cycle (make-fps-cycle 12 #(0 2 4))
+		     :rage nil)))
 	  ((and rage-timer (member :recover ticks))
 	   (aupdate e
 		    :timers

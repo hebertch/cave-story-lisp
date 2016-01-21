@@ -192,7 +192,7 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
     (loop for (id . e) in entity-registry
        do
 	 (register-entity-subsystems id e)))
-
+ 
   (defun init-id-system ()
     (setq id 0))
   (defun gen-entity-id ()
