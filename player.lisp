@@ -22,6 +22,7 @@
 	  :damage-numbers damage-numbers
 	  :gun-exps gun-exps
 	  :projectile-groups projectile-groups
+	  :id (gen-entity-id)
 	  :active-systems active-systems
 	  :hud hud
 	  :timers '(:walk-cycle :invincible-timer)

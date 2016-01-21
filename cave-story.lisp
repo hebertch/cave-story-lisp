@@ -200,7 +200,7 @@ This can be abused with the machine gun in TAS."
 	  :life-timer
 	  (make-expiring-timer (s->ms 8) t)
 	  :anim-cycle
-	  (make-fps-cycle 14 (alexandria.0.dev:iota 6))
+	  (make-fps-cycle 14 (iota 6))
 	  :physics '(:stage-physics)
 	  :stage-physics
 	  (make-kin-2d :pos (-v pos
@@ -325,6 +325,7 @@ This can be abused with the machine gun in TAS."
    (alist :anim-cycle (make-fps-cycle fps seq)
 	  :timers '(:anim-cycle)
 	  :sheet-key sheet-key
+	  :id (gen-entity-id)
 	  :layer layer
 	  :tile-y tile-y)))
 
@@ -356,10 +357,10 @@ This can be abused with the machine gun in TAS."
   (amerge
    (particle-fns-alist)
    (alist :subsystems *particle-subsystems*)
-   (alist :single-loop-sprite
-	  (create-entity
-	   (make-single-loop-sprite fps seq sheet-key tile-y :particle))
-	  :pos pos)))
+   (let ((sprite (make-single-loop-sprite fps seq sheet-key tile-y :particle)))
+     (alist :single-loop-sprite (aval sprite :id)
+	    :new-entities (list sprite)
+	    :pos pos))))
 
 (defun particle-drawing (p)
   (let ((sp (estate (aval p :single-loop-sprite))))
@@ -875,8 +876,6 @@ This can be abused with the machine gun in TAS."
 	:draw (list :game :dialog)
 	:input (list :dialog)))
 
-(defun create-active-systems ()
-  (create-entity (make-active-systems)))
 
 (defun damage-numbers-remove-dead (d)
   (aset d
@@ -885,9 +884,6 @@ This can be abused with the machine gun in TAS."
 
 (defun make-damage-numbers ()
   (alist :id (gen-entity-id)))
-
-(defun create-damage-numbers ()
-  (create-entity (make-damage-numbers)))
 
 (defun gun-exp-for (gun-exps gun-name)
   (aval (aval gun-exps :guns) gun-name))
@@ -904,9 +900,6 @@ This can be abused with the machine gun in TAS."
 (defun make-gun-exps ()
   (alist :id (gen-entity-id)
 	 :guns (loop for g across *gun-names* collecting (cons g 0))))
-
-(defun create-gun-exps ()
-  (create-entity (make-gun-exps)))
 
 (defun projectile-groups-remove-dead (g)
   (aset g
@@ -929,9 +922,6 @@ This can be abused with the machine gun in TAS."
 (defun make-projectile-groups ()
   (alist :id (gen-entity-id)))
 
-(defun create-projectile-groups ()
-  (create-entity (make-projectile-groups)))
-
 (defun current-gun-exp (player gun-exps)
   (let* ((gun-name (player-current-gun-name (player-state player)))
 	 (exp (gun-exp-for (estate gun-exps) gun-name)))
@@ -948,35 +938,36 @@ This can be abused with the machine gun in TAS."
   (restore-entity-states (first state))
   (setq *global-game* (second state)))
 
-(defun create-game ()
-  (let ((damage-numbers (create-damage-numbers))
-	(projectile-groups (create-projectile-groups))
+(defun create-game! ()
+  (let ((damage-numbers (create-entity! (make-damage-numbers)))
+	(projectile-groups (create-entity! (make-projectile-groups)))
 	(stage (make-stage (basic-stage)))
 	(hud (gen-entity-id))
-	(gun-exps (create-gun-exps))
-	(active-systems (create-active-systems)))
-    (create-stage! stage)
-    (let* ((player (create-entity
+	(gun-exps (create-entity! (make-gun-exps)))
+	(active-systems (create-entity! (make-active-systems))))
+    (create-entity! stage)
+    (let* ((player (create-entity!
 		    (make-player hud
 				 projectile-groups
 				 damage-numbers
 				 gun-exps
 				 active-systems)))
-	   (camera (create-entity (make-camera (v/2 *window-dims*) (zero-v) player))))
-      (create-entity (make-hud player gun-exps hud))
+	   (camera (create-entity!
+		    (make-camera (v/2 *window-dims*) (zero-v) player))))
+      (create-entity! (make-hud player gun-exps hud))
 
-      (create-entity (make-critter (make-v (+ (tiles 14) (tiles 1/4))
-					   (tiles 6))
-				   player
-				   damage-numbers))
-      (create-entity
+      (create-entity! (make-critter (make-v (+ (tiles 14) (tiles 1/4))
+					    (tiles 6))
+				    player
+				    damage-numbers))
+      (create-entity!
        (make-elephant (make-v (tiles 7) (tiles 6)) player camera damage-numbers))
       (dolist (x '(1 3 6 7))
-	(create-entity (make-bat x 7 player)))
-      (create-entity (make-dorito (make-v (+ (tiles 14) (tiles 1/4))
-					  (tiles 6))
-				  (make-v 0 0)
-				  :medium))
+	(create-entity! (make-bat x 7 player)))
+      (create-entity! (make-dorito (make-v (+ (tiles 14) (tiles 1/4))
+					   (tiles 6))
+				   (make-v 0 0)
+				   :medium))
       (make-game :player player
 		 :camera camera
 		 :stage stage
@@ -994,7 +985,7 @@ This can be abused with the machine gun in TAS."
 
   (setq *global-paused?* nil)
 
-  (create-game))
+  (create-game!))
 
 (defun init ()
   "Called at application startup."
@@ -1112,21 +1103,21 @@ This can be abused with the machine gun in TAS."
   (amerge
    (death-cloud-particle-fns-alist)
    (alist :subsystems *death-cloud-particle-subsystems*)
-   (alist :single-loop-sprite
-	  (create-entity
-	   (make-single-loop-sprite
-	    15 (mapcar #'1+ (alexandria.0.dev:iota 7))
-	    :npc-sym 0 :particle))
-	  :physics '(:stage-physics)
-	  :stage-physics
-	  (make-kin-2d
-	   :pos (-v pos (tile-dims/2))
-	   :vel (polar-vec->v (rand-angle)
-			      (rand-val-between 0.1 0.3))
-	   :clamper-vx
-	   (clamper+- *terminal-speed*)
-	   :clamper-vy
-	   (clamper+- *terminal-speed*)))))
+   (let ((sprite (make-single-loop-sprite
+		  15 (mapcar #'1+ (alexandria.0.dev:iota 7))
+		  :npc-sym 0 :particle)))
+     (alist :single-loop-sprite (aval sprite :id)
+	    :new-entities (list sprite)
+	    :physics '(:stage-physics)
+	    :stage-physics
+	    (make-kin-2d
+	     :pos (-v pos (tile-dims/2))
+	     :vel (polar-vec->v (rand-angle)
+				(rand-val-between 0.1 0.3))
+	     :clamper-vx
+	     (clamper+- *terminal-speed*)
+	     :clamper-vy
+	     (clamper+- *terminal-speed*))))))
 
 (defun death-cloud-particle-drawing (d)
   (single-loop-sprite-drawing (estate (aval d :single-loop-sprite))

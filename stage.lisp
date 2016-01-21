@@ -2,9 +2,6 @@
 
 (defparameter *stage-subsystems* '(:drawable))
 
-(defun create-stage! (data)
-  (create-entity data))
-
 (defun basic-stage ()
   "Just a toy stage for debugging."
   (let ((stage (make-array '(15 40) :initial-element nil))
