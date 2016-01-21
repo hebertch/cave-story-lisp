@@ -49,30 +49,14 @@
   (aset tr :ms-remaining (aval tr :length)))
 
 (defun timer-set-update (o)
-  (let ((ts (aval o :timers)))
-    (if (consp (first ts))
-	(let* ((ticks)
-	       (timers
-		(mapcar
-		 (lambda (pair)
-		   (let ((k (car pair))
-			 (v (cdr pair)))
-		     (when v
-		       (multiple-value-bind (tr tick?) (update-timer v)
-			 (when tick?
-			   (push k ticks))
-			 (cons k tr)))))
-		 ts)))
-	  (aset o :timers timers :ticks ticks))
-	(progn
-	  (dolist (k ts)
-	    (let ((v (aval o k)))
-	      (when v
-		(multiple-value-bind (tr tick?) (update-timer v)
-		  (setq o
-			(aset o
-			      k tr
-			      :ticks (if tick?
-					 (cons k (aval o :ticks))
-					 (aval o :ticks))))))))
-	  o))))
+  (dolist (k (aval o :timers))
+    (let ((v (aval o k)))
+      (when v
+	(multiple-value-bind (tr tick?) (update-timer v)
+	  (setq o
+		(aset o
+		      k tr
+		      :ticks (if tick?
+				 (cons k (aval o :ticks))
+				 (aval o :ticks))))))))
+  o)
