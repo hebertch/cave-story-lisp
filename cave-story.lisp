@@ -727,11 +727,12 @@ This can be abused with the machine gun in TAS."
        (aupdatefn :exp-change-timer #'reset-timer))
 
 (setfn hud-health-changed
-       #g((aupdatefn :health-change-timer #'reset-timer)
-	  (lambda (hud)
-	    (aset hud
-		  :last-health-amt
-		  (aval (player-state (aval hud :player)) :health-amt)))))
+       (comp
+	(aupdatefn :health-change-timer #'reset-timer)
+	(lambda (hud)
+	  (aset hud
+		:last-health-amt
+		(aval (player-state (aval hud :player)) :health-amt)))))
 
 (defun textbox-tile-drawing (src-pos pos)
   (let ((size (both-v (tiles/2 1))))
@@ -1060,7 +1061,7 @@ This can be abused with the machine gun in TAS."
 	 :draw-fn #'bat-drawing
 	 :ai-fn #'bat-ai
 	 :damage-collision-rect-fn
-	 #g(point-rect origin)
+	 (comp point-rect origin)
 	 :damage-collision-amt-fn (constantly 1)
 	 :damageable-rect-fn #'physics-tile-rect))
 
@@ -1411,14 +1412,15 @@ This can be abused with the machine gun in TAS."
   (create-rect (physics-pos e) *elephant-dims*))
 
 (setfn shake-hit-react
-       #g((aupdatefn
-	   :timers #_(adjoin :shake-timer _)
-	   :physics #_(adjoin :shake _))
-	  (asetfn
-	   :shake-timer
-	   (make-expiring-timer (s->ms 1/3) t)
-	   :shake
-	   (make-wave-motion :dir :left :amp 2 :speed 0.1 :rads 0))))
+       (comp
+	(aupdatefn
+	 :timers #_(adjoin :shake-timer _)
+	 :physics #_(adjoin :shake _))
+	(asetfn
+	 :shake-timer
+	 (make-expiring-timer (s->ms 1/3) t)
+	 :shake
+	 (make-wave-motion :dir :left :amp 2 :speed 0.1 :rads 0))))
 
 (defun elephant-rage-hit-react (e)
   (if (timer-active? (aval e :rage-timer))
@@ -1562,18 +1564,18 @@ This can be abused with the machine gun in TAS."
        #_(damage-reaction 3 _))
 (setfn bat-ai #'face-player-ai)
 (setfn critter-ai
-       #g(face-player-ai
-	  critter-jump-ai
-	  shake-ai))
+       (comp face-player-ai
+	     critter-jump-ai
+	     shake-ai))
 (setfn critter-hit-react
-       #g(#_(damage-reaction 6 _)
-	    shake-hit-react))
+       (comp #_(damage-reaction 6 _)
+	     shake-hit-react))
 (setfn elephant-hit-react 
-       #g(#_(damage-reaction 6 _)
-	    elephant-rage-hit-react
-	    shake-hit-react))
+       (comp #_(damage-reaction 6 _)
+	     elephant-rage-hit-react
+	     shake-hit-react))
 (setfn elephant-ai
-       #g(elephant-stage-physics-ai
-	  elephant-rage-effects
-	  elephant-rage-ai
-	  shake-ai))
+       (comp elephant-stage-physics-ai
+	     elephant-rage-effects
+	     elephant-rage-ai
+	     shake-ai))

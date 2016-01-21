@@ -38,16 +38,25 @@
 				     i)))
 		arg)))
 
+  (defmacro comp (&rest forms)
+    (expand-composition forms))
+
+  (defun expand-complement (exp)
+    (if (symbolp exp)
+	`(complement #',exp)
+	`(complement ,exp)))
+
   (defun hash-underscore-reader (stream char arg)
     (declare (ignore char arg))
     (expand-partial-application (read stream t nil t)))
-  (defun hash-g-reader (stream char arg)
+
+  (defun hash-tilde-reader (stream char arg)
     (declare (ignore char arg))
-    (expand-composition (read stream t nil t)))
+    (expand-complement (read stream t nil t)))
 
   (defun install-function-syntax! ()
     (set-dispatch-macro-character #\# #\_ #'hash-underscore-reader)
-    (set-dispatch-macro-character #\# #\g #'hash-g-reader)))
+    (set-dispatch-macro-character #\# #\~ #'hash-tilde-reader)))
 
 (install-function-syntax!)
 
@@ -271,7 +280,7 @@
 (defun timed-cycle-resume (tc)
   (aset tc :paused? nil))
 
-(setfn timed-cycle-restart #g(cycle-reset reset-timer))
+(setfn timed-cycle-restart (comp cycle-reset reset-timer))
 
 ;; Clamps
 
