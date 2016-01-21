@@ -126,15 +126,14 @@
 (defun apply-player-physics (p)
   (aupdate p
 	   :stage-physics
-	   (lambda (kin-2d)
-	     (player-kin-2d-physics p kin-2d))))
+	   #_(player-kin-2d-physics p _)))
 
 (setfn player-ai
        (comp
 	(lambda (p)
 	  (if (and (find :walk-cycle (aval p :ticks))
 		   (/= 0 (cycle-current (aval p :walk-cycle))))
-	      (aupdate p :sound-effects #_(cons :step _))
+	      (aupdate p :sound-effects (pushfn :step))
 	      p))
 	apply-player-physics))
 
@@ -163,49 +162,46 @@
 		     (- *player-hop-speed*)))))
 
 (defun player-take-damage (p dmg-amt)
-  (if (not (timer-active? (aval p :invincible-timer)))
-      (funcall
-       (cond
-	 ((>= (abs dmg-amt) (aval p :health-amt))
-	  (stop-music!)
-	  
-	  (comp
-	   (asetfn :health-amt 0
-		   :dead? t)
-	   (aupdatefn
-	    :new-states
-	    #_(cons (active-systems-switch-to-dialog
-		     (estate (aval p :active-systems))) _)
-	    :sound-effects #_(cons :player-die _))))
-	 (t
-	  (comp
-	   (asetfn :ground-tile nil)
-	   (damage-number-update-amtfn dmg-amt)
-	   (aupdatefn
-	    :invincible-timer #'reset-timer
-	    :health-amt #_(- _ dmg-amt)
-	    :sound-effects #_ (cons :hurt _)
-	    :stage-physics #'player-short-hop-physics
-	    :new-states
-	    #_(append _
-		      (list (hud-health-changed
-			     (estate (aval p :hud)))
-			    (incr-gun-exp
-			     (estate (aval p :gun-exps))
-			     (player-current-gun-name p)
-			     (- (* 2 dmg-amt)))
-			    ))))))
-       p)
-      p))
+  (call-if
+   (when (not (timer-active? (aval p :invincible-timer)))
+     (cond
+       ((>= (abs dmg-amt) (aval p :health-amt))
+	(stop-music!)
+	
+	(comp
+	 (asetfn :health-amt 0
+		 :dead? t)
+	 (aupdatefn
+	  :new-states
+	  #_(cons (active-systems-switch-to-dialog
+		   (estate (aval p :active-systems))) _)
+	  :sound-effects #_(cons :player-die _))))
+       (t
+	(comp
+	 (asetfn :ground-tile nil)
+	 (damage-number-update-amtfn dmg-amt)
+	 (aupdatefn
+	  :invincible-timer #'reset-timer
+	  :health-amt #_(- _ dmg-amt)
+	  :sound-effects (pushfn :hurt)
+	  :stage-physics #'player-short-hop-physics
+	  :new-states
+	  (appendfn
+	   (list (hud-health-changed
+		  (estate (aval p :hud)))
+		 (incr-gun-exp
+		  (estate (aval p :gun-exps))
+		  (player-current-gun-name p)
+		  (- (* 2 dmg-amt))))))))))
+   p))
 
 (defun player-gun-exp (p amt)
   (aupdate p
 	   :new-states
-	   #_ (append
-	       (list (incr-gun-exp (estate (aval p :gun-exps))
-				   (player-current-gun-name p) amt)
-		     (hud-exp-changed (estate (aval p :hud))))
-	       _)))
+	   (appendfn
+	    (list (incr-gun-exp (estate (aval p :gun-exps))
+				(player-current-gun-name p) amt)
+		  (hud-exp-changed (estate (aval p :hud)))))))
 
 (defun char-sprite-pos (h-facing v-facing interacting? walk-idx)
   "Grabs the tile-pos for the character given the character's state."
@@ -261,16 +257,14 @@
 (defun player-jump (p)
   (cond ((not (aval p :jumping?))
 	 (aset (if (player-on-ground? p)
-		   (aset p
-			 :stage-physics
-			 (player-jump-physics
-			  (aval p :stage-physics))
-			 :sound-effects (cons :jump (aval p :sound-effects))
-			 :interacting? nil
-			 :ground-tile nil
-			 :walk-cycle (timed-cycle-pause (aval p :walk-cycle)))
+		   (aupdate p
+			    :stage-physics #'player-jump-physics
+			    :sound-effects (pushfn :jump)
+			    :walk-cycle #'timed-cycle-pause)
 		   p)
-	       :jumping? t))
+	       :jumping? t
+	       :interacting? nil
+	       :ground-tile nil))
 	(t p)))
 
 (defun player-move (p dir)

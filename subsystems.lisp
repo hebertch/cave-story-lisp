@@ -81,8 +81,8 @@ DEF-ENTITY-name is the interface to be used with DEF-ENTITY.
 UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 
   (let ((registry (symbolicate '* name '-registry*))
-	(register-name (symbolicate 'register- name))
-	(update-name (symbolicate 'update- name '-subsystem)))
+	(register-name (symbolicate 'register- name '!))
+	(update-name (symbolicate 'update- name '-subsystem!)))
     (with-gensyms (entry-name)
       `(progn
 	 (defvar ,registry nil)
@@ -92,7 +92,8 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 	 (defun ,register-name (system-type id)
 	   (push (cons system-type id) ,registry))
 
-	 (defun ,update-name ,(cons 'active-entity-systems update-args)
+	 (defun ,update-name
+	     ,(cons 'active-entity-systems update-args)
 	   (setq ,registry (remove-if (lambda (p)
 					(dead? (estate (cdr p))))
 				      ,registry))
@@ -103,13 +104,10 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 
 	 (values ',registry ',register-name ',update-name)))))
 
-(defun push-sound-effects! (obj)
-  (appendf *sfx-play-list* (aval obj :sound-effects)))
-
 (defun apply-effects! (obj)
-  (push-sound-effects! obj)
+  (appendf *sfx-play-list* (aval obj :sound-effects))
   (loop for state in (aval obj :new-states) do
-       (estate-set (aval state :id) state))
+       (estate-set! (aval state :id) state))
   (loop for state in (aval obj :new-entities) do
        (create-entity! state))
   (arem obj
@@ -119,7 +117,7 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 
 (defun update-world! (entity-id fn)
   (let ((obj (funcall fn (estate entity-id))))
-    (estate-set entity-id (apply-effects! obj))))
+    (estate-set! entity-id (apply-effects! obj))))
 
 (def-subsystem physics ()
   (update-world! entity-id #'physics))
@@ -147,10 +145,10 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
       (when (rects-collide? rect player-rect)
 	(draw-rect! player-rect *green* :layer :debug-dynamic-collision :filled? t)
 	(draw-rect! rect *yellow* :layer :debug-dynamic-collision :filled? t)
-	(estate-set player (dynamic-collision-react state
-						    side
-						    player-collision-rect
-						    player))))))
+	(estate-set! player (dynamic-collision-react state
+						     side
+						     player-collision-rect
+						     player))))))
 
 (def-subsystem damageable (bullet-id)
   ;; NOTE: UPDATE-DAMAGEABLE-SUBSYSTEM is designed to be called
@@ -169,7 +167,7 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 	(update-world! bullet-id #'bullet-hit-react)))))
 
 (def-subsystem bullet ()
-  (update-damageable-subsystem active-entity-systems entity-id))
+  (update-damageable-subsystem! active-entity-systems entity-id))
 
 (def-subsystem pickup (player)
   (let ((rect (pickup-rect (estate entity-id)))
@@ -199,50 +197,50 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 
 (let (entity-registry id)
   (defun current-entity-states ()
-    (list id (copy-alist entity-registry)))
+    (list id entity-registry))
 
-  (defun restore-entity-states (id-and-registry)
+  (defun restore-entity-states! (id-and-registry)
     (setq id (first id-and-registry))
     (setq entity-registry (second id-and-registry))
     (loop for (id . e) in entity-registry
        do
-	 (register-entity-subsystems id e)))
- 
+	 (register-entity-subsystems! id e)))
+  
   (defun init-id-system ()
     (setq id 0))
   (defun gen-entity-id ()
     (setq id (1+ id)))
 
-  (defun init-entity-registry ()
-    (setq id 0
-	  entity-registry nil))
-
-  (defun register-entity (id entity)
-    (push (cons id entity) entity-registry)
-    id)
-
   (defun estate (id)
     (let ((lookup (cdr (assoc id entity-registry))))
       lookup))
 
-  (defun estate-set (id obj)
-    (setq entity-registry (copy-alist entity-registry))
-    (setf (cdr (assoc id entity-registry)) obj)))
+  (defun init-entity-registry! ()
+    (setq id 0
+	  entity-registry nil))
 
-(defun register-entity-subsystems (id entity)
-  (let ((system-type :game))
-    (dolist (s (aval entity :subsystems))
-      (ecase s
-	((:ai :timers) (register-timers system-type id))
-	(:bullet (register-bullet system-type id))
-	(:damageable (register-damageable system-type id))
-	(:damage-collision (register-damage-collision system-type id))
-	(:input (register-input system-type id))
-	(:physics (register-physics system-type id))
-	(:stage-collision (register-stage-collision system-type id))
-	(:dynamic-collision (register-dynamic-collision system-type id))
-	(:drawable (register-drawable system-type id))
-	(:pickup (register-pickup system-type id))))))
+  (defun register-entity! (id entity)
+    (push (cons id entity) entity-registry)
+    id)
+
+  (defun estate-set! (id obj)
+    (setq entity-registry (copy-alist entity-registry))
+    (setf (cdr (assoc id entity-registry)) obj))
+
+  (defun register-entity-subsystems! (id entity)
+    (let ((system-type :game))
+      (dolist (s (aval entity :subsystems))
+	(ecase s
+	  ((:ai :timers) (register-timers! system-type id))
+	  (:bullet (register-bullet! system-type id))
+	  (:damageable (register-damageable! system-type id))
+	  (:damage-collision (register-damage-collision! system-type id))
+	  (:input (register-input! system-type id))
+	  (:physics (register-physics! system-type id))
+	  (:stage-collision (register-stage-collision! system-type id))
+	  (:dynamic-collision (register-dynamic-collision! system-type id))
+	  (:drawable (register-drawable! system-type id))
+	  (:pickup (register-pickup! system-type id)))))))
 
 (defun create-entity! (initial-state)
   (let ((id (aval initial-state :id)))
@@ -251,8 +249,8 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 
   (let ((id (aval initial-state :id))
 	(entity (apply-effects! initial-state)))
-    (register-entity-subsystems id entity)
-    (register-entity id entity)
+    (register-entity-subsystems! id entity)
+    (register-entity! id entity)
     id))
 
 (defun physics (o)

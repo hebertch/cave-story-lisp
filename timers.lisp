@@ -24,15 +24,11 @@
 
 (defun timer-update (tr)
   (cond ((timer-active? tr)
-	 (let* ((tr2 (aset tr
-			   :ms-remaining (- (aval tr :ms-remaining)
-					    *frame-time*)))
+	 (let* ((tr2 (aupdate tr :ms-remaining #_(- _ *frame-time*)))
 		(ticked? (not (timer-active? tr2))))
 	   (values
 	    (cond ((and ticked? (aval tr2 :looping?))
-		   (aset tr2
-			 :ms-remaining (+ (aval tr2 :ms-remaining)
-					  (aval tr2 :length))))
+		   (aupdate tr2 :ms-remaining #_(+ _ (aval tr2 :length))))
 		  (t tr2))
 	    ticked?)))
 	(t tr)))
@@ -54,9 +50,9 @@
       (when v
 	(multiple-value-bind (tr tick?) (update-timer v)
 	  (setq o
-		(aset o
-		      k tr
-		      :ticks (if tick?
-				 (cons k (aval o :ticks))
-				 (aval o :ticks))))))))
+		(aupdate o
+			 k (constantly tr)
+			 :ticks (if tick?
+				    (pushfn k)
+				    #'identity)))))))
   o)

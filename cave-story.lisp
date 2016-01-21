@@ -36,7 +36,7 @@
      ,(lambda ()
 	      (when *global-paused?*
 		(setq *global-game*
-		      (update-and-render *global-game*)))))))
+		      (update-and-render! *global-game*)))))))
 
 (defun make-game
     (&key player camera stage projectile-groups
@@ -50,7 +50,7 @@
 	 :input input))
 
 (let (debug-toggle-off?)
-  (defun handle-debug-input (transient-input)
+  (defun handle-debug-input! (transient-input)
     (let ((pressed-keys (ti-pressed-keys transient-input))
 	  (pressed-joy (ti-pressed-joy-buttons transient-input)))
       (loop for (bindings . action) in *debug-input-keybindings*
@@ -82,19 +82,19 @@
 	       (setq debug-toggle-off? t)
 	       (toggle-visible-layer! layer)))))))
 
-(defun main ()
+(defun main! ()
   "Entry point to the game."
   (catch 'exit
     (unwind-protect
 	 (let ((frame-timer 0)
 	       last-update-time)
-	   (setq *global-game* (init))
+	   (setq *global-game* (init!))
 	   (setq last-update-time (sdl:get-ticks))
 	   (loop do
 		(swank-tools:update)
 		(swank-tools:continuable
 		  (let ((transient-input (gather-transient-input!)))
-		    (handle-debug-input transient-input)
+		    (handle-debug-input! transient-input)
 		    (setq *global-game*
 			  (aset *global-game*
 				:input (gather-input (aval *global-game* :input)
@@ -103,7 +103,7 @@
 		(when (>= frame-timer (* *update-period* *frame-time*))
 		  (if *global-paused?*
 		      (draw-text-line! (zero-v) "PAUSED")
-		      (setq *global-game* (update-and-render *global-game*)))
+		      (setq *global-game* (update-and-render! *global-game*)))
 		  (render! *renderer*
 			   *font*
 			   *render-list*
@@ -121,16 +121,16 @@
 		(setq last-update-time (sdl:get-ticks))
 		(music-update!)
 		(sdl:delay 1)))
-      (cleanup))))
+      (cleanup!))))
 
-(defun handle-input (game)
+(defun handle-input! (game)
   "Handles input. Often called many times between updates.
 This can be abused with the machine gun in TAS."
 
   (let ((input (aval game :input))
 	(input-systems
 	 (aval (estate (aval game :active-systems)) :input)))
-    (update-input-subsystem input-systems input)
+    (update-input-subsystem! input-systems input)
     (ecase (first input-systems)
       (:game
        (when (or (joy-pressed? input :b) (key-pressed? input :x))
@@ -140,19 +140,19 @@ This can be abused with the machine gun in TAS."
       (:dialog
        (cond
 	 ((or (joy-pressed? input :b) (key-pressed? input :x))
-	  (dialog-ok-pressed))
+	  (dialog-ok-pressed!))
 	 ((or (joy-held? input :a) (key-pressed? input :z)
 	      (joy-held? input :b) (key-pressed? input :x))
-	  (dialog-button-held))
+	  (dialog-button-held!))
 	 (t
-	  (dialog-buttons-released)))))))
+	  (dialog-buttons-released!)))))))
 
-(defun dialog-ok-pressed ()
+(defun dialog-ok-pressed! ()
   )
-(defun dialog-button-held ()
-  (fast-text-speed))
-(defun dialog-buttons-released ()
-  (slow-text-speed))
+(defun dialog-button-held! ()
+  (fast-text-speed!))
+(defun dialog-buttons-released! ()
+  (slow-text-speed!))
 
 (defun collision-rects (pos size buffer-size)
   "Creates :TOP :LEFT :RIGHT :BOTTOM rects."
@@ -293,9 +293,11 @@ This can be abused with the machine gun in TAS."
 (defun dorito-pickup-rect (d)
   (rect-offset (dorito-collision-rect (aval d :size)) (physics-pos d)))
 
+
+
 (setfn dorito-pickup-kill
        (comp 
-	#_(aupdate _ :sound-effects #_(cons :pickup _))
+	#_(aupdate _ :sound-effects (pushfn :pickup))
 	#_(aset _ :dead? t)))
 
 (defun dorito-pickup-data (size)
@@ -472,12 +474,12 @@ This can be abused with the machine gun in TAS."
 	   :amt (lambda (amt) (+ amt amount))))
 
 (defun remove-all-dead! (game)
-  (estate-set (aval game :projectile-groups)
-	      (projectile-groups-remove-dead
-	       (estate (aval game :projectile-groups))))
-  (estate-set (aval game :damage-numbers)
-	      (damage-numbers-remove-dead
-	       (estate (aval game :damage-numbers))))
+  (estate-set! (aval game :projectile-groups)
+	       (projectile-groups-remove-dead
+		(estate (aval game :projectile-groups))))
+  (estate-set! (aval game :damage-numbers)
+	       (damage-numbers-remove-dead
+		(estate (aval game :damage-numbers))))
   (values))
 
 (defun hud-number-drawing (tile/2-y number)
@@ -535,9 +537,9 @@ This can be abused with the machine gun in TAS."
    :wait))
 
 (defparameter *text-speed* 100)
-(defun slow-text-speed ()
+(defun slow-text-speed! ()
   (setq *text-speed* 100))
-(defun fast-text-speed ()
+(defun fast-text-speed! ()
   (setq *text-speed* 25))
 (defparameter *cursor-blink-time* 100)
 
@@ -782,12 +784,12 @@ This can be abused with the machine gun in TAS."
 	    drawings))
     drawings))
 
-(defun update-and-render (game)
+(defun update-and-render! (game)
   "The Main Loop, called once per *FRAME-TIME*."
   (when (eq *input-playback* :playback)
     (setq game
 	  (aset game :input (next-playback-input))))
-  (handle-input game)
+  (handle-input! game)
 
   (setq *render-list* nil)
 
@@ -800,17 +802,17 @@ This can be abused with the machine gun in TAS."
   (let ((active-update-systems (aval (estate (aval game :active-systems)) :update))
 	(stage (aval game :stage))
 	(player (aval game :player)))
-    (update-timers-subsystem active-update-systems)
-    (update-physics-subsystem active-update-systems)
-    (update-bullet-subsystem active-update-systems)
-    (update-stage-collision-subsystem active-update-systems stage)
-    (update-pickup-subsystem active-update-systems player)
+    (update-timers-subsystem! active-update-systems)
+    (update-physics-subsystem! active-update-systems)
+    (update-bullet-subsystem! active-update-systems)
+    (update-stage-collision-subsystem! active-update-systems stage)
+    (update-pickup-subsystem! active-update-systems player)
 
-    (update-damage-collision-subsystem active-update-systems player)
-    (update-dynamic-collision-subsystem active-update-systems player))
+    (update-damage-collision-subsystem! active-update-systems player)
+    (update-dynamic-collision-subsystem! active-update-systems player))
 
   (let ((active-draw-systems (aval (estate (aval game :active-systems)) :draw)))
-    (update-drawable-subsystem active-draw-systems))
+    (update-drawable-subsystem! active-draw-systems))
 
   (remove-all-dead! game)
 
@@ -935,7 +937,7 @@ This can be abused with the machine gun in TAS."
 (defun restore-state (state)
   (dolist (s *registry-syms*)
     (set s nil))
-  (restore-entity-states (first state))
+  (restore-entity-states! (first state))
   (setq *global-game* (second state)))
 
 (defun create-game! ()
@@ -975,19 +977,19 @@ This can be abused with the machine gun in TAS."
 		 :active-systems active-systems
 		 :damage-numbers damage-numbers))))
 
-(defun reset ()
+(defun reset! ()
   (switch-to-new-song! :lastcave)
   (set-music-volume! 20)
 
   (dolist (s *registry-syms*)
     (set s nil))
-  (init-entity-registry)
+  (init-entity-registry!)
 
   (setq *global-paused?* nil)
 
   (create-game!))
 
-(defun init ()
+(defun init! ()
   "Called at application startup."
   (sdl:init '(:audio :video :joystick))
   (sdl.ttf:init)
@@ -1009,9 +1011,9 @@ This can be abused with the machine gun in TAS."
 	"Cave Story"
 	(x *window-dims*) (y *window-dims*)
 	0))
-  (reset))
+  (reset!))
 
-(defun cleanup ()
+(defun cleanup! ()
   "Called at application closing to cleanup all subsystems."
   (cleanup-input!)
   (cleanup-all-resources!)

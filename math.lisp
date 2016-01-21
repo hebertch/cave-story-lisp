@@ -89,6 +89,20 @@
 (defun aupdatefn (&rest keys-and-fns)
   #_(aupdate _ . keys-and-fns))
 
+(defun pushfn (val)
+  #_(cons val _))
+(defun appendfn (&rest lsts)
+  #_(append _ . lsts))
+
+(defun call-if (fn val &optional default-fn)
+  "Calls fn on val if fn is not null, otherwise returns val.
+If fn is null and default is provided, return (funcall default val)."
+  (if fn
+      (funcall fn val)
+      (if default-fn
+	  (funcall default-fn val)
+	  val)))
+
 (defstruct (v2 (:conc-name nil))
   x y)
 

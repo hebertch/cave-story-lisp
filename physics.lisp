@@ -15,16 +15,14 @@ new (values DELTA-POS VEL)."
 new (values DELTA-POS VEL)."
   (unless accelerator-x (setq accelerator-x (const-accelerator 0)))
   (unless accelerator-y (setq accelerator-y (const-accelerator 0)))
-  (multiple-value-bind (px vx) (funcall accelerator-x (x vel))
-    (multiple-value-bind (py vy) (funcall accelerator-y (y vel))
+  (multiple-value-bind (px vx) (call-if accelerator-x (x vel)
+					(const-accelerator 0))
+    (multiple-value-bind (py vy) (call-if accelerator-y (y vel)
+					  (const-accelerator 0))
       (values
        (make-v px py)
-       (make-v (if clamper-vx
-		   (funcall clamper-vx vx)
-		   vx)
-	       (if clamper-vy
-		   (funcall clamper-vy vy)
-		   vy))))))
+       (make-v (call-if clamper-vx vx)
+	       (call-if clamper-vy vy))))))
 
 (defun friction-accelerate (vel friction-acc)
   "Apply friction. Clamps to zero."
@@ -48,10 +46,10 @@ new (values DELTA-POS VEL)."
     (values dpos vel)))
 
 (defun const-accelerator (acc)
-  (rcurry #'accelerate acc))
+  #_(accelerate _ acc))
 
 (defun friction-accelerator (acc)
-  (rcurry #'friction-accelerate acc))
+  #_(friction-accelerate _ acc))
 
 (defun offset-in-dir (dist dir)
   (ecase dir
@@ -67,7 +65,8 @@ new (values DELTA-POS VEL)."
   (alist :physics-fn #'kin-2d-motion-physics
 	 :pos-fn (lambda (m) (aval m :pos))))
 
-(defun make-kin-2d (&key pos vel clamper-vx clamper-vy accelerator-x accelerator-y)
+(defun make-kin-2d
+    (&key pos vel clamper-vx clamper-vy accelerator-x accelerator-y)
   (amerge
    (kin-2d-fns-alist)
    (alist
@@ -117,8 +116,7 @@ new (values DELTA-POS VEL)."
     pos))
 
 (defun wave-physics (w)
-  (aset w :rads (+ (aval w :rads)
-		   (* *frame-time* (aval w :speed)))))
+  (aupdate w :rads #_(+ _ (* *frame-time* (aval w :speed)))))
 
 (defun wave-offset (w)
   (+v (aval w :origin)
@@ -197,5 +195,5 @@ new (values DELTA-POS VEL)."
 		       (const-accelerator (* (signum (y disp)) *camera-acc*))
 		       :clamper-vx clamper-x :clamper-vy clamper-y)
       (aset m
-	    :pos  (+v (aval m :pos) pos)
+	    :pos (+v (aval m :pos) pos)
 	    :vel vel))))
