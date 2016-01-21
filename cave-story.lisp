@@ -1149,10 +1149,9 @@ This can be abused with the machine gun in TAS."
        (alist :bottom stop-y :left stop-x
 	      :right stop-x :top stop-y)))))
 
-(defun create-death-cloud-particles (num pos)
-  (dotimes (i num)
-    (create-entity (make-death-cloud-particle pos)))
-  (values))
+(defun make-num-death-cloud-particles (num pos)
+  (loop for i from 1 to num
+     collect (make-death-cloud-particle pos)))
 
 (defparameter *critter-dynamic-collision-rect*
   (make-rect :pos (tile-v 0 1/4) :size (tile-v 1 3/4)))
@@ -1452,24 +1451,27 @@ This can be abused with the machine gun in TAS."
 
 (defun damage-reaction (num-particles obj)
   (let ((amt (aval obj :damage-amt)))
-    (if (< amt (aval obj :health-amt))
-	(funcall (comp
-		  (damage-number-update-amtfn amt)
-		  (aupdatefn
-		   :health-amt #_(- _ amt)
-		   :sound-effects #_(cons :enemy-hurt _)))
-		 obj)
-	(let ((origin (origin obj)))
-	  (create-entity
-	   (make-dorito origin (polar-vec->v (rand-angle) 0.07) :small))
-	  (create-entity
-	   (make-dorito origin (polar-vec->v (rand-angle) 0.07) :small))
-	  (create-death-cloud-particles num-particles origin)
-
-	  (aset obj
-		:dead? t
-		:sound-effects (cons :enemy-explode
-				     (aval obj :sound-effects)))))))
+    (funcall
+     (if (< amt (aval obj :health-amt))
+	 (comp
+	  (damage-number-update-amtfn amt)
+	  (aupdatefn
+	   :health-amt #_(- _ amt)
+	   :sound-effects #_(cons :enemy-hurt _)))
+	 (let ((origin (origin obj)))
+	   (comp
+	    (asetfn
+	     :dead? t)
+	    (aupdatefn
+	     :new-entities
+	     #_(append
+		_
+		(list
+		 (make-dorito origin (polar-vec->v (rand-angle) 0.07) :small)
+		 (make-dorito origin (polar-vec->v (rand-angle) 0.07) :small))
+		(make-num-death-cloud-particles num-particles (origin obj)))
+	     :sound-effects #_(cons :enemy-explode _)))))
+     obj)))
 
 (defun elephant-dynamic-collision-rect (e)
   (let ((pos (physics-pos e)))
@@ -1541,13 +1543,18 @@ This can be abused with the machine gun in TAS."
 	  (estate-set (aval e :camera)
 		      (timed-camera-shake (estate (aval e :camera))
 					  (s->ms 1/2)))
-	  (create-death-cloud-particles
-	   3 (+v (physics-pos e)
-		 (make-v (if (eq (aval e :facing) :left)
-			     (tiles 3/2)
-			     (tiles 1/2))
-			 (tiles 5/4))))
-	  (aupdate e :sound-effects #_(cons :big-footstep _)))
+
+	  (aupdate e
+		   :sound-effects #_(cons :big-footstep _)
+		   :new-entities
+		   #_ (append
+		       _
+		       (make-num-death-cloud-particles
+			3 (+v (physics-pos e)
+			      (make-v (if (eq (aval e :facing) :left)
+					  (tiles 3/2)
+					  (tiles 1/2))
+				      (tiles 5/4)))))))
 	e)))
 
 (let ((collision-rects
