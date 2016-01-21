@@ -106,17 +106,20 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 (defun push-sound-effects! (obj)
   (appendf *sfx-play-list* (aval obj :sound-effects)))
 
+(defun apply-effects! (obj)
+  (push-sound-effects! obj)
+  (loop for state in (aval obj :new-states) do
+       (estate-set (aval state :id) state))
+  (loop for state in (aval obj :new-entities) do
+       (create-entity! state))
+  (arem obj
+	:sound-effects
+	:new-states
+	:new-entities))
+
 (defun update-world! (entity-id fn)
   (let ((obj (funcall fn (estate entity-id))))
-    (push-sound-effects! obj)
-    (loop for state in (aval obj :new-states) do
-	 (estate-set (aval state :id) state))
-    (loop for state in (aval obj :new-entities) do
-	 (create-entity! state))
-    (estate-set entity-id (arem obj
-				:sound-effects
-				:new-states
-				:new-entities))))
+    (estate-set entity-id (apply-effects! obj))))
 
 (def-subsystem physics ()
   (update-world! entity-id #'physics))
@@ -246,11 +249,8 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
     (unless id
       (setq initial-state (aset initial-state :id (gen-entity-id)))))
 
-  (loop for state in (aval initial-state :new-entities) do
-       (create-entity! state))
-
   (let ((id (aval initial-state :id))
-	(entity (arem initial-state :new-entities)))
+	(entity (apply-effects! initial-state)))
     (register-entity-subsystems id entity)
     (register-entity id entity)
     id))
