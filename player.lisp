@@ -167,41 +167,40 @@
 
 (defun player-take-damage (p dmg-amt)
   (if (not (timer-active? (aval p :invincible-timer)))
-      (cond
-	((>= (abs dmg-amt) (aval p :health-amt))
-	 (stop-music)
-	 (estate-set (aval p :active-systems)
-		     (active-systems-switch-to-dialog
-		      (estate (aval p :active-systems))))
-
-	 (aset p
-	       :health-amt 0
-	       :sound-effects (cons :player-die
-				    (aval p :sound-effects))
-	       :dead? t))
-	(t
-	 (estate-set (aval p :hud) 
-		     (hud-health-changed
-		      (estate (aval p :hud))))
-	 (estate-set
-	  (aval p :gun-exps)
-	  (incr-gun-exp
-	   (estate (aval p :gun-exps))
-	   (player-current-gun-name p)
-	   (- (* 2 dmg-amt))))
-
-	 (update-damage-number-amt (aval p :damage-numbers)
-				   (aval p :id)
-				   dmg-amt)
-
-	 (aset p
-	       :invincible-timer (reset-timer (aval p :invincible-timer))
-	       :ground-tile nil
-	       :health-amt (- (aval p :health-amt) dmg-amt)
-	       :sound-effects
-	       (cons :hurt (aval p :sound-effects))
-	       :stage-physics
-	       (player-short-hop-physics (aval p :stage-physics)))))
+      (funcall
+       (cond
+	 ((>= (abs dmg-amt) (aval p :health-amt))
+	  (stop-music)
+	  
+	  (comp
+	   (asetfn :health-amt 0
+		   :dead? t)
+	   (aupdatefn
+	    :new-states
+	    #_(cons (active-systems-switch-to-dialog
+		     (estate (aval p :active-systems))) _)
+	    :sound-effects #_(cons :player-die _))))
+	 (t
+	  (comp
+	   (asetfn :ground-tile nil)
+	   (aupdatefn
+	    :invincible-timer #'reset-timer
+	    :health-amt #_(- _ dmg-amt)
+	    :sound-effects #_ (cons :hurt _)
+	    :stage-physics #'player-short-hop-physics
+	    :new-states
+	    #_(append _
+		      (list (hud-health-changed
+			     (estate (aval p :hud)))
+			    (incr-gun-exp
+			     (estate (aval p :gun-exps))
+			     (player-current-gun-name p)
+			     (- (* 2 dmg-amt)))
+			    (damage-numbers-update-damage-amt
+			     (estate (aval p :damage-numbers))
+			     (aval p :id)
+			     dmg-amt)))))))
+       p)
       p))
 
 (defun player-gun-exp! (p amt)
