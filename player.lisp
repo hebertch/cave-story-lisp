@@ -183,6 +183,7 @@
 	 (t
 	  (comp
 	   (asetfn :ground-tile nil)
+	   (damage-number-update-amtfn dmg-amt)
 	   (aupdatefn
 	    :invincible-timer #'reset-timer
 	    :health-amt #_(- _ dmg-amt)
@@ -196,10 +197,7 @@
 			     (estate (aval p :gun-exps))
 			     (player-current-gun-name p)
 			     (- (* 2 dmg-amt)))
-			    (damage-numbers-update-damage-amt
-			     (estate (aval p :damage-numbers))
-			     (aval p :id)
-			     dmg-amt)))))))
+			    ))))))
        p)
       p))
 

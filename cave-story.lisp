@@ -440,6 +440,7 @@ This can be abused with the machine gun in TAS."
    (alist :subsystems *floating-number-subsystems*)
    (alist :entity entity
 	  :amt amt
+	  :id (gen-entity-id)
 	  :timers '(:life-timer)
 	  :life-timer (make-expiring-timer (s->ms 2) t)
 	  :physics '(:offset)
@@ -468,7 +469,7 @@ This can be abused with the machine gun in TAS."
 	   :life-timer #'reset-timer
 	   :amt (lambda (amt) (+ amt amount))))
 
-(defun remove-all-dead (game)
+(defun remove-all-dead! (game)
   (estate-set (aval game :projectile-groups)
 	      (projectile-groups-remove-dead
 	       (estate (aval game :projectile-groups))))
@@ -809,7 +810,7 @@ This can be abused with the machine gun in TAS."
   (let ((active-draw-systems (aval (estate (aval game :active-systems)) :draw)))
     (update-drawable-subsystem active-draw-systems))
 
-  (remove-all-dead game)
+  (remove-all-dead! game)
 
   ;; Debug Drawings Below.
 
@@ -881,17 +882,6 @@ This can be abused with the machine gun in TAS."
 	:pairs
 	(remove-if (lambda (pair) (aval (estate (cdr pair)) :dead?)) (aval d :pairs))))
 
-(defun damage-numbers-update-damage-amt (d e amt)
-  (let* ((dns (aval d :pairs))
-	 (existing-dn-pair (assoc e dns)))
-    (if existing-dn-pair
-	(progn
-	  (estate-set (cdr existing-dn-pair)
-		      (floating-number-add-amt
-		       (estate (cdr existing-dn-pair)) (- amt)))
-	  d)
-	(aset d :pairs (acons e (create-entity (make-floating-number e (- amt))) dns)))))
-
 (defun make-damage-numbers ()
   (alist :id (gen-entity-id)))
 
@@ -940,11 +930,6 @@ This can be abused with the machine gun in TAS."
 
 (defun create-projectile-groups ()
   (create-entity (make-projectile-groups)))
-
-(defun update-damage-number-amt (damage-numbers e amt)
-  (estate-set
-   damage-numbers
-   (damage-numbers-update-damage-amt (estate damage-numbers) e amt)))
 
 (defun current-gun-exp (player gun-exps)
   (let* ((gun-name (player-current-gun-name (player-state player)))
@@ -1444,17 +1429,36 @@ This can be abused with the machine gun in TAS."
 		       (rage? (curry #'adjoin :rage-timer))
 		       (t #'identity))))))
 
+(defun damage-number-update-amtfn (amt)
+  (lambda (obj)
+    (let* ((d (estate (aval obj :damage-numbers)))
+	   (e (aval obj :id))
+	   (dns (aval d :pairs))
+	   (existing-dn-pair (assoc e dns)))
+      (if existing-dn-pair
+	  (aupdate obj
+		   :new-states
+		   #_(cons (floating-number-add-amt
+			    (estate (cdr existing-dn-pair)) (- amt))
+			   _))
+	  (let ((fn (make-floating-number e (- amt))))
+	    (aupdate obj
+		     :new-states
+		     #_(cons
+			(aupdate d :pairs #_(acons e (aval fn :id) _))
+			_)
+		     :new-entities
+		     #_(cons fn _)))))))
+
 (defun damage-reaction (num-particles obj)
-  (let ((health-amt (aval obj :health-amt))
-	(amt (aval obj :damage-amt)))
+  (let ((amt (aval obj :damage-amt)))
     (if (< amt (aval obj :health-amt))
-	(progn
-	  (update-damage-number-amt (aval obj :damage-numbers)
-				    (aval obj :id)
-				    amt)
-	  (aset obj
-		:health-amt (- health-amt amt)
-		:sound-effects (cons :enemy-hurt (aval obj :sound-effects))))
+	(funcall (comp
+		  (damage-number-update-amtfn amt)
+		  (aupdatefn
+		   :health-amt #_(- _ amt)
+		   :sound-effects #_(cons :enemy-hurt _)))
+		 obj)
 	(let ((origin (origin obj)))
 	  (create-entity
 	   (make-dorito origin (polar-vec->v (rand-angle) 0.07) :small))

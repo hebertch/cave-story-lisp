@@ -114,7 +114,12 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
     (push-sound-effects! obj)
     (loop for state in (aval obj :new-states) do
 	 (estate-set (aval state :id) state))
-    (estate-set entity-id (arem obj :sound-effects :new-states))))
+    (loop for state in (aval obj :new-entities) do
+	 (create-entity state))
+    (estate-set entity-id (arem obj
+				:sound-effects
+				:new-states
+				:new-entities))))
 
 (def-subsystem physics ()
   (update-world! entity-id #'physics))
