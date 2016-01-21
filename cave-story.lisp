@@ -1214,19 +1214,19 @@ This can be abused with the machine gun in TAS."
   (dist (origin a) (origin b)))
 
 (defun shake-ai (obj)
-  (let ((timers (aval obj :timers)))
-    (if (not (timer-active? (aval timers :shake)))
-	(aset obj :physics (remove :shake (aval obj :physics)))
-	obj)))
+  (if (not (timer-active? (aval obj :shake-timer)))
+      (aupdate obj
+	       :physics (curry #'remove :shake)
+	       :timers (curry #'remove :shake-timer))
+      obj))
 
 (defun face-player-ai (obj)
   (aset obj :facing (face-player (physics-pos obj) (aval obj :player))))
 
 (defun critter-jump-ai (c)
-  (let ((timers (aval c :timers))
-	(facing (aval c :facing)))
+  (let ((facing (aval c :facing)))
 
-    (if (and (not (timer-active? (aval timers :sleep)))
+    (if (and (not (timer-active? (aval c :sleep-timer)))
 	     (< (origin-dist c (estate (aval c :player))) (tiles 4))
 	     (aval c :ground-tile))
 	(aupdate c
@@ -1239,7 +1239,7 @@ This can be abused with the machine gun in TAS."
 	c)))
 
 (defun critter-drawing (c)
-  (let* ((sleep-timer (aval (aval c :timers) :sleep))
+  (let* ((sleep-timer (aval c :sleep-timer))
 	 (sprite-tile-x (cond
 			  ((and sleep-timer (timer-active? sleep-timer))
 			   0)
@@ -1305,9 +1305,10 @@ This can be abused with the machine gun in TAS."
      (aset data
 	   :timers (if (aval data :last-ground-tile)
 		       (aval data :timers)
-		       (aset (aval data :timers)
-			     :sleep
-			     (make-expiring-timer (s->ms 1/3) t)))
+		       (adjoin :sleep-timer (aval data :timers)))
+	   :sleep-timer (if (aval data :last-ground-tile)
+			    (aval data :sleep-timer)
+			    (make-expiring-timer (s->ms 1/3) t))
 	   :ground-tile (aval data :tile-type)
 	   :stage-physics
 	   (aset (aval data :stage-physics) :vel (zero-v))))
@@ -1374,9 +1375,8 @@ This can be abused with the machine gun in TAS."
 	  (gravity-kin-2d :pos pos
 			  :vel (make-v (- *elephant-speed*) 0))
 	  :physics '(:stage-physics)
-	  :timers
-	  (alist
-	   :anim-cycle (make-fps-cycle 12 #(0 2 4)))
+	  :timers '(:anim-cycle)
+	  :anim-cycle (make-fps-cycle 12 #(0 2 4))
 	  :health-amt 8
 	  :facing :left
 	  :damage-numbers damage-numbers
@@ -1387,9 +1387,9 @@ This can be abused with the machine gun in TAS."
 (defun elephant-drawing (e)
   (let ((src-pos
 	 (cond
-	   ((timer-active? (aval (aval e :timers) :recover))
+	   ((timer-active? (aval e :recover-timer))
 	    (make-v (tiles (* 2 3)) 0))
-	   (t (anim-cycle-offset (aval (aval e :timers) :anim-cycle))))))
+	   (t (anim-cycle-offset (aval e :anim-cycle))))))
     (make-sprite-drawing :layer :enemy
 			 :sheet-key :npc-eggs1
 			 :src-rect
@@ -1413,25 +1413,34 @@ This can be abused with the machine gun in TAS."
 (setfn shake-hit-react
        (compose
 	(aupdatefn
-	 :timers
-	 (asetfn :shake (make-expiring-timer (s->ms 1/3) t))
-	 :physics
-	 (lambda (p) (adjoin :shake p)))
+	 :timers (curry #'adjoin :shake-timer)
+	 :physics (curry #'adjoin :shake))
 	(asetfn
+	 :shake-timer
+	 (make-expiring-timer (s->ms 1/3) t)
 	 :shake
 	 (make-wave-motion :dir :left :amp 2 :speed 0.1 :rads 0))))
 
 (defun elephant-rage-hit-react (e)
-  (let ((timers (aval e :timers)))
-    (if (timer-active? (aval timers :rage))
-	e
-	(aset e
-	      :timers
-	      (if (timer-active? (aval timers :recover))
-		  (if (< (aval (aval timers :recover) :ms-remaining) (s->ms 1/2))
-		      (aset timers :rage (make-expiring-timer (s->ms 3)))
-		      timers)
-		  (aset timers :recover (make-expiring-timer (s->ms 3/4) t)))))))
+  (if (timer-active? (aval e :rage-timer))
+      e
+      (let* ((recover? (not (timer-active? (aval e :recover-timer))))
+	     (rage? (and (not recover?)
+			 (< (aval (aval e :recover-timer) :ms-remaining)
+			    (s->ms 1/2)))))
+	(aupdate e
+		 :recover-timer
+		 (if recover?
+		     (constantly (make-expiring-timer (s->ms 3/4) t))
+		     #'identity)
+		 :rage-timer
+		 (if rage?
+		     (constantly (make-expiring-timer (s->ms 3)))
+		     #'identity)
+		 :timers
+		 (cond (recover? (curry #'adjoin :recover-timer))
+		       (rage? (curry #'adjoin :rage-timer))
+		       (t #'identity))))))
 
 (defun damage-reaction (num-particles obj)
   (let ((health-amt (aval obj :health-amt))
@@ -1456,14 +1465,14 @@ This can be abused with the machine gun in TAS."
 (defun elephant-dynamic-collision-rect (e)
   (let ((pos (physics-pos e)))
     (cond
-      ((timer-active? (aval (aval e :timers) :recover))
+      ((timer-active? (aval e :recover-timer))
        (setq pos (+v pos (make-v 0 (tiles 1/4)))))
-      ((= 1 (aval (aval (aval e :timers) :anim-cycle) :idx))
+      ((= 1 (aval (aval e :anim-cycle) :idx))
        (setq pos (+v pos (make-v 0 (tiles 1/8))))))
     (create-rect pos *elephant-dims*)))
 
 (defun elephant-damage-collision-amt (e)
-  (if (timer-active? (aval (aval e :timers) :rage))
+  (if (timer-active? (aval e :rage-timer))
       5
       1))
 
@@ -1476,9 +1485,9 @@ This can be abused with the machine gun in TAS."
     (create-rect (+v (physics-pos e) pos) dims)))
 
 (defun rage-timer (e)
-  (aval (aval e :timers) :rage))
+  (aval e :rage-timer))
 (defun recover-timer (e)
-  (aval (aval e :timers) :recover))
+  (aval e :recover-timer))
 
 (defun elephant-stage-physics-ai (e)
   (let ((x-vel
@@ -1498,30 +1507,27 @@ This can be abused with the machine gun in TAS."
 	     (asetfn :vel (make-v x-vel (y (stage-vel e)))))))
 
 (defun elephant-rage-ai (e)
-  (let* ((timers (aval e :timers))
-	 (ticks (aval e :ticks))
-	 (rage-timer (aval timers :rage)))
+  (let* ((ticks (aval e :ticks))
+	 (rage-timer (rage-timer e)))
     
-    (cond ((member :rage ticks)
+    (cond ((member :rage-timer ticks)
 	   (aupdate e
-		    :timers
-		    (asetfn
-		     :anim-cycle (make-fps-cycle 12 #(0 2 4))
-		     :rage nil)))
-	  ((and rage-timer (member :recover ticks))
+		    :timers (compose (curry #'remove :rage-timer)
+				     (curry #'adjoin :anim-cycle))
+		    :anim-cycle (constantly (make-fps-cycle 12 #(0 2 4)))
+		    :rage-timer (constantly nil)))
+	  ((and rage-timer (member :recover-timer ticks))
 	   (aupdate e
-		    :timers
-		    (asetfn
-		     :rage (reset-timer rage-timer)
-		     :anim-cycle (make-fps-cycle 14 #(8 10)))))
+		    :timers (curry #'adjoin :rage-timer)
+		    :rage-timer #'reset-timer
+		    :anim-cycle (constantly (make-fps-cycle 14 #(8 10)))))
 	  (t e))))
 
 (defun elephant-rage-effects (e)
-  (let ((timers (aval e :timers))
-	(ticks (aval e :ticks)))
-    (when (and (timer-active? (aval timers :rage))
+  (let ((ticks (aval e :ticks)))
+    (when (and (timer-active? (rage-timer e))
 	       (member :anim-cycle ticks)
-	       (zerop (aval (aval timers :anim-cycle) :idx)))
+	       (zerop (aval (aval e :anim-cycle) :idx)))
       (push-sound :big-footstep)
       (replace-entity-state (aval e :camera) (rcurry #'timed-camera-shake (s->ms 1/2)))
       (create-death-cloud-particles 3
