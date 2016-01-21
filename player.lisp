@@ -148,10 +148,11 @@
 	  (max-projectiles (cdr (assoc gun-name *max-projectile-groups*))))
       (unless (null max-projectiles)
 	(when (< num-projectile-groups max-projectiles)
-	  (replace-entity-state
+	  (estate-set
 	   (aval p :projectile-groups)
-	   (rcurry #'projectile-groups-add
-		   (make-projectile-group gun-name lvl dir nozzle-pos)))))))
+	   (projectile-groups-add
+	    (estate (aval p :projectile-groups))
+	    (make-projectile-group gun-name lvl dir nozzle-pos)))))))
   (values))
 
 (defun player-short-hop-physics (kin-2d)
@@ -167,22 +168,23 @@
 	((>= (abs dmg-amt) (aval p :health-amt))
 	 (push-sound :player-die)
 	 (stop-music)
-	 (replace-entity-state (aval p :active-systems)
-			       #'active-systems-switch-to-dialog)
+	 (estate-set (aval p :active-systems)
+		     (active-systems-switch-to-dialog
+		      (estate (aval p :active-systems))))
 
 	 (aset p
 	       :health-amt 0
 	       :dead? t))
 	(t
 	 (push-sound :hurt)
-	 (replace-entity-state (aval p :hud) #'hud-health-changed)
-	 (replace-entity-state
+	 (estate-set (aval p :hud) (hud-health-changed
+				    (estate (aval p :hud))))
+	 (estate-set
 	  (aval p :gun-exps)
-	  (lambda (g)
-	    (incr-gun-exp
-	     g
-	     (player-current-gun-name p)
-	     (- (* 2 dmg-amt)))))
+	  (incr-gun-exp
+	   (estate (aval p :gun-exps))
+	   (player-current-gun-name p)
+	   (- (* 2 dmg-amt))))
 
 	 (update-damage-number-amt (aval p :damage-numbers)
 				   (aval p :id)
@@ -196,11 +198,13 @@
       p))
 
 (defun player-gun-exp! (p amt)
-  (replace-entity-state
+  (estate-set
    (aval p :gun-exps)
-   (lambda (g)
-     (incr-gun-exp g (player-current-gun-name p) amt)))
-  (replace-entity-state (aval p :hud) #'hud-exp-changed)
+   (incr-gun-exp (estate (aval p :gun-exps))
+		 (player-current-gun-name p) amt))
+  (estate-set
+   (aval p :hud)
+   (hud-exp-changed (estate (aval p :hud))))
   (values))
 
 (defun char-sprite-pos (h-facing v-facing interacting? walk-idx)

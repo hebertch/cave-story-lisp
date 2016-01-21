@@ -468,10 +468,12 @@ This can be abused with the machine gun in TAS."
 	   :amt (lambda (amt) (+ amt amount))))
 
 (defun remove-all-dead (game)
-  (replace-entity-state (aval game :projectile-groups)
-			#'projectile-groups-remove-dead)
-  (replace-entity-state (aval game :damage-numbers)
-			#'damage-numbers-remove-dead)
+  (estate-set (aval game :projectile-groups)
+	      (projectile-groups-remove-dead
+	       (estate (aval game :projectile-groups))))
+  (estate-set (aval game :damage-numbers)
+	      (damage-numbers-remove-dead
+	       (estate (aval game :damage-numbers))))
   (values))
 
 (defun hud-number-drawing (tile/2-y number)
@@ -883,9 +885,9 @@ This can be abused with the machine gun in TAS."
 	 (existing-dn-pair (assoc e dns)))
     (if existing-dn-pair
 	(progn
-	  (replace-entity-state (cdr existing-dn-pair)
-				(lambda (fn)
-				  (floating-number-add-amt fn (- amt))))
+	  (estate-set (cdr existing-dn-pair)
+		      (floating-number-add-amt
+		       (estate (cdr existing-dn-pair)) (- amt)))
 	  d)
 	(aset d :pairs (acons e (create-entity (make-floating-number e (- amt))) dns)))))
 
@@ -939,10 +941,9 @@ This can be abused with the machine gun in TAS."
   (create-entity (make-projectile-groups)))
 
 (defun update-damage-number-amt (damage-numbers e amt)
-  (replace-entity-state
+  (estate-set
    damage-numbers
-   (lambda (dn)
-     (damage-numbers-update-damage-amt dn e amt))))
+   (damage-numbers-update-damage-amt (estate damage-numbers) e amt)))
 
 (defun current-gun-exp (player gun-exps)
   (let* ((gun-name (player-current-gun-name (player-state player)))
@@ -1529,7 +1530,9 @@ This can be abused with the machine gun in TAS."
 	       (member :anim-cycle ticks)
 	       (zerop (aval (aval e :anim-cycle) :idx)))
       (push-sound :big-footstep)
-      (replace-entity-state (aval e :camera) (rcurry #'timed-camera-shake (s->ms 1/2)))
+      (estate-set (aval e :camera)
+		  (timed-camera-shake (estate (aval e :camera))
+				      (s->ms 1/2)))
       (create-death-cloud-particles 3
 				    (+v (physics-pos e)
 					(make-v (if (eq (aval e :facing) :left)
@@ -1559,7 +1562,6 @@ This can be abused with the machine gun in TAS."
 
 (setfn bat-hit-react
        (curry #'damage-reaction 3))
-
 (setfn bat-ai #'face-player-ai)
 (setfn critter-ai
        (comp face-player-ai
