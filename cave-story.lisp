@@ -292,9 +292,10 @@ This can be abused with the machine gun in TAS."
 (defun dorito-pickup-rect (d)
   (rect-offset (dorito-collision-rect (aval d :size)) (physics-pos d)))
 
-(defun dorito-pickup-kill (d)
-  (push-sound :pickup)
-  (aset d :dead? t))
+(setfn dorito-pickup-kill
+       (comp 
+	#_(aupdate _ :sound-effects #_(cons :pickup _))
+	#_(aset _ :dead? t)))
 
 (defun dorito-pickup-data (size)
   (make-pickup :type :dorito
@@ -1451,17 +1452,20 @@ This can be abused with the machine gun in TAS."
 	  (update-damage-number-amt (aval obj :damage-numbers)
 				    (aval obj :id)
 				    amt)
-	  (push-sound :enemy-hurt)
-	  (aset obj :health-amt (- health-amt amt)))
+	  (aset obj
+		:health-amt (- health-amt amt)
+		:sound-effects (cons :enemy-hurt (aval obj :sound-effects))))
 	(let ((origin (origin obj)))
-	  (push-sound :enemy-explode)
 	  (create-entity
 	   (make-dorito origin (polar-vec->v (rand-angle) 0.07) :small))
 	  (create-entity
 	   (make-dorito origin (polar-vec->v (rand-angle) 0.07) :small))
 	  (create-death-cloud-particles num-particles origin)
 
-	  (aset obj :dead? t)))))
+	  (aset obj
+		:dead? t
+		:sound-effects (cons :enemy-explode
+				     (aval obj :sound-effects)))))))
 
 (defun elephant-dynamic-collision-rect (e)
   (let ((pos (physics-pos e)))
@@ -1526,20 +1530,21 @@ This can be abused with the machine gun in TAS."
 
 (defun elephant-rage-effects (e)
   (let ((ticks (aval e :ticks)))
-    (when (and (timer-active? (rage-timer e))
-	       (member :anim-cycle ticks)
-	       (zerop (aval (aval e :anim-cycle) :idx)))
-      (push-sound :big-footstep)
-      (estate-set (aval e :camera)
-		  (timed-camera-shake (estate (aval e :camera))
-				      (s->ms 1/2)))
-      (create-death-cloud-particles 3
-				    (+v (physics-pos e)
-					(make-v (if (eq (aval e :facing) :left)
-						    (tiles 3/2)
-						    (tiles 1/2))
-						(tiles 5/4))))))
-  e)
+    (if (and (timer-active? (rage-timer e))
+	     (member :anim-cycle ticks)
+	     (zerop (aval (aval e :anim-cycle) :idx)))
+	(progn
+	  (estate-set (aval e :camera)
+		      (timed-camera-shake (estate (aval e :camera))
+					  (s->ms 1/2)))
+	  (create-death-cloud-particles
+	   3 (+v (physics-pos e)
+		 (make-v (if (eq (aval e :facing) :left)
+			     (tiles 3/2)
+			     (tiles 1/2))
+			 (tiles 5/4))))
+	  (aupdate e :sound-effects #_(cons :big-footstep _)))
+	e)))
 
 (let ((collision-rects
        (rect->collision-rects

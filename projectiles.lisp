@@ -191,14 +191,15 @@
 
 (defun polar-star-projectile-ai (p)
   (cond ((not (timer-active? (aval p :life-timer)))
-	 (push-sound :dissipate)
 	 (create-entity
 	  (make-projectile-star-particle
 	   (offset-in-dir-pos (+v (physics-pos p) (tile-dims/2))
 			      (tiles/2 1)
 			      (aval p :dir))))
 
-	 (aset p :dead? t))
+	 (aset p
+	       :dead? t
+	       :sound-effects (cons :dissipate (aval p :sound-effects))))
 	(t p)))
 
 (defun polar-star-projectile-hit-react (p)
@@ -211,12 +212,18 @@
   (let ((pos (physics-pos p))
 	(lvl (aval p :lvl))
 	(dir (aval p :dir)))
-    (aset p
-	  :dead? (polar-star-projectile-collisions
-		  (polar-star-projectile-collision-rect lvl dir pos)
-		  dir
-		  pos
-		  stage))))
+    (let ((dead?
+	   (polar-star-projectile-collisions
+	    (polar-star-projectile-collision-rect lvl dir pos)
+	    dir
+	    pos
+	    stage)))
+      (if dead?
+	  (aset p
+		:dead? dead?
+		:sound-effects
+		(cons :hit-wall (aval p :sound-effects)))
+	  p))))
 
 (defun make-polar-star-projectile-group (lvl dir nozzle-pos)
   (push-sound :polar-star-shoot-3)
@@ -257,7 +264,6 @@
   (draw-rect! rect *yellow*)
   (let ((dead?))
     (when (projectile-collision? rect dir stage)
-      (push-sound :hit-wall)
       (create-entity
        (make-projectile-wall-particle
 	(offset-in-dir-pos (+v pos (tile-dims/2))

@@ -38,26 +38,15 @@
 				     i)))
 		arg)))
 
-  (defmacro comp (&rest forms)
-    (expand-composition forms))
-
-  (defun expand-complement (exp)
-    (if (symbolp exp)
-	`(complement #',exp)
-	`(complement ,exp)))
-
   (defun hash-underscore-reader (stream char arg)
     (declare (ignore char arg))
     (expand-partial-application (read stream t nil t)))
 
-  (defun hash-tilde-reader (stream char arg)
-    (declare (ignore char arg))
-    (expand-complement (read stream t nil t)))
-
   (defun install-function-syntax! ()
-    (set-dispatch-macro-character #\# #\_ #'hash-underscore-reader)
-    (set-dispatch-macro-character #\# #\~ #'hash-tilde-reader)))
+    (set-dispatch-macro-character #\# #\_ #'hash-underscore-reader)))
 
+(defmacro comp (&rest forms)
+  (expand-composition forms))
 (install-function-syntax!)
 
 ;; Alist utilities
@@ -82,8 +71,7 @@
    alist))
 
 (defun asetfn (&rest keys-and-vals)
-  (lambda (a)
-    (apply #'aset a keys-and-vals)))
+  #_(aset _ . keys-and-vals))
 
 (defun arem (alist &rest keys)
   (remove-if (lambda (pair)
@@ -99,7 +87,7 @@
    alist))
 
 (defun aupdatefn (&rest keys-and-fns)
-  (lambda (a) (apply #'aupdate a keys-and-fns)))
+  #_(aupdate _ . keys-and-fns))
 
 (defstruct (v2 (:conc-name nil))
   x y)

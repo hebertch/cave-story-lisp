@@ -106,18 +106,26 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 (defun replace-entity-state (entity-id fn)
   (estate-set entity-id (funcall fn (estate entity-id))))
 
+(defun push-sound-effects! (obj)
+  (appendf *sfx-play-list* (aval obj :sound-effects)))
+
+(defun update-world! (entity-id fn)
+  (let ((obj (funcall fn (estate entity-id))))
+    (push-sound-effects! obj)
+    (estate-set entity-id (arem obj :sound-effects))))
+
 (def-subsystem physics ()
-  (replace-entity-state entity-id #'physics))
+  (update-world! entity-id #'physics))
 
 (def-subsystem timers ()
-  (replace-entity-state entity-id #'timers))
+  (update-world! entity-id #'timers))
 
 (def-subsystem drawable ()
   (appendf *render-list* (alexandria:ensure-list (draw (estate entity-id)))))
 (def-subsystem stage-collision (stage)
-  (replace-entity-state entity-id (rcurry #'stage-collision stage)))
+  (update-world! entity-id #_(stage-collision _ stage)))
 (def-subsystem input (input)
-  (replace-entity-state entity-id (rcurry #'input input)))
+  (update-world! entity-id #_(input _ input)))
 
 (def-subsystem dynamic-collision (player)
   (dolist (side *collision-order*)
@@ -138,7 +146,8 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 						    player))))))
 
 (def-subsystem damageable (bullet-id)
-  ;; NOTE: UPDATE-DAMAGEABLE-SUBSYSTEM is designed to be called by UPDATE-BULLET-SUBSYSTEM
+  ;; NOTE: UPDATE-DAMAGEABLE-SUBSYSTEM is designed to be called
+  ;; by UPDATE-BULLET-SUBSYSTEM
   (unless (dead? (estate bullet-id))
     (let ((bullet-rect (bullet-rect (estate bullet-id)))
 	  (bullet-hit-amt (bullet-damage-amt (estate bullet-id)))
@@ -148,8 +157,9 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
       (when (rects-collide? rect bullet-rect)
 	(draw-rect! bullet-rect *yellow* :layer :debug-damageable :filled? t)
 	(draw-rect! rect *yellow* :layer :debug-damageable :filled? t)
-	(replace-entity-state entity-id (rcurry #'damageable-hit-react bullet-hit-amt))
-	(replace-entity-state bullet-id #'bullet-hit-react)))))
+	(update-world! entity-id
+		       #_(damageable-hit-react _ bullet-hit-amt))
+	(update-world! bullet-id #'bullet-hit-react)))))
 
 (def-subsystem bullet ()
   (update-damageable-subsystem active-entity-systems entity-id))
@@ -163,7 +173,7 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
       (draw-rect! rect *yellow* :layer :debug-pickup :filled? t)
       (draw-rect! player-rect *yellow* :layer :debug-pickup :filled? t)
       (player-pickup! (estate player) (estate entity-id))
-      (replace-entity-state entity-id #'pickup-kill))))
+      (update-world! entity-id #'pickup-kill))))
 
 (def-subsystem damage-collision (player)
   (let ((rect (damage-collision-rect (estate entity-id)))
@@ -171,11 +181,9 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
     (draw-rect! rect *red* :layer :debug-damage-collision)
     (draw-rect! player-rect *blue* :layer :debug-damage-collision)
     (when (rects-collide? rect player-rect)
-      (replace-entity-state player (lambda (p)
-				     (player-take-damage
-				      p
-				      (damage-collision-amt
-				       (estate entity-id)))))
+      (update-world!
+       player
+       #_(player-take-damage _ (damage-collision-amt (estate entity-id))))
       (draw-rect! rect *magenta* :layer :debug-damage-collision :filled? t)
       (draw-rect! player-rect
 		  *magenta*

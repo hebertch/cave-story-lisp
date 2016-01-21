@@ -128,11 +128,14 @@
 	   (lambda (kin-2d)
 	     (player-kin-2d-physics p kin-2d))))
 
-(defun player-ai (p)
-  (when (and (find :walk-cycle (aval p :ticks))
-	     (/= 0 (cycle-current (aval p :walk-cycle))))
-    (push-sound :step))
-  (apply-player-physics p))
+(setfn player-ai
+       (comp
+	(lambda (p)
+	  (if (and (find :walk-cycle (aval p :ticks))
+		   (/= 0 (cycle-current (aval p :walk-cycle))))
+	      (aupdate p :sound-effects #_(cons :step _))
+	      p))
+	apply-player-physics))
 
 (defun player-fire-gun! (p)
   (let ((gun-name (player-current-gun-name p)))
@@ -166,7 +169,6 @@
   (if (not (timer-active? (aval p :invincible-timer)))
       (cond
 	((>= (abs dmg-amt) (aval p :health-amt))
-	 (push-sound :player-die)
 	 (stop-music)
 	 (estate-set (aval p :active-systems)
 		     (active-systems-switch-to-dialog
@@ -174,9 +176,10 @@
 
 	 (aset p
 	       :health-amt 0
+	       :sound-effects (cons :player-die
+				    (aval p :sound-effects))
 	       :dead? t))
 	(t
-	 (push-sound :hurt)
 	 (estate-set (aval p :hud) 
 		     (hud-health-changed
 		      (estate (aval p :hud))))
@@ -190,10 +193,13 @@
 	 (update-damage-number-amt (aval p :damage-numbers)
 				   (aval p :id)
 				   dmg-amt)
+
 	 (aset p
 	       :invincible-timer (reset-timer (aval p :invincible-timer))
 	       :ground-tile nil
 	       :health-amt (- (aval p :health-amt) dmg-amt)
+	       :sound-effects
+	       (cons :hurt (aval p :sound-effects))
 	       :stage-physics
 	       (player-short-hop-physics (aval p :stage-physics)))))
       p))
@@ -262,15 +268,14 @@
 (defun player-jump (p)
   (cond ((not (aval p :jumping?))
 	 (aset (if (player-on-ground? p)
-		   (progn
-		     (push-sound :jump)
-		     (aset p
-			   :stage-physics
-			   (player-jump-physics
-			    (aval p :stage-physics))
-			   :interacting? nil
-			   :ground-tile nil
-			   :walk-cycle (timed-cycle-pause (aval p :walk-cycle))))
+		   (aset p
+			 :stage-physics
+			 (player-jump-physics
+			  (aval p :stage-physics))
+			 :sound-effects (cons :jump (aval p :sound-effects))
+			 :interacting? nil
+			 :ground-tile nil
+			 :walk-cycle (timed-cycle-pause (aval p :walk-cycle)))
 		   p)
 	       :jumping? t))
 	(t p)))
@@ -331,8 +336,10 @@
 
 	(t
 	 (when walking?
-	   (setq p (aupdate p :walk-cycle #'timed-cycle-pause))
-	   (push-sound :step))
+	   (setq p
+		 (aupdate p
+			  :walk-cycle #'timed-cycle-pause
+			  :sound-effects #_(cons :step _))))
 	 (setq p (aset p :acc-dir nil))))
 
       (if (or (key-held? input :z) (joy-held? input :a))
@@ -367,9 +374,11 @@
 	   :left stop-x :right stop-x
 	   :top
 	   (collision-lambda (data)
-	     (when (minusp (y (stage-vel data)))
-	       (push-sound :head-bump))
 	     (aset data
+		   :sound-effects
+		   (if (minusp (y (stage-vel data)))
+		       (cons :head-bump (aval data :sound-effects))
+		       (aval data :sound-effects))
 		   :stage-physics
 		   (aset (aval data :stage-physics)
 			 :vel (make-v
