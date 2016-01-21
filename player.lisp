@@ -24,11 +24,11 @@
 	  :projectile-groups projectile-groups
 	  :active-systems active-systems
 	  :hud hud
-	  :timers
-	  (alist :walk-cycle
-		 (make-fps-cycle 12 #(0 1 0 2) t)
-		 :invincible
-		 (make-expiring-timer (s->ms 3)))
+	  :timers '(:walk-cycle :invincible-timer)
+	  :walk-cycle
+	  (make-fps-cycle 12 #(0 1 0 2) t)
+	  :invincible-timer
+	  (make-expiring-timer (s->ms 3))
 	  :physics '(:stage-physics)
 	  :stage-physics
 	  (make-kin-2d
@@ -130,7 +130,7 @@
 
 (defun player-ai (p)
   (when (and (find :walk-cycle (aval p :ticks))
-	     (/= 0 (cycle-current (aval (aval p :timers) :walk-cycle))))
+	     (/= 0 (cycle-current (aval p :walk-cycle))))
     (push-sound :step))
   (apply-player-physics p))
 
@@ -162,7 +162,7 @@
 		     (- *player-hop-speed*)))))
 
 (defun player-take-damage (p dmg-amt)
-  (if (not (timer-active? (aval (aval p :timers) :invincible)))
+  (if (not (timer-active? (aval p :invincible-timer)))
       (cond
 	((>= (abs dmg-amt) (aval p :health-amt))
 	 (push-sound :player-die)
@@ -188,7 +188,7 @@
 				   (aval p :id)
 				   dmg-amt)
 	 (aset p
-	       :timers (aupdate (aval p :timers) :invincible #'reset-timer)
+	       :invincible-timer (reset-timer (aval p :invincible-timer))
 	       :ground-tile nil
 	       :health-amt (- (aval p :health-amt) dmg-amt)
 	       :stage-physics
@@ -230,7 +230,7 @@
 	v-facing)))
 
 (defun player-walk-idx (player)
-  (cycle-current (aval (aval player :timers) :walk-cycle)))
+  (cycle-current (aval player :walk-cycle)))
 
 (defun player-walking? (p)
   (and (aval p :acc-dir) (player-on-ground? p)))
@@ -265,30 +265,29 @@
 			    (aval p :stage-physics))
 			   :interacting? nil
 			   :ground-tile nil
-			   :timers (aupdate (aval p :timers)
-					    :walk-cycle #'timed-cycle-pause)))
+			   :walk-cycle (timed-cycle-pause (aval p :walk-cycle))))
 		   p)
 	       :jumping? t))
 	(t p)))
 
 (defun player-move (p dir)
   "Moves the player in a horizontal direction."
-  (let ((timers (aval p :timers)))
-    (when (player-on-ground? p)
-      (setq timers (aupdate timers
-			    :walk-cycle
-			    #'timed-cycle-resume))
-      (when (null (aval p :acc-dir))
-	(setq timers (aupdate timers
-			      :walk-cycle
-			      #'timed-cycle-restart))))
+  (declare (optimize debug))
+  (let ((walk-cycle
+	 (if (player-on-ground? p)
+	     (if (null (aval p :acc-dir))
+		 (timed-cycle-resume
+		  (timed-cycle-restart (aval p :walk-cycle)))
+		 (timed-cycle-resume (aval p :walk-cycle)))
+	     (aval p :walk-cycle))))
     (aset p
-	  :timers timers
+	  :walk-cycle walk-cycle
 	  :interacting? nil
 	  :acc-dir dir
 	  :h-facing dir)))
 
 (defun player-input (p input)
+  (declare (optimize debug))
   (let ((left?  (or (key-held? input :left)
 		    (eq :negative (input-joy-axis-x input))))
 	(right? (or (key-held? input :right)
@@ -311,10 +310,8 @@
 	 (unless (eq (aval p :v-facing) :down)
 	   (setq p (aset p
 			 :v-facing :down
-			 :timers
-			 (aupdate (aval p :timers)
-				  :walk-cycle
-				  #'timed-cycle-pause)
+			 :walk-cycle
+			 (timed-cycle-pause (aval p :walk-cycle))
 			 :interacting? on-ground?))))
 
 	(t (setq p (aset p :v-facing nil))))
@@ -329,11 +326,7 @@
 
 	(t
 	 (when walking?
-	   (setq p (aset p
-			 :timers
-			 (aupdate (aval p :timers)
-				  :walk-cycle
-				  #'timed-cycle-pause)))
+	   (setq p (aupdate p :walk-cycle #'timed-cycle-pause))
 	   (push-sound :step))
 	 (setq p (aset p :acc-dir nil))))
 
@@ -385,29 +378,30 @@
 	       stage collision-rects
 	       *player-stage-collisions*
 	       (aval p :ground-tile))))
-    (amerge
-     (alist :ground-tile (aval res :new-ground-tile))
-     (alist :timers (aupdate (aval p :timers) :walk-cycle #'timed-cycle-pause))
-     res)))
+    (aset res
+	  :ground-tile (aval res :new-ground-tile)
+	  :walk-cycle (timed-cycle-pause (aval res :walk-cycle)))))
 
 (defun player-drawing (p)
+  (declare (optimize debug))
   (let ((kin-2d (aval p :stage-physics)))
-    (make-sprite-drawing :layer :player
-			 :sheet-key :my-char
-			 :src-rect (player-sprite-rect (aval p :h-facing)
-						       (player-actual-v-facing p)
-						       (aval p :interacting?)
-						       (player-walking? p)
-						       (player-walk-idx p)
-						       (y (aval kin-2d :vel)))
-			 :pos (pixel-v (aval kin-2d :pos)))))
+    (make-sprite-drawing
+     :layer :player
+     :sheet-key :my-char
+     :src-rect (player-sprite-rect (aval p :h-facing)
+				   (player-actual-v-facing p)
+				   (aval p :interacting?)
+				   (player-walking? p)
+				   (player-walk-idx p)
+				   (y (aval kin-2d :vel)))
+     :pos (pixel-v (aval kin-2d :pos)))))
 
 (defun player-and-gun-drawing (p)
   (let ((kin-2d (aval p :stage-physics)))
     (unless
-	(and (timer-active? (aval (aval p :timers) :invincible))
+	(and (timer-active? (aval p :invincible-timer))
 	     (plusp (chunk-timer-period
-		     (aval (aval p :timers) :invincible) 50)))
+		     (aval p :invincible-timer) 50)))
       (list
        (player-drawing p)
        (player-gun-drawing (aval kin-2d :pos)
