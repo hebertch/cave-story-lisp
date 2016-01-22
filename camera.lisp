@@ -49,7 +49,7 @@
 	 :shake-h (make-shake))))
 
 (defun camera-ai (c)
-  (let ((shake-tick? (member :shake-timer (aval c :ticks))))
+  (let ((shake-tick? (ticked? c :shake-timer)))
     (aupdate c
 	     :target
 	     (constantly (target-kin-2d-update-target

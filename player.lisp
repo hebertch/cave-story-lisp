@@ -131,7 +131,7 @@
 (setfn player-ai
        (comp
 	(lambda (p)
-	  (if (and (find :walk-cycle (aval p :ticks))
+	  (if (and (ticked? p :walk-cycle)
 		   (/= 0 (cycle-current (aval p :walk-cycle))))
 	      (aupdate p :sound-effects (pushfn :step))
 	      p))

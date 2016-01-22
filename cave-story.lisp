@@ -235,7 +235,7 @@ This can be abused with the machine gun in TAS."
 
      :src-rect
      (create-rect
-      (+v (anim-cycle-offset (aval d :anim-cycle))
+      (+v (anim-cycle-offset d)
 	  (tile-v 0 (1+ (position (aval d :size) '(:small :medium :large)))))
       (make-v (tiles 1) (1- (tiles 1))))
 
@@ -339,10 +339,13 @@ This can be abused with the machine gun in TAS."
 					    (aval s :tile-y)))
 			 :pos pos)))
 
+(defun anim-cycle-idx (obj)
+  (aval (aval obj :anim-cycle) :idx))
+
 (defun single-loop-sprite-ai (p)
-  (let ((dead? (and (find :anim-cycle (aval p :ticks))
-		    (zerop (aval (aval p :anim-cycle) :idx)))))
-    (aset p :dead? dead?)))
+  (aset p
+	:dead? (and (ticked? p :anim-cycle)
+		    (zerop (anim-cycle-idx p)))))
 
 (defun particle-fns-alist ()
   (alist :draw-fn #'particle-drawing
@@ -366,13 +369,13 @@ This can be abused with the machine gun in TAS."
   (let ((sp (estate (aval p :single-loop-sprite))))
     (if (aval sp :dead?)
 	nil
-	(let ((cycle-current (cycle-current
-			      (aval sp :anim-cycle))))
-	  (make-sprite-drawing :layer :particle
-			       :sheet-key (aval sp :sheet-key)
-			       :src-rect
-			       (tile-rect (tile-v cycle-current (aval sp :tile-y)))
-			       :pos (aval p :pos))))))
+	(make-sprite-drawing :layer :particle
+			     :sheet-key (aval sp :sheet-key)
+			     :src-rect
+			     (tile-rect (tile-v (cycle-current
+						 (aval sp :anim-cycle))
+						(aval sp :tile-y)))
+			     :pos (aval p :pos)))))
 
 (defun make-projectile-star-particle (center-pos)
   (make-particle :seq (alexandria:iota 4)
@@ -1069,16 +1072,15 @@ This can be abused with the machine gun in TAS."
 		       :sheet-key :npc-cemet
 		       :src-rect
 		       (tile-rect (+v (tile-v 2 2)
-				      (anim-cycle-offset
-				       (aval b :anim-cycle))
-				      (facing-offset (aval b :facing))))
+				      (anim-cycle-offset b)
+				      (facing-offset b)))
 		       :pos (physics-pos b)))
 
-(defun facing-offset (facing)
-  (tile-v 0 (if (eq facing :left) 0 1)))
+(defun facing-offset (obj)
+  (tile-v 0 (if (eq (aval obj :facing) :left) 0 1)))
 
 (defun anim-cycle-offset (c)
-  (tile-v (cycle-current c) 0))
+  (tile-v (cycle-current (aval c :anim-cycle)) 0))
 
 (defun point-rect (pos)
   (create-rect pos (both-v 1)))
@@ -1226,7 +1228,7 @@ This can be abused with the machine gun in TAS."
     (make-sprite-drawing :layer :enemy
 			 :sheet-key :npc-cemet
 			 :src-rect (tile-rect (+v (tile-v sprite-tile-x 0)
-						  (facing-offset (aval c :facing))))
+						  (facing-offset c)))
 			 :pos (physics-pos c))))
 
 
@@ -1365,7 +1367,7 @@ This can be abused with the machine gun in TAS."
 	 (cond
 	   ((timer-active? (aval e :recover-timer))
 	    (make-v (tiles (* 2 3)) 0))
-	   (t (anim-cycle-offset (aval e :anim-cycle))))))
+	   (t (anim-cycle-offset e)))))
     (make-sprite-drawing :layer :enemy
 			 :sheet-key :npc-eggs1
 			 :src-rect
@@ -1461,7 +1463,7 @@ This can be abused with the machine gun in TAS."
     (cond
       ((timer-active? (aval e :recover-timer))
        (setq pos (+v pos (make-v 0 (tiles 1/4)))))
-      ((= 1 (aval (aval e :anim-cycle) :idx))
+      ((= 1 (anim-cycle-idx e))
        (setq pos (+v pos (make-v 0 (tiles 1/8))))))
     (create-rect pos *elephant-dims*)))
 
@@ -1500,42 +1502,48 @@ This can be abused with the machine gun in TAS."
 	     :stage-physics
 	     (asetfn :vel (make-v x-vel (y (stage-vel e)))))))
 
+(setfn elephant-rage-end
+       (comp
+	(aupdatefn
+	 :timers (compose (removefn :rage-timer)
+			  (adjoinfn :anim-cycle)))
+	(asetfn
+	 :anim-cycle (make-fps-cycle 12 #(0 2 4))
+	 :rage-timer nil)))
+
+(setfn elephant-rage-begin
+       (compose
+	(aupdatefn
+	 :timers (adjoinfn :rage-timer)
+	 :rage-timer #'reset-timer)
+	(asetfn
+	 :anim-cycle (make-fps-cycle 14 #(8 10)))))
+
 (defun elephant-rage-ai (e)
-  (let* ((ticks (aval e :ticks))
-	 (rage-timer (rage-timer e)))
-    
-    (cond ((member :rage-timer ticks)
-	   (aupdate e
-		    :timers (compose (removefn :rage-timer)
-				     (adjoinfn :anim-cycle))
-		    :anim-cycle (constantly (make-fps-cycle 12 #(0 2 4)))
-		    :rage-timer (constantly nil)))
-	  ((and rage-timer (member :recover-timer ticks))
-	   (aupdate e
-		    :timers (adjoinfn :rage-timer)
-		    :rage-timer #'reset-timer
-		    :anim-cycle (constantly (make-fps-cycle 14 #(8 10)))))
-	  (t e))))
+  (cond ((ticked? e :rage-timer)
+	 (elephant-rage-end e))
+	((and (rage-timer e) (ticked? e :recover-timer))
+	 (elephant-rage-begin e))
+	(t e)))
 
 (defun elephant-rage-effects (e)
-  (let ((ticks (aval e :ticks)))
-    (if (and (timer-active? (rage-timer e))
-	     (member :anim-cycle ticks)
-	     (zerop (aval (aval e :anim-cycle) :idx)))
-	(aupdate e
-		 :sound-effects (pushfn :big-footstep)
-		 :new-states
-		 (pushfn (timed-camera-shake (estate (aval e :camera))
-					     (s->ms 1/2)))
-		 :new-entities
-		 (appendfn
-		  (make-num-death-cloud-particles
-		   3 (+v (physics-pos e)
-			 (make-v (if (eq (aval e :facing) :left)
-				     (tiles 3/2)
-				     (tiles 1/2))
-				 (tiles 5/4))))))
-	e)))
+  (if (and (timer-active? (rage-timer e))
+	   (ticked? e :anim-cycle)
+	   (zerop (anim-cycle-idx e)))
+      (aupdate e
+	       :sound-effects (pushfn :big-footstep)
+	       :new-states
+	       (pushfn (timed-camera-shake (estate (aval e :camera))
+					   (s->ms 1/2)))
+	       :new-entities
+	       (appendfn
+		(make-num-death-cloud-particles
+		 3 (+v (physics-pos e)
+		       (make-v (if (eq (aval e :facing) :left)
+				   (tiles 3/2)
+				   (tiles 1/2))
+			       (tiles 5/4))))))
+      e))
 
 (let ((collision-rects
        (rect->collision-rects

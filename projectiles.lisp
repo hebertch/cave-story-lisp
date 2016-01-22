@@ -57,7 +57,7 @@
 	      lvl))))))
 
 (defun missile-projectile-ai (p)
-  (aset p :dead? (member :life-timer (aval p :ticks))))
+  (aset p :dead? (ticked? p :life-timer)))
 
 (defun projectile-collision? (rect dir stage)
   (loop for (tile-pos tile-type) in (stage-get-colliding-tiles stage rect)

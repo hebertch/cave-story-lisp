@@ -43,11 +43,11 @@
     (expand-partial-application (read stream t nil t)))
 
   (defun install-function-syntax! ()
-    (set-dispatch-macro-character #\# #\_ #'hash-underscore-reader)))
+    (set-dispatch-macro-character #\# #\_ #'hash-underscore-reader))
+  (install-function-syntax!))
 
 (defmacro comp (&rest forms)
   (expand-composition forms))
-(install-function-syntax!)
 
 ;; Alist utilities
 (defun alist (&rest plist)

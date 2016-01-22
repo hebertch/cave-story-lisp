@@ -52,7 +52,6 @@
 	  (setq o
 		(aupdate o
 			 k (constantly tr)
-			 :ticks (if tick?
-				    (pushfn k)
-				    #'identity)))))))
+			 :ticks (when tick?
+				  (pushfn k))))))))
   o)

@@ -125,6 +125,9 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 (def-subsystem timers ()
   (update-world! entity-id #'timers))
 
+(defun ticked? (obj timer-key)
+  (member timer-key (aval obj :ticks)))
+
 (def-subsystem drawable ()
   (appendf *render-list* (alexandria:ensure-list (draw (estate entity-id)))))
 (def-subsystem stage-collision (stage)
