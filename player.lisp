@@ -173,9 +173,9 @@
 		 :dead? t)
 	 (aupdatefn
 	  :new-states
-	  #_(cons (active-systems-switch-to-dialog
-		   (estate (aval p :active-systems))) _)
-	  :sound-effects #_(cons :player-die _))))
+	  (pushfn (active-systems-switch-to-dialog
+		   (estate (aval p :active-systems))))
+	  :sound-effects (pushfn :player-die))))
        (t
 	(comp
 	 (asetfn :ground-tile nil)
@@ -326,7 +326,7 @@
 	   (setq p
 		 (aupdate p
 			  :walk-cycle #'timed-cycle-pause
-			  :sound-effects #_(cons :step _))))
+			  :sound-effects (pushfn :step))))
 	 (setq p (aset p :acc-dir nil))))
 
       (if (or (key-held? input :z) (joy-held? input :a))

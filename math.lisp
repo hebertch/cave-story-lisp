@@ -56,6 +56,9 @@
 (defun aval (alist key)
   (assoc-value alist key))
 
+(defun avalfn (key)
+  #_(aval _ key))
+
 (defun anorm (alist)
   (remove-duplicates alist :from-end t :key #'car))
 
@@ -78,22 +81,6 @@
 	       (member (car pair) keys))
 	     alist))
 
-(defun aupdate (alist &rest keys-and-fns)
-  (amerge
-   (loop for (k fn) on keys-and-fns by #'cddr
-      collecting (progn
-		   (assert (typep k 'keyword))
-		   (cons k (funcall fn (aval alist k)))))
-   alist))
-
-(defun aupdatefn (&rest keys-and-fns)
-  #_(aupdate _ . keys-and-fns))
-
-(defun pushfn (val)
-  #_(cons val _))
-(defun appendfn (&rest lsts)
-  #_(append _ . lsts))
-
 (defun call-if (fn val &optional default-fn)
   "Calls fn on val if fn is not null, otherwise returns val.
 If fn is null and default is provided, return (funcall default val)."
@@ -102,6 +89,28 @@ If fn is null and default is provided, return (funcall default val)."
       (if default-fn
 	  (funcall default-fn val)
 	  val)))
+
+(defun aupdate (alist &rest keys-and-fns)
+  "If a function is NIL, then the new value is the same as the old."
+  (amerge
+   (loop for (k fn) on keys-and-fns by #'cddr
+      collecting (progn
+		   (assert (typep k 'keyword))
+		   (cons k (call-if fn (aval alist k)))))
+   alist))
+
+(defun aupdatefn (&rest keys-and-fns)
+  #_(aupdate _ . keys-and-fns))
+
+(defun pushfn (&rest vals)
+  #_(append vals _))
+(defun adjoinfn (&rest vals)
+  #_(union _ vals))
+(defun appendfn (&rest lsts)
+  #_(append _ . lsts))
+(defun removefn (&rest vals)
+  "Returns a function to remove all vals from a list."
+  #_(set-difference _ vals))
 
 (defstruct (v2 (:conc-name nil))
   x y)

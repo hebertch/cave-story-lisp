@@ -259,7 +259,7 @@ This can be abused with the machine gun in TAS."
    (collision-lambda (data)
      (aupdate data
 	      :sound-effects
-	      #_ (cons :dorito-bounce _)
+	      (pushfn :dorito-bounce)
 	      :stage-physics
 	      (asetfn :vel
 		      (set-y-v (stage-vel data)
@@ -293,12 +293,10 @@ This can be abused with the machine gun in TAS."
 (defun dorito-pickup-rect (d)
   (rect-offset (dorito-collision-rect (aval d :size)) (physics-pos d)))
 
-
-
 (setfn dorito-pickup-kill
        (comp 
-	#_(aupdate _ :sound-effects (pushfn :pickup))
-	#_(aset _ :dead? t)))
+	(aupdatefn :sound-effects (pushfn :pickup))
+	(asetfn :dead? t)))
 
 (defun dorito-pickup-data (size)
   (make-pickup :type :dorito
@@ -471,7 +469,7 @@ This can be abused with the machine gun in TAS."
 (defun floating-number-add-amt (fn amount)
   (aupdate fn
 	   :life-timer #'reset-timer
-	   :amt (lambda (amt) (+ amt amount))))
+	   :amt #_(+ _ amount)))
 
 (defun remove-all-dead! (game)
   (estate-set! (aval game :projectile-groups)
@@ -919,7 +917,7 @@ This can be abused with the machine gun in TAS."
   (count gun-name (aval g :groups) :key #'car))
 
 (defun projectile-groups-add (g pg)
-  (aupdate g :groups #_(cons pg _)))
+  (aupdate g :groups (pushfn pg)))
 
 (defun make-projectile-groups ()
   (alist :id (gen-entity-id)))
@@ -1196,8 +1194,8 @@ This can be abused with the machine gun in TAS."
 (defun shake-ai (obj)
   (if (not (timer-active? (aval obj :shake-timer)))
       (aupdate obj
-	       :physics (curry #'remove :shake)
-	       :timers (curry #'remove :shake-timer))
+	       :physics (removefn :shake)
+	       :timers (removefn :shake-timer))
       obj))
 
 (defun face-player-ai (obj)
@@ -1211,11 +1209,9 @@ This can be abused with the machine gun in TAS."
 	     (aval c :ground-tile))
 	(aupdate c
 		 :stage-physics
-		 (lambda (kin-2d)
-		   (aset kin-2d
-			 :vel
+		 (asetfn :vel
 			 (make-v (* 0.04 (if (eq facing :left) -1 1))
-				 (- 0.35)))))
+				 (- 0.35))))
 	c)))
 
 (defun critter-drawing (c)
@@ -1393,8 +1389,8 @@ This can be abused with the machine gun in TAS."
 (setfn shake-hit-react
        (comp
 	(aupdatefn
-	 :timers #_(adjoin :shake-timer _)
-	 :physics #_(adjoin :shake _))
+	 :timers (adjoinfn :shake-timer)
+	 :physics (adjoinfn :shake))
 	(asetfn
 	 :shake-timer
 	 (make-expiring-timer (s->ms 1/3) t)
@@ -1410,17 +1406,14 @@ This can be abused with the machine gun in TAS."
 			    (s->ms 1/2)))))
 	(aupdate e
 		 :recover-timer
-		 (if recover?
-		     (constantly (make-expiring-timer (s->ms 3/4) t))
-		     #'identity)
+		 (when recover?
+		   (constantly (make-expiring-timer (s->ms 3/4) t)))
 		 :rage-timer
-		 (if rage?
-		     (constantly (make-expiring-timer (s->ms 3)))
-		     #'identity)
+		 (when rage?
+		   (constantly (make-expiring-timer (s->ms 3))))
 		 :timers
-		 (cond (recover? (curry #'adjoin :recover-timer))
-		       (rage? (curry #'adjoin :rage-timer))
-		       (t #'identity))))))
+		 (cond (recover? (adjoinfn :recover-timer))
+		       (rage? (adjoinfn :rage-timer)))))))
 
 (defun damage-number-update-amtfn (amt)
   (lambda (obj)
@@ -1431,17 +1424,14 @@ This can be abused with the machine gun in TAS."
       (if existing-dn-pair
 	  (aupdate obj
 		   :new-states
-		   #_(cons (floating-number-add-amt
-			    (estate (cdr existing-dn-pair)) (- amt))
-			   _))
+		   (pushfn (floating-number-add-amt
+			    (estate (cdr existing-dn-pair)) (- amt))))
 	  (let ((fn (make-floating-number e (- amt))))
 	    (aupdate obj
 		     :new-states
-		     #_(cons
-			(aupdate d :pairs #_(acons e (aval fn :id) _))
-			_)
-		     :new-entities
-		     #_(cons fn _)))))))
+		     (pushfn (aupdate d :pairs
+				      (pushfn (cons e (aval fn :id)))))
+		     :new-entities (pushfn fn)))))))
 
 (defun damage-reaction (num-particles obj)
   (let ((amt (aval obj :damage-amt)))
@@ -1451,20 +1441,19 @@ This can be abused with the machine gun in TAS."
 	  (damage-number-update-amtfn amt)
 	  (aupdatefn
 	   :health-amt #_(- _ amt)
-	   :sound-effects #_(cons :enemy-hurt _)))
+	   :sound-effects (pushfn :enemy-hurt)))
 	 (let ((origin (origin obj)))
 	   (comp
 	    (asetfn
 	     :dead? t)
 	    (aupdatefn
 	     :new-entities
-	     #_(append
-		_
-		(list
-		 (make-dorito origin (polar-vec->v (rand-angle) 0.07) :small)
-		 (make-dorito origin (polar-vec->v (rand-angle) 0.07) :small))
-		(make-num-death-cloud-particles num-particles (origin obj)))
-	     :sound-effects #_(cons :enemy-explode _)))))
+	     (appendfn
+	      (list
+	       (make-dorito origin (polar-vec->v (rand-angle) 0.07) :small)
+	       (make-dorito origin (polar-vec->v (rand-angle) 0.07) :small))
+	      (make-num-death-cloud-particles num-particles (origin obj)))
+	     :sound-effects (pushfn :enemy-explode)))))
      obj)))
 
 (defun elephant-dynamic-collision-rect (e)
@@ -1517,13 +1506,13 @@ This can be abused with the machine gun in TAS."
     
     (cond ((member :rage-timer ticks)
 	   (aupdate e
-		    :timers (compose #_(remove :rage-timer _)
-				     #_(adjoin :anim-cycle _))
+		    :timers (compose (removefn :rage-timer)
+				     (adjoinfn :anim-cycle))
 		    :anim-cycle (constantly (make-fps-cycle 12 #(0 2 4)))
 		    :rage-timer (constantly nil)))
 	  ((and rage-timer (member :recover-timer ticks))
 	   (aupdate e
-		    :timers (curry #'adjoin :rage-timer)
+		    :timers (adjoinfn :rage-timer)
 		    :rage-timer #'reset-timer
 		    :anim-cycle (constantly (make-fps-cycle 14 #(8 10)))))
 	  (t e))))
@@ -1534,20 +1523,18 @@ This can be abused with the machine gun in TAS."
 	     (member :anim-cycle ticks)
 	     (zerop (aval (aval e :anim-cycle) :idx)))
 	(aupdate e
-		 :sound-effects #_(cons :big-footstep _)
+		 :sound-effects (pushfn :big-footstep)
 		 :new-states
-		 #_(cons (timed-camera-shake (estate (aval e :camera))
-					     (s->ms 1/2))
-			 _)
+		 (pushfn (timed-camera-shake (estate (aval e :camera))
+					     (s->ms 1/2)))
 		 :new-entities
-		 #_ (append
-		     _
-		     (make-num-death-cloud-particles
-		      3 (+v (physics-pos e)
-			    (make-v (if (eq (aval e :facing) :left)
-					(tiles 3/2)
-					(tiles 1/2))
-				    (tiles 5/4))))))
+		 (appendfn
+		  (make-num-death-cloud-particles
+		   3 (+v (physics-pos e)
+			 (make-v (if (eq (aval e :facing) :left)
+				     (tiles 3/2)
+				     (tiles 1/2))
+				 (tiles 5/4))))))
 	e)))
 
 (let ((collision-rects

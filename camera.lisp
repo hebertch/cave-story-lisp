@@ -43,31 +43,34 @@
        (comp
 	(aupdatefn
 	 :physics
-	 #_(union _ '(:shake-v :shake-h)))
+	 (adjoinfn :shake-v :shake-h))
 	(asetfn
 	 :shake-v (make-shake)
 	 :shake-h (make-shake))))
 
 (defun camera-ai (c)
   (let ((shake-tick? (member :shake-timer (aval c :ticks))))
-    (aset c
-	  :target
-	  (target-kin-2d-update-target
-	   (aval c :target)
-	   (camera-target-from-player (estate (aval c :player)))
-	   (player-vel (estate (aval c :player))))
-	  :physics (if shake-tick?
-		       (set-difference (aval c :physics) '(:shake-v :shake-h))
-		       (aval c :physics))
-	  :timers (if shake-tick?
-		      (remove :shake-timer (aval c :timers))
-		      (aval c :timers))
-	  :shake-timer (if shake-tick? nil (aval c :shake-timer)))))
+    (aupdate c
+	     :target
+	     (constantly (target-kin-2d-update-target
+			  (aval c :target)
+			  (camera-target-from-player (estate (aval c :player)))
+			  (player-vel (estate (aval c :player)))))
+	     :physics (when shake-tick?
+			(removefn :shake-v :shake-h))
+	     :timers (when shake-tick?
+		       (removefn :shake-timer))
+	     :shake-timer (when shake-tick?
+			    (constantly nil)))))
 
 (defun timed-camera-shake (c time)
-  (aset (add-camera-shake c)
-	:shake-timer (make-expiring-timer time t)
-	:timers (adjoin :shake-timer (aval c :timers))))
+  (funcall
+   (comp
+    (aupdatefn
+     :shake-timer (constantly (make-expiring-timer time t))
+     :timers (adjoinfn :shake-timer))
+    add-camera-shake)
+   c))
 
 (defun stage-dims->camera-bounds (stage-dims)
   (create-rect (scale-v *window-dims* 1/2)

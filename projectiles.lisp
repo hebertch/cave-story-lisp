@@ -157,12 +157,11 @@
 					       (rand-val-between 0.001 0.0015)
 					       t))))))
     (aupdate obj
-	     :new-states #_(cons (projectile-groups-add
+	     :new-states (pushfn (projectile-groups-add
 				  (estate (aval obj :projectile-groups))
 				  (cons :missile-launcher
-					(mapcar #_ (aval _ :id) pg)))
-				 _)
-	     :new-entities #_(append _ pg))))
+					(mapcar (avalfn :id) pg))))
+	     :new-entities (appendfn pg))))
 
 (defun polar-star-projectile-fns-alist ()
   (alist :ai-fn #'polar-star-projectile-ai
@@ -200,13 +199,12 @@
   (cond ((not (timer-active? (aval p :life-timer)))
 	 (aupdate p
 		  :dead? (constantly t)
-		  :sound-effects #_(cons :dissipate _)
+		  :sound-effects (pushfn :dissipate)
 		  :new-entities
-		  #_ (cons (make-projectile-star-particle
-			    (offset-in-dir-pos (+v (physics-pos p) (tile-dims/2))
-					       (tiles/2 1)
-					       (aval p :dir)))
-			   _)))
+		  (pushfn (make-projectile-star-particle
+			   (offset-in-dir-pos (+v (physics-pos p) (tile-dims/2))
+					      (tiles/2 1)
+					      (aval p :dir))))))
 	(t p)))
 
 (defun polar-star-projectile-hit-react (p)
@@ -227,28 +225,26 @@
 	  (aupdate p
 		   :dead? (constantly dead?)
 		   :new-entities
-		   #_(cons (make-projectile-wall-particle
+		   (pushfn (make-projectile-wall-particle
 			    (offset-in-dir-pos (+v pos (tile-dims/2))
 					       (tiles/2 1)
-					       dir))
-			   _)
+					       dir)))
 		   :sound-effects
-		   #_(cons :hit-wall _))
+		   (pushfn :hit-wall))
 	  p))))
 
 (defun add-polar-star-projectile-group (obj lvl dir nozzle-pos)
   (let ((pg (list (make-polar-star-projectile nozzle-pos dir lvl))))
     (aupdate obj
-	     :sound-effects #_(cons :polar-star-shoot-3  _)
+	     :sound-effects (pushfn :polar-star-shoot-3)
 	     :new-states
-	     #_(cons (projectile-groups-add
+	     (pushfn (projectile-groups-add
 		      (estate (aval obj :projectile-groups))
-		      (cons :polar-star (mapcar #_(aval _ :id) pg)))
-		     _)
+		      (cons :polar-star (mapcar (avalfn :id) pg))))
 	     :new-entities
-	     #_(append _
-		       (list (make-projectile-star-particle nozzle-pos))
-		       pg))))
+	     (appendfn
+	      (list (make-projectile-star-particle nozzle-pos))
+	      pg))))
 
 (defun make-polar-star-projectile-sprite-rect (lvl dir)
   (let ((lvl-tile-positions (mapcar
