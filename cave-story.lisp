@@ -1578,13 +1578,6 @@ This can be abused with the machine gun in TAS."
 	     elephant-rage-ai
 	     shake-ai))
 
-(defun read-ascii (stream num-chars)
-  "Reads num-chars from stream. Returns a string."
-  (with-output-to-string (s)
-    (loop for char = (code-char (read-byte stream))
-       for i from 1 to num-chars
-       until (char= char (code-char 0)) do (write-char char s))))
-
 (defun read-uint16 (in)
   (let ((u2 0))
     (setf (ldb (byte 8 0) u2) (read-byte in))
@@ -1602,13 +1595,11 @@ This can be abused with the machine gun in TAS."
 (defun read-pxm-file (path)
   "Parses a pxm map file."
   (with-open-file (stream path :element-type '(unsigned-byte 8))
-    (unless (string= "PXM" (read-ascii stream 3))
-      (error "Bad magic value."))
-    (read-byte stream)
+    (dotimes (i 4) (read-byte stream))
     (let* ((xsize (read-uint16 stream))
 	   (ysize (read-uint16 stream))
 	   (tile-offset-idxs (loop for i from 1 to (* xsize ysize)
-				collecting (read-byte stream))))
+	   			collecting (read-byte stream))))
       (when (read-byte stream nil nil)
 	(warn "Finished reading but there was more data."))
       (alist

@@ -91,7 +91,7 @@
 (defun short-slope? (tile-type)
   (member tile-type '(:lts :rts :lbs :rbs)))
 (defun wall? (tile-type)
-  (member tile-type '(:solid-player)))
+  (intersection tile-type '(:solid-player)))
 
 (defun top-slope? (tile-type)
   (member tile-type '(:ltt :lts :rts :rtt)))

@@ -171,7 +171,7 @@ Stage-collisions returns the final data argument."
 	(data (aval stage :data)))
     (dotimes (row (array-dimension data 0))
       (dotimes (col (array-dimension data 1))
-	(when (aref data row col)
+	(when (second (aref data row col))
 	  (push
 	   (make-sprite-drawing :layer :foreground :sheet-key :prt-cave
 				:src-rect

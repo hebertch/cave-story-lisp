@@ -21,27 +21,36 @@
 	(mapcar #_(pxm-tile-offset-idx->tile-v _ (aval pxm :width))
 		(aval pxm :tile-offset-idxs))))
 
-(defun tiles->stage (tiles width height)
-  "Create a stage from a list of row-major tiles."
-  (let ((stage (make-array (list width height))))
-    (loop for x from 0 below width do
-	 (loop for y from 0 below height do
-	      (setf (aref stage x y) (car tiles))
-	      (setq tiles (cdr tiles))))
-    stage))
+(defun pxm-and-attrs->stage (pxm attrs)
+  "Create a stage from a list of row-major tiles, and a vector of
+tile attribute lists."
+  (let ((width (aval pxm :width))
+	(height (aval pxm :height))
+	(tile-offset-idxs (aval pxm :tile-offset-idxs)))
+    (let ((stage (make-array (list width height))))
+      (loop for x from 0 below width do
+	   (loop for y from 0 below height do
+		(setf (aref stage x y) (list (elt attrs (car tile-offset-idxs))
+					     (pxm-tile-offset-idx->tile-v
+					     (car tile-offset-idxs)
+					     width)))
+	       (setq tile-offset-idxs
+		     (cdr tile-offset-idxs))))
+      stage)))
 
-(defun make-stage-from-file-data (pxm pxa)
+(defun stage-from-file-data (pxm pxa)
   "Create a stage given the file data."
-  (tiles->stage (aval pxm :tiles)
-		(aval pxm :width)
-		(aval pxm :height)))
+  (let ((pxm (pxm-tiles pxm)))
+    (pxm-and-attrs->stage pxm
+		  (map 'vector #'tile-attribute-num->tile-attributes
+		       pxa))))
 
 (make-stage-from-file-data
- (pxm-tiles (read-pxm-file "./content/stages/Cave.pxm"))
+ (read-pxm-file "./content/stages/Cave.pxm")
  (read-pxa-file "./content/stages/Cave.pxa"))
-
 (map 'list #'tile-attribute-num->tile-attributes
      (read-pxa-file "./content/stages/Cave.pxa"))
+
 (defparameter *tile-attributes*
   '(NIL NIL (:DESTROYABLE) (:SOLID-NPC) (:SOLID-NPC) (:SOLID-PLAYER :SOLID-NPC)
     NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL
