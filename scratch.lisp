@@ -8,18 +8,11 @@
 (read-pxa-file "./content/stages/Cave.pxa")
 
 (read-pxm-file "./content/stages/Cave.pxm")
-(length (aval (read-pxm-file "./content/stages/Cave.pxm") :tile-offset-idxs))
+(aval (read-pxm-file "./content/stages/Cave.pxm") :tile-offset-idxs)
 
-(defun pxm-tile-offset-idx->tile-v (idx width)
+(defun pxm-tile-offset-idx->tile-v (idx)
   "Get the tile position given an index into the pxa array."
-  (make-v (rem idx width) (floor idx width)))
-
-(defun pxm-tiles (pxm)
-  "Adds tiles to the pxm, converted from the tile-offset-idxs."
-  (aset pxm
-	:tiles
-	(mapcar #_(pxm-tile-offset-idx->tile-v _ (aval pxm :width))
-		(aval pxm :tile-offset-idxs))))
+  (make-v (mod idx 16) (floor idx 16)))
 
 (defun pxm-and-attrs->stage (pxm attrs)
   "Create a stage from a list of row-major tiles, and a vector of
@@ -30,26 +23,23 @@ tile attribute lists."
     (let ((stage (make-array (list width height))))
       (loop for x from 0 below width do
 	   (loop for y from 0 below height do
-		(setf (aref stage x y) (list (elt attrs (car tile-offset-idxs))
-					     (pxm-tile-offset-idx->tile-v
-					     (car tile-offset-idxs)
-					     width)))
+		(setf (aref stage x y)
+		      (list (elt attrs (car tile-offset-idxs))
+			    (pxm-tile-offset-idx->tile-v
+			     (car tile-offset-idxs))))
 	       (setq tile-offset-idxs
 		     (cdr tile-offset-idxs))))
       stage)))
 
 (defun stage-from-file-data (pxm pxa)
   "Create a stage given the file data."
-  (let ((pxm (pxm-tiles pxm)))
-    (pxm-and-attrs->stage pxm
-		  (map 'vector #'tile-attribute-num->tile-attributes
-		       pxa))))
+  (pxm-and-attrs->stage pxm
+			(map 'vector #'tile-attribute-num->tile-attributes
+			     pxa)))
 
-(make-stage-from-file-data
+(stage-from-file-data
  (read-pxm-file "./content/stages/Cave.pxm")
  (read-pxa-file "./content/stages/Cave.pxa"))
-(map 'list #'tile-attribute-num->tile-attributes
-     (read-pxa-file "./content/stages/Cave.pxa"))
 
 (defparameter *tile-attributes*
   '(NIL NIL (:DESTROYABLE) (:SOLID-NPC) (:SOLID-NPC) (:SOLID-PLAYER :SOLID-NPC)

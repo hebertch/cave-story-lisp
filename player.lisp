@@ -1,5 +1,7 @@
 (in-package :cave-story)
 
+(defparameter *player-invincible* t)
+
 (defun player-fns-alist ()
   (alist :stage-collision-fn #'player-stage-collision
 	 :ai-fn #'player-ai
@@ -163,7 +165,8 @@
 
 (defun player-take-damage (p dmg-amt)
   (call-if
-   (when (not (timer-active? (aval p :invincible-timer)))
+   (when (not (or *player-invincible*
+		  (timer-active? (aval p :invincible-timer))))
      (cond
        ((>= (abs dmg-amt) (aval p :health-amt))
 	(stop-music!)

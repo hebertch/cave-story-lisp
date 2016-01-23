@@ -166,17 +166,33 @@ Stage-collisions returns the final data argument."
 		    :debug-stage-collision))))
   data)
 
+(defun tile-attributes->color (tile-type)
+  (cond ((null tile-type) *white*)
+	((member :slope tile-type))
+	((member :solid-player tile-type) *blue*)
+	((member :foreground tile-type) *yellow*)
+	(t *red*)))
+
 (defun stage-drawing (stage)
   (let ((drawings nil)
 	(data (aval stage :data)))
     (dotimes (row (array-dimension data 0))
       (dotimes (col (array-dimension data 1))
-	(when (second (aref data row col))
-	  (push
-	   (make-sprite-drawing :layer :foreground :sheet-key :prt-cave
-				:src-rect
-				(tile-rect (tile-pos (second
-						      (aref data row col))))
-				:pos (tile-v col row))
-	   drawings))))
+	(let ((tile-type (first (aref data row col)))
+	      (tile-pos (second (aref data row col))))
+	  (if (member :slope tile-type)
+	      (draw-slope! (make-v col row) tile-type
+			   :color *green*)
+	      (draw-tile-rect! (tile-v col row)
+			       (tile-attributes->color tile-type)))
+	  (when tile-pos
+	    (push
+	     (make-sprite-drawing
+	      :layer (if (member :foreground tile-type)
+			 :foreground
+			 :background)
+	      :sheet-key :prt-cave
+	      :src-rect (tile-rect (tile-pos tile-pos))
+	      :pos (tile-v col row))
+	     drawings)))))
     drawings))

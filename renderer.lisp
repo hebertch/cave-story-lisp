@@ -39,15 +39,16 @@
 	:debug-damageable
 	:debug-dynamic-collision))
 (defparameter *game-layers*
-  (list :npc
-	:gun
-	:enemy
-	:pickup
-	:player
-	:projectile
-	:foreground
-	:particle
-	:floating-text))
+  (list  :background
+	 :npc
+	 :gun
+	 :enemy
+	 :pickup
+	 :player
+	 :projectile
+	 :foreground
+	 :particle
+	 :floating-text))
 (defparameter *hud-layers*
   (list :hud-bg :hud :hud-fg
 	:text-box :text))
@@ -97,7 +98,7 @@
   "Renderer func. Renders a line."
   (set-draw-color! renderer (line-drawing-color ld))
   (let ((a (sub-v (line-drawing-a ld) camera-pos))
-	(b (sub-v (line-drawing-a ld) camera-pos)))
+	(b (sub-v (line-drawing-b ld) camera-pos)))
     (sdl:render-draw-line renderer
 			  (round (x a))
 			  (round (y a))
@@ -108,19 +109,16 @@
   "Interface to the *RENDER-LIST*"
   (push r *render-list*))
 
-(defun draw-slope! (tile-pos tile-type)
+(defun draw-slope! (tile-pos tile-type &key (color *white*))
   "Pushes a slope to the DEBUG-RENDER-LIST"
-  (let ((pos (tile-pos->pos tile-pos)))
-    (push-render! (make-line-drawing
-		   :color *white*
-		   :a (make-v (x pos) (tile-slope-pos-y
-				       tile-pos
-				       tile-type
-				       (x pos)))
-		   :b (make-v (+ (x pos) *tile-size*) (tile-slope-pos-y
-						       tile-pos
-						       tile-type
-						       (+ (x pos) *tile-size*)))))))
+  (let* ((pos (tile-pos->pos tile-pos))
+	 (left (x pos))
+	 (right (+ left *tile-size*)))
+    (push-render!
+     (make-line-drawing
+      :color color
+      :a (make-v left (tile-slope-pos-y tile-pos tile-type left))
+      :b (make-v right (tile-slope-pos-y tile-pos tile-type right))))))
 
 (defun pixel-v (v)
   (make-v (round (x v))
@@ -212,6 +210,39 @@
   (push-render!
    (make-text-line-drawing :pos pos :text text :layer :text)))
 
+(defun render-background! (renderer camera-pos)
+  (let ((len (tiles 4)))
+    (dotimes (x (1+ (floor (x *window-dims*) len)))
+      (dotimes (y (+ 2 (floor (y *window-dims*) len)))
+	(render-sprite!
+	 renderer
+	 (make-sprite-drawing
+	  :layer :foreground
+	  :sheet-key :bk-blue
+	  :src-rect (create-rect (zero-v) (both-v len))
+	  :pos
+	  (make-v (+ (* (1- x) len)
+		     (mod (* *parallax-scale* (- (x camera-pos))) len))
+		  (+ (* (1- y) len)
+		     (mod (* *parallax-scale* (y camera-pos)) len))))
+	 (zero-v))))))
+
+(defun render-text! (renderer font r)
+  (let ((start-pos (text-line-drawing-pos r))
+	(text (text-line-drawing-text r)))
+    (loop for c across text
+       for i from 0
+       do
+	 (destructuring-bind (texture dims)
+	     (get-character-texture! c font)
+	   (sdl:render-texture
+	    renderer
+	    texture
+	    (rect->sdl-rect (create-rect (zero-v) dims))
+	    (rect->sdl-rect
+	     (create-rect (+v start-pos (zero-v :x (* i (x dims))))
+			  dims)))))))
+
 (defun render! (renderer font render-list camera-pos)
   (sdl:set-render-draw-color renderer 128 128 128 255)
   (sdl:render-clear renderer)
@@ -226,22 +257,9 @@
 	 (remove-if
 	  (lambda (x) (not (member (drawing-layer x) *screen-layers*)))
 	  render-list)))
-    (let ((len (tiles 4)))
-      (dotimes (x (1+ (floor (x *window-dims*) len)))
-	(dotimes (y (+ 2 (floor (y *window-dims*) len)))
-	  (render-sprite! renderer
-			  (make-sprite-drawing
-			   :layer :foreground
-			   :sheet-key :bk-blue
-			   :src-rect (create-rect (zero-v) (both-v len))
-			   :pos
-			   (make-v (+ (* (1- x) len)
-				      (mod (* *parallax-scale* (- (x camera-pos))) len))
-				   (+ (* (1- y) len)
-				      (mod (* *parallax-scale* (y camera-pos)) len))))
-			  (zero-v)))))
 
-
+    (render-background! renderer camera-pos)
+    
     (dolist (r render-list)
       (cond
 	((sprite-drawing-p r) (render-sprite! renderer r camera-pos))
@@ -253,18 +271,6 @@
 	((sprite-drawing-p r) (render-sprite! renderer r (zero-v)))
 	((rect-drawing-p r) (render-rect! renderer r (zero-v)))
 	((line-drawing-p r) (render-line! renderer r (zero-v)))
-	((text-line-drawing-p r)
-	 (let ((start-pos (text-line-drawing-pos r))
-	       (text (text-line-drawing-text r)))
-	   (loop for c across text
-	      for i from 0
-	      do
-		(destructuring-bind (texture dims) (get-character-texture! c font)
-		  (sdl:render-texture
-		   renderer
-		   texture
-		   (rect->sdl-rect (create-rect (zero-v) dims))
-		   (rect->sdl-rect (create-rect (+v start-pos (zero-v :x (* i (x dims))))
-						dims))))))))))
+	((text-line-drawing-p r) (render-text! renderer font r)))))
 
   (sdl:render-present renderer))

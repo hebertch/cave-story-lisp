@@ -953,18 +953,18 @@ This can be abused with the machine gun in TAS."
 		    (make-camera (v/2 *window-dims*) (zero-v) player))))
       (create-entity! (make-hud player gun-exps hud))
 
-      (create-entity! (make-critter (make-v (+ (tiles 14) (tiles 1/4))
-					    (tiles 6))
-				    player
-				    damage-numbers))
-      (create-entity!
-       (make-elephant (make-v (tiles 7) (tiles 6)) player camera damage-numbers))
-      (dolist (x '(1 3 6 7))
-	(create-entity! (make-bat x 7 player)))
-      (create-entity! (make-dorito (make-v (+ (tiles 14) (tiles 1/4))
-					   (tiles 6))
-				   (make-v 0 0)
-				   :medium))
+      ;; (create-entity! (make-critter (make-v (+ (tiles 14) (tiles 1/4))
+      ;; 					    (tiles 6))
+      ;; 				    player
+      ;; 				    damage-numbers))
+      ;; (create-entity!
+      ;;  (make-elephant (make-v (tiles 7) (tiles 6)) player camera damage-numbers))
+      ;; (dolist (x '(1 3 6 7))
+      ;; 	(create-entity! (make-bat x 7 player)))
+      ;; (create-entity! (make-dorito (make-v (+ (tiles 14) (tiles 1/4))
+      ;; 					   (tiles 6))
+      ;; 				   (make-v 0 0)
+      ;; 				   :medium))
       (make-game :player player
 		 :camera camera
 		 :stage stage
@@ -973,7 +973,7 @@ This can be abused with the machine gun in TAS."
 		 :damage-numbers damage-numbers))))
 
 (defun reset! ()
-  (switch-to-new-song! :lastcave)
+  ;;(switch-to-new-song! :lastcave)
   (set-music-volume! 20)
 
   (dolist (s *registry-syms*)
