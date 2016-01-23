@@ -34,15 +34,18 @@
     (:up    (flush-rect-pos rect (tiles (y tile-pos))      offset-dir))
     (:down  (flush-rect-pos rect (tiles (1+ (y tile-pos))) offset-dir))))
 
+(defun tile-type-slope-type (tile-type)
+  (car (intersection tile-type '(:lbt :rts :lbs :rtt :rbs :ltt :rbt :lts))))
+
 (defun tile-type-offset (tile-type)
-  (ecase tile-type
+  (ecase (tile-type-slope-type tile-type)
     ((:lbt :rts) 0)
     ((:lbs :rtt) (tiles 1/2))
     ((:rbs :ltt) (tiles 1))
     ((:rbt :lts) (tiles 1/2))))
 
 (defun tile-type-slope (tile-type)
-  (ecase tile-type
+  (ecase (tile-type-slope-type tile-type)
     ((:lbt :rts) 1/2)
     ((:lbs :rtt) 1/2)
     ((:rbs :ltt) -1/2)
@@ -88,7 +91,7 @@
 (defun short-slope? (tile-type)
   (member tile-type '(:lts :rts :lbs :rbs)))
 (defun wall? (tile-type)
-  (eq tile-type :wall))
+  (member tile-type '(:solid-player)))
 
 (defun top-slope? (tile-type)
   (member tile-type '(:ltt :lts :rts :rtt)))

@@ -194,7 +194,7 @@ the get- function that is produced."
 
 ;; TODO: Generate meaningful names or just live with these?
 (defun generate-song-fnames ()
-  (loop for f in (directory "/home/chebert/Projects/lisp/cave-story/content/remastered-music/*_intro.ogg")
+  (loop for f in (directory "./content/remastered-music/*_intro.ogg")
      appending (let* ((str (file-namestring f))
 		      (name (subseq str 0 (- (length str) (length "_intro.ogg")))))
 		 (list (alexandria:make-keyword (format nil "~:@(~A~)" name)) name))))

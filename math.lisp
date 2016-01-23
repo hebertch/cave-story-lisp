@@ -66,6 +66,7 @@
   (anorm (apply #'append alists)))
 
 (defun aset (alist &rest keys-and-vals)
+  (assert (listp alist))
   (amerge
    (loop for (k v) on keys-and-vals by #'cddr
       collecting (progn
@@ -77,6 +78,7 @@
   #_(aset _ . keys-and-vals))
 
 (defun arem (alist &rest keys)
+  (assert (listp alist))
   (remove-if (lambda (pair)
 	       (member (car pair) keys))
 	     alist))
@@ -92,6 +94,7 @@ If fn is null and default is provided, return (funcall default val)."
 
 (defun aupdate (alist &rest keys-and-fns)
   "If a function is NIL, then the new value is the same as the old."
+  (assert (listp alist))
   (amerge
    (loop for (k fn) on keys-and-fns by #'cddr
       collecting (progn

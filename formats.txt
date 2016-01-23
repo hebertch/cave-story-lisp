@@ -1,0 +1,91 @@
+All integers are little-endian.
+
+*.pxm files: Map files
+[0000-0003] P, X, M, 0x10
+[0004-0005] Two-byte integer: Width
+[0006-0007] Two-byte integer: Height
+[0008-xxxx] Block ID:
+Each byte corresponds to a 16x16 block in the .pbm file.
+Blocks are counted from the top-left to bottom-right, laterally.
+
+
+*.pxe files: Event files
+[OOOO-OOO3] P, X, E, 0x00
+[0004-0008] 4-Byte integer, number of events in the file.
+And then that integer's number of:
+[2 Bytes] X coord
+[2 Bytes] Y coord
+[2 Bytes] Flag ID
+[2 Bytes] Event number
+[2 Bytes] Sprite ID
+[2 Bytes] Flags
+
+
+*.pxa files: Tile definitions
+Each byte defines the type of each 16x16 block in its corresponding .pbm file.
+Blocks are counted from the top-left to bottom-right, laterally.
+
+Flag: 0x20 -- Underwater
+Types:
+0x00    Empty
+0x01    Background
+0x02    Water, background
+0x03 ?  Passable by player only, background
+0x05    Passable by bullets
+0x40    Free (Forground)
+0x41    Solid block -- foreground?
+0x42    Spikes
+0x43    Destroyable block?
+0x44    Passable by player only, foreground
+0x45    Passable by player & enemies, foreground
+0x46    Passable by enemies
+0x50    Ceiling slope: /, 1
+0x51    Ceiling slope: /, 2
+0x52    Ceiling slope: \, 1
+0x53    Ceiling slope: \, 2
+0x54    Floor slope: \, 1
+0x55    Floor slope: \, 2
+0x56    Floor slope: /, 1
+0x57    Floor slope: /, 2
+0x60    Water (Foreground) [0x40 with 0x20 flag]
+0x61 ?  (Probably 0x41 with the 0x20 [water] flag)
+0x80 *  Wind (left)
+0x81    Wind (up)
+0x82 *  Wind (right)
+0x83    Wind (down)
+0x84 ?  (Becomes empty space)
+
+Notes:
+
+1. Tiles marked by a * are unused in the .pxm files themselves. They are generated when you turn fans on in the game.
+
+2. It seems that 0x01 acts exactly the same as 0x00 does. It looks like Pixel may have later programmed 0x00 to act like 0x01, and the game may have previously required background blocks to use 0x01 to display correctly.
+
+3. 0x20 (water) flag doesn't work with:
+0x01-05 --These Become empty space.
+0x43-46 --Treated as foreground tiles, impassable to NPCs.
+Also, 0x20 doesn't work on its own, most likely it is being treated as 0x00 (empty) with the 0x20 flag, but modified empty is still empty.
+
+4. It seems the .pxa files are padded with a number of nulls equal to the number of tiles it defines. Anyone know the reason for this?
+
+5. I haven't -entirely- confirmed the behavior of tiles marked by a ?.
+You can find them in these tilesets...
+0x03:
+      Store: Used as barriers around the Mimiga jail cells? 
+0x44: (Stood up to one test)
+      Almond: The broken cross-hatch tiles in the Core room.
+      Hell: The barrier beneath you that Heavy Press falls into.
+      Maze: Vertical railings in the room where Curly Brace fights with you.
+      Sand: Barriers of all sorts, similar to 0x45
+      Store: Used in the Maze Store, vertical barriers again.
+      Weed: The vines that form a barrier between sections.
+0x45: (Stood up to one test)
+      Sand: See-through, walk-through blocks. Foreground
+0x61:
+      Cent: The 'X'd out pipe in the plantation.
+      River: Blank blocks, apparently unused.
+0x84:
+      Maze: As far as I can tell, this isn't USED on a map. Anyone?
+
+
+Also: It seems that NPCs (but not the player) treat unknown blocks as impassable. I tested this with a type 0x04 block.

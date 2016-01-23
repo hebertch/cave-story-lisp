@@ -2,12 +2,6 @@
 
 (in-package #:cave-story)
 
-#+nil
-(progn
-  (ql:quickload :cave-story)
-  (in-package :cave-story)
-  (swank:set-default-directory "/home/chebert/Projects/lisp/cave-story-lisp"))
-
 (defvar *window*)
 (defvar *renderer*)
 (defvar *font*)
@@ -25,7 +19,7 @@
      ,(lambda () (setq *global-paused?* (not *global-paused?*))))
     (((:key :r)
       (:joy :select)) .
-     ,(lambda () (setq *global-game* (reset))))
+     ,(lambda () (setq *global-game* (reset!))))
     (((:joy :r)) .
      ,(lambda ()
 	      (case *input-playback*
@@ -1368,15 +1362,16 @@ This can be abused with the machine gun in TAS."
 	   ((timer-active? (aval e :recover-timer))
 	    (make-v (tiles (* 2 3)) 0))
 	   (t (anim-cycle-offset e)))))
-    (make-sprite-drawing :layer :enemy
-			 :sheet-key :npc-eggs1
-			 :src-rect
-			 (create-rect (+v src-pos
-					  (make-v 0 (if (eq (aval e :facing) :left)
-							0
-							(tiles 3/2))))
-				      *elephant-dims*)
-			 :pos (physics-pos e))))
+    (make-sprite-drawing
+     :layer :enemy
+     :sheet-key :npc-eggs1
+     :src-rect
+     (create-rect (+v src-pos
+		      (make-v 0 (if (eq (aval e :facing) :left)
+				    0
+				    (tiles 3/2))))
+		  *elephant-dims*)
+     :pos (physics-pos e))))
 
 (defun elephant-origin (e)
   (+v (physics-pos e)
@@ -1505,8 +1500,7 @@ This can be abused with the machine gun in TAS."
 (setfn elephant-rage-end
        (comp
 	(aupdatefn
-	 :timers (compose (removefn :rage-timer)
-			  (adjoinfn :anim-cycle)))
+	 :timers (removefn :rage-timer))
 	(asetfn
 	 :anim-cycle (make-fps-cycle 12 #(0 2 4))
 	 :rage-timer nil)))
@@ -1554,12 +1548,12 @@ This can be abused with the machine gun in TAS."
      e stage collision-rects
      (alist
       :left
-      (collision-lambda (data)
+      (lambda (data)
 	(if (eq (aval data :facing) :left)
 	    (aset data :facing :right)
 	    data))
       :right
-      (collision-lambda (data)
+      (lambda (data)
 	(if (eq (aval data :facing) :right)
 	    (aset data :facing :left)
 	    data))))))
@@ -1583,3 +1577,74 @@ This can be abused with the machine gun in TAS."
 	     elephant-rage-effects
 	     elephant-rage-ai
 	     shake-ai))
+
+(defun read-ascii (stream num-chars)
+  "Reads num-chars from stream. Returns a string."
+  (with-output-to-string (s)
+    (loop for char = (code-char (read-byte stream))
+       for i from 1 to num-chars
+       until (char= char (code-char 0)) do (write-char char s))))
+
+(defun read-uint16 (in)
+  (let ((u2 0))
+    (setf (ldb (byte 8 0) u2) (read-byte in))
+    (setf (ldb (byte 8 8) u2) (read-byte in))
+    u2))
+
+(defun read-uint32 (in)
+  (let ((u2 0))
+    (setf (ldb (byte 8 0) u2) (read-byte in))
+    (setf (ldb (byte 8 8) u2) (read-byte in))
+    (setf (ldb (byte 8 16) u2) (read-byte in))
+    (setf (ldb (byte 8 24) u2) (read-byte in))
+    u2))
+
+(defun read-pxm-file (path)
+  "Parses a pxm map file."
+  (with-open-file (stream path :element-type '(unsigned-byte 8))
+    (unless (string= "PXM" (read-ascii stream 3))
+      (error "Bad magic value."))
+    (read-byte stream)
+    (let* ((xsize (read-uint16 stream))
+	   (ysize (read-uint16 stream))
+	   (tile-offset-idxs (loop for i from 1 to (* xsize ysize)
+				collecting (read-byte stream))))
+      (when (read-byte stream nil nil)
+	(warn "Finished reading but there was more data."))
+      (alist
+       :width xsize
+       :height ysize
+       :tile-offset-idxs tile-offset-idxs))))
+
+(defun read-pxa-file (path)
+  (read-file-into-byte-vector path))
+
+;; Tile Attribute Interpretations for pxa
+#||
+// these flag constants come from the stage data somewhere I believe
+// (don't remember for sure) so they should stay constant.
+TA_SOLID_PLAYER	0x00001	// solid to player
+TA_SOLID_NPC	0x00002	// solid to npc's, enemies and enemy shots
+TA_SOLID_SHOT	0x00004	// solid to player's shots
+TA_SOLID	(TA_SOLID_PLAYER | TA_SOLID_SHOT | TA_SOLID_NPC)
+
+TA_HURTS_PLAYER	0x00010	// this tile hurts the player -10hp
+TA_FOREGROUND	0x00020	// tile is drawn in front of sprites
+TA_DESTROYABLE	0x00040	// tile is destroyable if player shoots it
+TA_WATER	0x00080	// tile is water/underwater
+TA_CURRENT	0x00100	// blows player (tilecode checked to see which direction)
+TA_SLOPE	0x00200	// is a slope (the tilecode is checked to see what kind)
+||#
+
+;; Background Scrolling Types
+#||
+BK_FIXED			0 // backdrop does not scroll
+BK_PARALLAX			1 // bk is parallax scroll
+BK_FOLLOWFG			2 // scrolls, but is 1:1 with foreground
+BK_HIDE				3 // draw #000021 blue instead of a graphic
+BK_HIDE2			4 // identical to BK_HIDE
+BK_FASTLEFT			5 // fast scroll left, items falling left (ironhead battle)
+BK_FASTLEFT_LAYERS		6 // fast scroll left w/ layers, items falling left (Outer Wall)
+BK_FASTLEFT_LAYERS_NOFALLLEFT	7 // fast left w/ layers, but items don't fall left (Balcony)
+BK_HIDE3			8 // identical to BK_HIDE
+||#
