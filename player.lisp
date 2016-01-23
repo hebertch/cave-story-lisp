@@ -72,9 +72,6 @@
      (player-gun-exp p (aval pickup :amt)))
     (t p)))
 
-(defun player-state (p)
-  (estate p))
-
 (defun player-walk-acc (p)
   (const-accelerator
    (* (if (player-on-ground? p)

@@ -144,7 +144,7 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 	   (player-collision-rect
 	    (cdr (assoc side *player-collision-rectangles-alist*)))
 	   (player-rect
-	    (rect-offset player-collision-rect (physics-pos (player-state player)))))
+	    (rect-offset player-collision-rect (physics-pos (estate player)))))
       (draw-rect! rect *blue* :layer :debug-dynamic-collision)
       (draw-rect! player-rect *green* :layer :debug-dynamic-collision)
       (when (rects-collide? rect player-rect)
@@ -176,7 +176,7 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 
 (def-subsystem pickup (player)
   (let ((rect (pickup-rect (estate entity-id)))
-	(player-rect  (player-damage-collision-rect (player-state player))))
+	(player-rect  (player-damage-collision-rect (estate player))))
     (draw-rect! rect *green* :layer :debug-pickup)
     (draw-rect! player-rect *blue* :layer :debug-pickup)
     (when (rects-collide? rect player-rect)
@@ -187,7 +187,7 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 
 (def-subsystem damage-collision (player)
   (let ((rect (damage-collision-rect (estate entity-id)))
-	(player-rect (player-damage-collision-rect (player-state player))))
+	(player-rect (player-damage-collision-rect (estate player))))
     (draw-rect! rect *red* :layer :debug-damage-collision)
     (draw-rect! player-rect *blue* :layer :debug-damage-collision)
     (when (rects-collide? rect player-rect)

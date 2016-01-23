@@ -824,7 +824,7 @@ This can be abused with the machine gun in TAS."
     (draw-point! focus *cyan*)
     (draw-point! (clamp-pos focus camera-bounds) *red*)
     (draw-rect! camera-bounds *cyan*))
-  (draw-point! (camera-target-from-player (player-state (aval game :player))) *white*)
+  (draw-point! (camera-target-from-player (estate (aval game :player))) *white*)
   ;; End Debug Drawings.
 
   (play-sounds! *sfx-play-list*)
@@ -925,7 +925,7 @@ This can be abused with the machine gun in TAS."
   (alist :id (gen-entity-id)))
 
 (defun current-gun-exp (player gun-exps)
-  (let* ((gun-name (player-current-gun-name (player-state player)))
+  (let* ((gun-name (player-current-gun-name (estate player)))
 	 (exp (gun-exp-for (estate gun-exps) gun-name)))
     (values
      exp
@@ -1031,7 +1031,7 @@ This can be abused with the machine gun in TAS."
   (throw 'exit nil))
 
 (defun face-player (pos player)
-  (if (< (x pos) (x (physics-pos (player-state player)))) :right :left))
+  (if (< (x pos) (x (physics-pos (estate player)))) :right :left))
 
 (defun bat-fns-alist ()
   (alist :damageable-hit-react-fn #'bat-hit-react
