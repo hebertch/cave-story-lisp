@@ -26,13 +26,13 @@
    (camera-fns-alist)
    (alist :subsystems *camera-subsystems*)
    (alist
+    :id (gen-entity-id)
     :target
     (make-target-kin-2d
      focus vel
-     (camera-target-from-player (estate player))
-     (player-vel (estate player)))
-    :physics '(:target)
-    :player player)))
+     (camera-target-from-player player)
+     (player-vel player))
+    :physics '(:target))))
 
 (defun make-shake ()
   (make-wave-motion :dir :left
@@ -54,8 +54,10 @@
 	     :target
 	     (constantly (target-kin-2d-update-target
 			  (aval c :target)
-			  (camera-target-from-player (estate (aval c :player)))
-			  (player-vel (estate (aval c :player)))))
+			  (camera-target-from-player
+			   (estate (aval *global-game* :player)))
+			  (player-vel
+			   (estate (aval *global-game* :player)))))
 	     :physics (when shake-tick?
 			(removefn :shake-v :shake-h))
 	     :timers (when shake-tick?

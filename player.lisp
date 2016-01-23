@@ -1,6 +1,6 @@
 (in-package :cave-story)
 
-(defparameter *player-invincible* t)
+(defparameter *player-invincible* nil)
 
 (defun player-fns-alist ()
   (alist :stage-collision-fn #'player-stage-collision
@@ -12,8 +12,7 @@
 (defparameter *player-subsystems*
   '(:timers :input :physics :stage-collision :drawable))
 
-(defun make-player (hud projectile-groups damage-numbers gun-exps
-		    active-systems)
+(defun make-player ()
   (amerge
    (player-fns-alist)
    (alist :subsystems *player-subsystems*)
@@ -21,12 +20,7 @@
 	  :gun-name-cycle (make-cycle :seq *gun-names*)
 	  :health-amt 3
 	  :max-health-amt 3
-	  :damage-numbers damage-numbers
-	  :gun-exps gun-exps
-	  :projectile-groups projectile-groups
 	  :id (gen-entity-id)
-	  :active-systems active-systems
-	  :hud hud
 	  :timers '(:walk-cycle :invincible-timer)
 	  :walk-cycle
 	  (make-fps-cycle 12 #(0 1 0 2) t)
@@ -142,13 +136,15 @@
 (defun player-fire-gun (p)
   (let ((gun-name (player-current-gun-name p)))
     (let ((num-projectile-groups
-	   (projectile-groups-count (estate (aval p :projectile-groups))
+	   (projectile-groups-count (estate
+				     (aval *global-game* :projectile-groups))
 				    gun-name))
 	  (nozzle-pos (player-nozzle-pos p))
 	  (dir (if (player-actual-v-facing p)
 		   (player-actual-v-facing p)
 		   (aval p :h-facing)))
-	  (lvl (gun-level (gun-exp-for (estate (aval p :gun-exps)) gun-name)
+	  (lvl (gun-level (gun-exp-for (estate (aval *global-game*
+						     :gun-exps)) gun-name)
 			  (cdr (assoc gun-name *gun-level-exps*))))
 	  (max-projectiles (cdr (assoc gun-name *max-projectile-groups*))))
       (if (and (not (null max-projectiles))
@@ -177,7 +173,7 @@
 	 (aupdatefn
 	  :new-states
 	  (pushfn (active-systems-switch-to-dialog
-		   (estate (aval p :active-systems))))
+		   (estate (aval *global-game* :active-systems))))
 	  :sound-effects (pushfn :player-die))))
        (t
 	(comp
@@ -191,9 +187,9 @@
 	  :new-states
 	  (appendfn
 	   (list (hud-health-changed
-		  (estate (aval p :hud)))
+		  (estate (aval *global-game* :hud)))
 		 (incr-gun-exp
-		  (estate (aval p :gun-exps))
+		  (estate (aval *global-game* :gun-exps))
 		  (player-current-gun-name p)
 		  (- (* 2 dmg-amt))))))))))
    p))
@@ -202,9 +198,9 @@
   (aupdate p
 	   :new-states
 	   (appendfn
-	    (list (incr-gun-exp (estate (aval p :gun-exps))
+	    (list (incr-gun-exp (estate (aval *global-game* :gun-exps))
 				(player-current-gun-name p) amt)
-		  (hud-exp-changed (estate (aval p :hud)))))))
+		  (hud-exp-changed (estate (aval *global-game* :hud)))))))
 
 (defun char-sprite-pos (h-facing v-facing interacting? walk-idx)
   "Grabs the tile-pos for the character given the character's state."

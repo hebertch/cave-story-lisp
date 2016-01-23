@@ -33,12 +33,14 @@
 		      (update-and-render! *global-game*)))))))
 
 (defun make-game
-    (&key player camera stage projectile-groups
+    (&key player camera stage projectile-groups hud gun-exps
        damage-numbers active-systems (input (make-input)))
   (alist :player player
 	 :camera camera
 	 :stage stage
 	 :projectile-groups projectile-groups
+	 :gun-exps gun-exps
+	 :hud hud
 	 :damage-numbers damage-numbers
 	 :active-systems active-systems
 	 :input input))
@@ -609,13 +611,11 @@ This can be abused with the machine gun in TAS."
   (alist :draw-fn #'hud-drawing))
 
 (defparameter *hud-subsystems* '(:timers :drawable))
-(defun make-hud  (player gun-exps id)
+(defun make-hud ()
   (amerge
    (hud-fns-alist)
    (alist :subsystems *hud-subsystems*)
-   (alist :player player
-	  :gun-exps gun-exps
-	  :id id
+   (alist :id (gen-entity-id)
 	  :timers '(:exp-change-timer :health-change-timer)
 	  :exp-change-timer (make-expiring-timer (s->ms 1))
 	  :health-change-timer (make-expiring-timer (s->ms 1/2)))))
@@ -633,7 +633,7 @@ This can be abused with the machine gun in TAS."
 			  :pos (tile-v 1 2))
      drawings)
 
-    (let ((health (aval (player-state (aval hud :player)) :health-amt)))
+    (let ((health (aval (estate (aval *global-game* :player)) :health-amt)))
       (when (timer-active? (aval hud :health-change-timer))
 	(push
 	 (make-sprite-drawing
@@ -643,7 +643,8 @@ This can be abused with the machine gun in TAS."
 	  (create-rect-cmpts 0 (tiles/2 4)
 			     (floor (* (tiles/2 bar-tile/2-w)
 				       (/ (aval hud :last-health-amt)
-					  (aval (player-state (aval hud :player))
+					  (aval (estate
+						 (aval *global-game* :player))
 						:max-health-amt))))
 			     (tiles/2 1))
 	  :pos (tiles/2-v bar-tile/2-x 4))
@@ -656,7 +657,8 @@ This can be abused with the machine gun in TAS."
 	(create-rect-cmpts 0 (tiles/2 3)
 			   (floor (* (tiles/2 bar-tile/2-w)
 				     (/ health
-					(aval (player-state (aval hud :player))
+					(aval (estate
+					       (aval *global-game* :player))
 					      :max-health-amt))))
 			   (tiles/2 1))
 	:pos (tiles/2-v bar-tile/2-x 4))
@@ -682,8 +684,10 @@ This can be abused with the machine gun in TAS."
 			      :pos exp-pos)
 	 drawings))
 
-      (multiple-value-bind (exp gun-name) (current-gun-exp (aval hud :player)
-							   (aval hud :gun-exps))
+      (multiple-value-bind (exp gun-name) (current-gun-exp (aval *global-game*
+								 :player)
+							   (aval *global-game*
+								 :gun-exps))
 	(let* ((current-level (gun-level exp (cdr (assoc gun-name *gun-level-exps*))))
 	       (next-lvl-exp (exp-for-gun-level gun-name current-level))
 	       (current-lvl-exp (if (zerop current-level)
@@ -733,7 +737,7 @@ This can be abused with the machine gun in TAS."
 	(lambda (hud)
 	  (aset hud
 		:last-health-amt
-		(aval (player-state (aval hud :player)) :health-amt)))))
+		(aval (player-state (aval *global-game* :player)) :health-amt)))))
 
 (defun textbox-tile-drawing (src-pos pos)
   (let ((size (both-v (tiles/2 1))))
@@ -781,6 +785,7 @@ This can be abused with the machine gun in TAS."
 
 (defun update-and-render! (game)
   "The Main Loop, called once per *FRAME-TIME*."
+  (declare (optimize debug))
   (when (eq *input-playback* :playback)
     (setq game
 	  (aset game :input (next-playback-input))))
@@ -936,41 +941,39 @@ This can be abused with the machine gun in TAS."
   (setq *global-game* (second state)))
 
 (defun create-game! ()
-  (let ((damage-numbers (create-entity! (make-damage-numbers)))
-	(projectile-groups (create-entity! (make-projectile-groups)))
+  (let ((damage-numbers (make-damage-numbers))
+	(projectile-groups (make-projectile-groups))
 	(stage (make-stage (basic-stage)))
-	(hud (gen-entity-id))
-	(gun-exps (create-entity! (make-gun-exps)))
-	(active-systems (create-entity! (make-active-systems))))
-    (create-entity! stage)
-    (let* ((player (create-entity!
-		    (make-player hud
-				 projectile-groups
-				 damage-numbers
-				 gun-exps
-				 active-systems)))
-	   (camera (create-entity!
-		    (make-camera (v/2 *window-dims*) (zero-v) player))))
-      (create-entity! (make-hud player gun-exps hud))
+	(hud (make-hud))
+	(player (make-player))
+	(gun-exps (make-gun-exps))
+	(active-systems (make-active-systems)))
+    (let ((camera (make-camera (v/2 *window-dims*) (zero-v) player)))
+      (mapc #'create-entity!
+	    (nconc
+	     (list
+	      damage-numbers
+	      projectile-groups
+	      stage
+	      hud
+	      player
+	      gun-exps
+	      active-systems
+	      camera
 
-      ;; (create-entity! (make-critter (make-v (+ (tiles 14) (tiles 1/4))
-      ;; 					    (tiles 6))
-      ;; 				    player
-      ;; 				    damage-numbers))
-      ;; (create-entity!
-      ;;  (make-elephant (make-v (tiles 7) (tiles 6)) player camera damage-numbers))
-      ;; (dolist (x '(1 3 6 7))
-      ;; 	(create-entity! (make-bat x 7 player)))
-      ;; (create-entity! (make-dorito (make-v (+ (tiles 14) (tiles 1/4))
-      ;; 					   (tiles 6))
-      ;; 				   (make-v 0 0)
-      ;; 				   :medium))
-      (make-game :player player
-		 :camera camera
+	      (make-critter (tile-v (+ 14 1/4) 6))
+	      (make-elephant (tile-v 7 6))
+	      (make-dorito (tile-v (+ 14 1/4) 6) (zero-v) :medium))
+	     (mapcar #_(make-bat _ 7) '(1 3 6 7))))
+
+      (make-game :player (aval player :id)
+		 :camera (aval camera :id)
 		 :stage stage
-		 :projectile-groups projectile-groups
-		 :active-systems active-systems
-		 :damage-numbers damage-numbers))))
+		 :hud (aval hud :id)
+		 :projectile-groups (aval projectile-groups :id)
+		 :gun-exps (aval gun-exps :id)
+		 :active-systems (aval active-systems :id)
+		 :damage-numbers (aval damage-numbers :id)))))
 
 (defun reset! ()
   ;;(switch-to-new-song! :lastcave)
@@ -1043,7 +1046,7 @@ This can be abused with the machine gun in TAS."
 (defparameter *bat-subsystems*
   '(:timers :damage-collision :damageable :drawable :physics))
 
-(defun make-bat (tile-x tile-y player)
+(defun make-bat (tile-x tile-y)
   (amerge
    (bat-fns-alist)
    (alist :subsystems *bat-subsystems*)
@@ -1058,8 +1061,7 @@ This can be abused with the machine gun in TAS."
 		     *frame-time*))
     :timers '(:anim-cycle)
     :anim-cycle (make-fps-cycle 14 #(0 2 1 2))
-    :health-amt 1
-    :player player)))
+    :health-amt 1)))
 
 (defun bat-drawing (b)
   (make-sprite-drawing :layer :enemy
@@ -1167,7 +1169,7 @@ This can be abused with the machine gun in TAS."
 	 :origin-fn #'physics-tile-origin
 	 :inertia-vel-fn #'critter-inertia-vel))
 
-(defun make-critter (pos player damage-numbers)
+(defun make-critter (pos)
   (let ((id (gen-entity-id)))
     (amerge
      (critter-fns-alist)
@@ -1175,9 +1177,7 @@ This can be abused with the machine gun in TAS."
      (alist
       :stage-physics (gravity-kin-2d :pos pos)
       :physics '(:stage-physics)
-      :player player
       :health-amt 2
-      :damage-numbers damage-numbers
       :id id))))
 
 (defparameter *critter-subsystems*
@@ -1195,13 +1195,14 @@ This can be abused with the machine gun in TAS."
       obj))
 
 (defun face-player-ai (obj)
-  (aset obj :facing (face-player (physics-pos obj) (aval obj :player))))
+  (aset obj :facing (face-player (physics-pos obj)
+				 (aval *global-game* :player))))
 
 (defun critter-jump-ai (c)
   (let ((facing (aval c :facing)))
 
     (if (and (not (timer-active? (aval c :sleep-timer)))
-	     (< (origin-dist c (estate (aval c :player))) (tiles 4))
+	     (< (origin-dist c (estate (aval *global-game* :player))) (tiles 4))
 	     (aval c :ground-tile))
 	(aupdate c
 		 :stage-physics
@@ -1215,7 +1216,8 @@ This can be abused with the machine gun in TAS."
 	 (sprite-tile-x (cond
 			  ((and sleep-timer (timer-active? sleep-timer))
 			   0)
-			  ((< (origin-dist c (estate (aval c :player))) (tiles 7))
+			  ((< (origin-dist c (estate (aval *global-game* :player)))
+			      (tiles 7))
 			   1)
 			  (t
 			   0))))
@@ -1339,7 +1341,7 @@ This can be abused with the machine gun in TAS."
   '(:timers :drawable :physics :stage-collision
     :damageable :damage-collision :dynamic-collision))
 
-(defun make-elephant  (pos player camera damage-numbers)
+(defun make-elephant (pos)
   (amerge
    (elephant-fns-alist)
    (alist :subsystems *elephant-subsystems*)
@@ -1350,10 +1352,7 @@ This can be abused with the machine gun in TAS."
 	  :timers '(:anim-cycle)
 	  :anim-cycle (make-fps-cycle 12 #(0 2 4))
 	  :health-amt 8
-	  :facing :left
-	  :damage-numbers damage-numbers
-	  :camera camera
-	  :player player)))
+	  :facing :left)))
 
 (defparameter *elephant-dims* (make-v (tiles 2) (tiles 3/2)))
 (defun elephant-drawing (e)
@@ -1414,7 +1413,7 @@ This can be abused with the machine gun in TAS."
 
 (defun damage-number-update-amtfn (amt)
   (lambda (obj)
-    (let* ((d (estate (aval obj :damage-numbers)))
+    (let* ((d (estate (aval *global-game* :damage-numbers)))
 	   (e (aval obj :id))
 	   (dns (aval d :pairs))
 	   (existing-dn-pair (assoc e dns)))
@@ -1527,7 +1526,7 @@ This can be abused with the machine gun in TAS."
       (aupdate e
 	       :sound-effects (pushfn :big-footstep)
 	       :new-states
-	       (pushfn (timed-camera-shake (estate (aval e :camera))
+	       (pushfn (timed-camera-shake (estate (aval *global-game* :camera))
 					   (s->ms 1/2)))
 	       :new-entities
 	       (appendfn

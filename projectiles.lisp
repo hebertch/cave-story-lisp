@@ -158,7 +158,8 @@
 					       t))))))
     (aupdate obj
 	     :new-states (pushfn (projectile-groups-add
-				  (estate (aval obj :projectile-groups))
+				  (estate (aval *global-game*
+						:projectile-groups))
 				  (cons :missile-launcher
 					(mapcar (avalfn :id) pg))))
 	     :new-entities (appendfn pg))))
@@ -239,7 +240,7 @@
 	     :sound-effects (pushfn :polar-star-shoot-3)
 	     :new-states
 	     (pushfn (projectile-groups-add
-		      (estate (aval obj :projectile-groups))
+		      (estate (aval *global-game* :projectile-groups))
 		      (cons :polar-star (mapcar (avalfn :id) pg))))
 	     :new-entities
 	     (appendfn
