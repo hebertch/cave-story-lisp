@@ -852,18 +852,14 @@ This can be abused with the machine gun in TAS."
   (unless *stage-viewer*
     (draw-point! (camera-target-from-player (estate (aval game :player)))
 		 *white*))
-  (when *stage-viewer*
-    (let ((mouse-pos (input-mouse-coords (aval game :input))))
-      (draw-rect! (make-rect
-		   :pos mouse-pos
-		   :size (make-v 4 4))
-		  *white*
-		  :filled? t
-		  :layer :debug-mouse)
-      (let ((tp (mouse->tile-pos mouse-pos (current-camera-pos))))
-	(draw-text-line! (make-v 320 0)
-			 (format nil "TILE: [~A, ~A]"
-				 (x tp) (y tp))))))
+  (let ((mouse-pos (input-mouse-coords (aval game :input))))
+    (draw-point! mouse-pos
+		 *white*
+		 :layer :debug-mouse)
+    (let ((tp (mouse->tile-pos mouse-pos (current-camera-pos))))
+      (draw-text-line! (make-v 320 0)
+		       (format nil "TILE: [~A, ~A]"
+			       (x tp) (y tp)))))
 
   ;; End Debug Drawings.
   (play-sounds! *sfx-play-list*)
@@ -987,7 +983,7 @@ This can be abused with the machine gun in TAS."
 		 (read-pxm-file "./content/stages/Cave.pxm")
 		 (read-pxa-file "./content/stages/Cave.pxa"))))
 	(hud (make-hud))
-	(player (make-player :pos (tile-v 37 11)))
+	(player (make-player :pos (tile-v 48 37)))
 	(gun-exps (make-gun-exps))
 	(active-systems (make-active-systems)))
     (let ((camera (make-camera (physics-pos player) (zero-v) player)))

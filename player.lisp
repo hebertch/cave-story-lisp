@@ -50,8 +50,8 @@
   (loop for (key x y w h) in
        '((:bottom 11 16 10 15)
 	 (:top 7 2 18 15)
-	 (:left 6 8 10 12)
-	 (:right 16 8 10 12))
+	 (:left 6 10 10 14)
+	 (:right 16 10 10 15))
      collect (cons key (make-rect :pos (make-v x y) :size (make-v w h)))))
 
 (defun player-collision-rect (side)
