@@ -324,3 +324,34 @@ If fn is null and default is provided, return (funcall default val)."
 
 (defun rand-angle ()
   (rand-val-between (- pi) pi))
+
+(defmacro rolling-average-time (param &body body)
+  "Stores and retrieves rolling average data in and from param.
+Pushes the time-delta for body onto the rolling average.
+Returns the value from body."
+  (with-gensyms (val start-time)
+    `(let (,val
+	   (,start-time (sdl:get-ticks)))
+       (setq ,val (progn ,@body))
+       (setq ,param (push-time-delta ,param (- (sdl:get-ticks) ,start-time)))
+       ,val)))
+
+(defun make-rolling-average (num-entries)
+  (alist :num-entries num-entries))
+
+(defun push-time-delta (time-data delta)
+  "Push a time delta onto a rolling average"
+  (let ((times (aval time-data :times))
+	(num-entries (aval time-data :num-entries)))
+    (if (< (length times) num-entries)
+	(aupdate time-data
+		 :times (pushfn delta))
+	(aupdate time-data
+		 :times (lambda (times)
+			  (cons delta (butlast times)))))))
+(defun rolling-average (time-data)
+  "Calculate the average from a rolling average."
+  (let ((total 0))
+    (dolist (time (aval time-data :times))
+      (setq total (+ total time)))
+    (/ total (length (aval time-data :times)))))
