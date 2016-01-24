@@ -1,6 +1,3 @@
-
-* play a sound
-* replace an entity
-* create an entity
-* return a drawing
-* kill an entity
+* Compiler for drawings:
+  take a list of drawings and compile it into a list
+  of layers & functions that takes a camera-pos and a renderer
