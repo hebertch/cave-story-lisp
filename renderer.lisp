@@ -1,26 +1,43 @@
 (in-package :cave-story)
 
-(defstruct drawing
-  (layer :debug))
+(defun make-sprite-drawing (&key layer sheet-key src-rect pos)
+  (assert (and sheet-key src-rect pos layer))
+  (alist :layer layer
+	 :sheet-key sheet-key
+	 :src-rect src-rect
+	 :pos pos
+	 :type :sprite))
 
-(defstruct (sprite-drawing (:include drawing))
-  sheet-key
-  src-rect
-  pos)
+(defun make-rect-drawing (&key layer color rect filled?)
+  (assert (and color rect layer))
+  (alist :layer layer
+	 :color color
+	 :rect rect
+	 :filled? filled?
+	 :type :rect))
 
-(defstruct (rect-drawing (:include drawing))
-  color
-  rect
-  filled?)
+(defun make-line-drawing (&key layer color a b)
+  (assert (and color a b layer))
+  (alist :layer layer
+	 :color color
+	 :a a :b b
+	 :type :line))
 
-(defstruct (line-drawing (:include drawing))
-  color a b)
+(defun make-text-line-drawing (&key layer pos text)
+  (assert (and text pos layer))
+  (alist :layer layer
+	 :pos pos
+	 :text text
+	 :type :text))
 
-(defstruct (text-line-drawing (:include drawing))
-  pos text)
+(defun make-compiled-drawing (&key layer drawings)
+  (assert (and drawings layer))
+  (alist :layer layer
+	 :drawings drawings
+	 :type :compiled))
 
-(defstruct (compiled-drawing (:include drawing))
-  drawings)
+(defun drawing-layer (drawing)
+  (aval drawing :layer))
 
 (defparameter *red* #(255 0 0 255))
 (defparameter *green* #(0 255 0 255))
@@ -84,9 +101,9 @@
 
 (defun render-sprite! (renderer sprite-drawing camera-pos)
   "Renderer func. Renders a sprite."
-  (let ((src (sprite-drawing-src-rect sprite-drawing))
-	(pos (sub-v (sprite-drawing-pos sprite-drawing) camera-pos))
-	(keysym (sprite-drawing-sheet-key sprite-drawing)))
+  (let ((src (aval sprite-drawing :src-rect))
+	(pos (sub-v (aval sprite-drawing :pos) camera-pos))
+	(keysym (aval sprite-drawing :sheet-key)))
     (let ((src-pos (rect-pos src))
 	  (size (rect-size src)))
       (when (and (< (- (x size)) (x pos) (x *window-dims*))
@@ -100,8 +117,8 @@
 
 (defun render-rect! (renderer rect-drawing camera-pos)
   "Renderer func. Renders a rect."
-  (set-draw-color! renderer (rect-drawing-color rect-drawing))
-  (let* ((rect (rect-drawing-rect rect-drawing))
+  (set-draw-color! renderer (aval rect-drawing :color))
+  (let* ((rect (aval rect-drawing :rect))
 	 (pos (-v (rect-pos rect) camera-pos))
 	 (size (rect-size rect)))
     (when (and (< (- (x size)) (x pos) (x *window-dims*))
@@ -109,13 +126,13 @@
       (sdl:render-rect renderer
 		       (rect->sdl-rect
 			(rect-offset rect (sub-v (zero-v) camera-pos)))
-		       :filled? (rect-drawing-filled? rect-drawing)))))
+		       :filled? (aval rect-drawing :filled?)))))
 
 (defun render-line! (renderer ld camera-pos)
   "Renderer func. Renders a line."
-  (set-draw-color! renderer (line-drawing-color ld))
-  (let ((a (sub-v (line-drawing-a ld) camera-pos))
-	(b (sub-v (line-drawing-b ld) camera-pos)))
+  (set-draw-color! renderer (aval ld :color))
+  (let ((a (sub-v (aval ld :a) camera-pos))
+	(b (sub-v (aval ld :b) camera-pos)))
     (sdl:render-draw-line renderer
 			  (round (x a))
 			  (round (y a))
@@ -258,8 +275,8 @@
 	 (zero-v))))))
 
 (defun render-text! (renderer font r)
-  (let ((start-pos (text-line-drawing-pos r))
-	(text (text-line-drawing-text r)))
+  (let ((start-pos (aval r :pos))
+	(text (aval r :text)))
     (loop for c across text
        for i from 0
        do
@@ -274,36 +291,43 @@
 			  dims)))))))
 
 (defun render-drawing! (drawing renderer font camera-pos)
-  (cond
-    ((compiled-drawing-p drawing)
+  (case (aval drawing :type)
+    (:compiled
      (mapc #_(render-drawing! _ renderer font camera-pos)
-	   (compiled-drawing-drawings drawing)))
-    ((sprite-drawing-p drawing) (render-sprite! renderer drawing camera-pos))
-    ((rect-drawing-p drawing) (render-rect! renderer drawing camera-pos))
-    ((line-drawing-p drawing) (render-line! renderer drawing camera-pos))
-    ((text-line-drawing-p drawing) (render-text! renderer font drawing))))
+	   (aval drawing :drawings)))
+    (:sprite (render-sprite! renderer drawing camera-pos))
+    (:rect (render-rect! renderer drawing camera-pos))
+    (:line (render-line! renderer drawing camera-pos))
+    (:text (render-text! renderer font drawing))))
+
+(defun game-drawings (drawings)
+  "Return drawings that are part of the game, given that drawings
+are sorted by layer."
+  (remove-if
+   #_(member _ *screen-layers*)
+   drawings
+   :key #'drawing-layer))
+
+(defun hud-drawings (drawings)
+  "Return drawings that are part of the hud, given that drawings
+are sorted by layer."
+  (remove-if-not
+   #_(member _ *screen-layers*)
+   drawings
+   :key #'drawing-layer))
 
 (defun render! (render-list camera-pos)
   (sdl:set-render-draw-color *renderer* 128 128 128 255)
   (sdl:render-clear *renderer*)
 
-  (setq render-list (nsort-by-layer (remove-invisible-layers render-list)))
-
-  (let ((render-list
-	 (remove-if
-	  (lambda (x) (member (drawing-layer x) *screen-layers*))
-	  render-list))
-	(screen-render-list
-	 (remove-if
-	  (lambda (x) (not (member (drawing-layer x) *screen-layers*)))
-	  render-list)))
+  (let ((drawings (nsort-by-layer (remove-invisible-layers render-list)))) 
 
     (render-background! *renderer* camera-pos)
     
-    (dolist (r render-list)
+    (dolist (r (game-drawings drawings))
       (render-drawing! r *renderer* *font* camera-pos))
 
-    (dolist (r screen-render-list)
+    (dolist (r (hud-drawings drawings))
       (render-drawing! r *renderer* *font* (zero-v))))
 
   (sdl:render-present *renderer*))

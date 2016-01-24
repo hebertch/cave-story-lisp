@@ -112,11 +112,11 @@
   (physics-pos m))
 
 (defun missile-projectile-drawing (p)
-  (make-sprite-drawing :layer :projectile
-		       :sheet-key :bullet
-		       :src-rect
-		       (aval p :sprite-rect)
-		       :pos (missile-projectile-pos p)))
+  (list (make-sprite-drawing :layer :projectile
+			     :sheet-key :bullet
+			     :src-rect
+			     (aval p :sprite-rect)
+			     :pos (missile-projectile-pos p))))
 
 
 
@@ -260,10 +260,10 @@
 		     tp))))))
 
 (defun polar-star-projectile-drawing (p)
-  (make-sprite-drawing :layer :projectile
-		       :sheet-key :bullet
-		       :src-rect (aval p :sprite-rect)
-		       :pos (physics-pos p)))
+  (list (make-sprite-drawing :layer :projectile
+			     :sheet-key :bullet
+			     :src-rect (aval p :sprite-rect)
+			     :pos (physics-pos p))))
 
 (defun polar-star-projectile-collision-rect (lvl dir pos)
   (let* ((short-side (ecase lvl

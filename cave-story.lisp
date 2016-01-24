@@ -272,17 +272,18 @@ This can be abused with the machine gun in TAS."
 
 (defun dorito-drawing (d)
   (unless (death-flash? (aval d :life-timer))
-    (make-sprite-drawing
-     :layer :pickup
-     :sheet-key :npc-sym
+    (list
+     (make-sprite-drawing
+      :layer :pickup
+      :sheet-key :npc-sym
 
-     :src-rect
-     (create-rect
-      (+v (anim-cycle-offset d)
-	  (tile-v 0 (1+ (position (aval d :size) '(:small :medium :large)))))
-      (make-v (tiles 1) (1- (tiles 1))))
+      :src-rect
+      (create-rect
+       (+v (anim-cycle-offset d)
+	   (tile-v 0 (1+ (position (aval d :size) '(:small :medium :large)))))
+       (make-v (tiles 1) (1- (tiles 1))))
 
-     :pos (physics-pos d))))
+      :pos (physics-pos d)))))
 
 (defun set-x-v (v x)
   (make-v x (y v)))
@@ -374,13 +375,13 @@ This can be abused with the machine gun in TAS."
 
 (defun single-loop-sprite-drawing (s pos)
   (unless (aval s :dead?)
-    (make-sprite-drawing :layer (aval s :layer)
-			 :sheet-key (aval s :sheet-key)
-			 :src-rect
-			 (tile-rect (tile-v (cycle-current
-					     (aval s :anim-cycle))
-					    (aval s :tile-y)))
-			 :pos pos)))
+    (list (make-sprite-drawing :layer (aval s :layer)
+			       :sheet-key (aval s :sheet-key)
+			       :src-rect
+			       (tile-rect (tile-v (cycle-current
+						   (aval s :anim-cycle))
+						  (aval s :tile-y)))
+			       :pos pos))))
 
 (defun anim-cycle-idx (obj)
   (aval (aval obj :anim-cycle) :idx))
@@ -410,15 +411,14 @@ This can be abused with the machine gun in TAS."
 
 (defun particle-drawing (p)
   (let ((sp (estate (aval p :single-loop-sprite))))
-    (if (aval sp :dead?)
-	nil
-	(make-sprite-drawing :layer :particle
-			     :sheet-key (aval sp :sheet-key)
-			     :src-rect
-			     (tile-rect (tile-v (cycle-current
-						 (aval sp :anim-cycle))
-						(aval sp :tile-y)))
-			     :pos (aval p :pos)))))
+    (unless (aval sp :dead?)
+      (list (make-sprite-drawing :layer :particle
+				 :sheet-key (aval sp :sheet-key)
+				 :src-rect
+				 (tile-rect (tile-v (cycle-current
+						     (aval sp :anim-cycle))
+						    (aval sp :tile-y)))
+				 :pos (aval p :pos))))))
 
 (defun make-projectile-star-particle (center-pos)
   (make-particle :seq (alexandria:iota 4)
@@ -1130,13 +1130,13 @@ This can be abused with the machine gun in TAS."
     :health-amt 1)))
 
 (defun bat-drawing (b)
-  (make-sprite-drawing :layer :enemy
-		       :sheet-key :npc-cemet
-		       :src-rect
-		       (tile-rect (+v (tile-v 2 2)
-				      (anim-cycle-offset b)
-				      (facing-offset b)))
-		       :pos (physics-pos b)))
+  (list (make-sprite-drawing :layer :enemy
+			     :sheet-key :npc-cemet
+			     :src-rect
+			     (tile-rect (+v (tile-v 2 2)
+					    (anim-cycle-offset b)
+					    (facing-offset b)))
+			     :pos (physics-pos b))))
 
 (defun facing-offset (obj)
   (tile-v 0 (if (eq (aval obj :facing) :left) 0 1)))
@@ -1287,11 +1287,12 @@ This can be abused with the machine gun in TAS."
 			   1)
 			  (t
 			   0))))
-    (make-sprite-drawing :layer :enemy
-			 :sheet-key :npc-cemet
-			 :src-rect (tile-rect (+v (tile-v sprite-tile-x 0)
-						  (facing-offset c)))
-			 :pos (physics-pos c))))
+    (list
+     (make-sprite-drawing :layer :enemy
+			  :sheet-key :npc-cemet
+			  :src-rect (tile-rect (+v (tile-v sprite-tile-x 0)
+						   (facing-offset c)))
+			  :pos (physics-pos c)))))
 
 
 
@@ -1427,16 +1428,17 @@ This can be abused with the machine gun in TAS."
 	   ((timer-active? (aval e :recover-timer))
 	    (make-v (tiles (* 2 3)) 0))
 	   (t (anim-cycle-offset e)))))
-    (make-sprite-drawing
-     :layer :enemy
-     :sheet-key :npc-eggs1
-     :src-rect
-     (create-rect (+v src-pos
-		      (make-v 0 (if (eq (aval e :facing) :left)
-				    0
-				    (tiles 3/2))))
-		  *elephant-dims*)
-     :pos (physics-pos e))))
+    (list
+     (make-sprite-drawing
+      :layer :enemy
+      :sheet-key :npc-eggs1
+      :src-rect
+      (create-rect (+v src-pos
+		       (make-v 0 (if (eq (aval e :facing) :left)
+				     0
+				     (tiles 3/2))))
+		   *elephant-dims*)
+      :pos (physics-pos e)))))
 
 (defun elephant-origin (e)
   (+v (physics-pos e)
