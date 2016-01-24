@@ -20,7 +20,7 @@
   pos text)
 
 (defstruct (compiled-drawing (:include drawing))
-  fn)
+  drawings)
 
 (defparameter *red* #(255 0 0 255))
 (defparameter *green* #(0 255 0 255))
@@ -89,36 +89,27 @@
 	(keysym (sprite-drawing-sheet-key sprite-drawing)))
     (let ((src-pos (rect-pos src))
 	  (size (rect-size src)))
-      (sdl:render-texture
-       renderer
-       (get-spritesheet keysym renderer)
-       (sdl:make-rect (x src-pos) (y src-pos) (x size) (y size))
-       (sdl:make-rect (round (x pos)) (round (y pos)) (x size) (y size))))))
+      (when (and (< (- (x size)) (x pos) (x *window-dims*))
+		 (< (- (y size)) (y pos) (y *window-dims*)))
+	(sdl:render-texture
+	 renderer
+	 (get-spritesheet keysym renderer)
+	 (sdl:make-rect (x src-pos) (y src-pos) (x size) (y size))
+	 (sdl:make-rect (round (x pos)) (round (y pos)) (x size) (y size)))))))
 
-(defun compile-sprite-drawing (drawing)
-  (let* ((spritesheet (get-spritesheet
-		       (sprite-drawing-sheet-key drawing)
-		       *renderer*))
-	 (src-rect (sprite-drawing-src-rect drawing))
-	 (src-pos (rect-pos src-rect))
-	 (size (rect-size src-rect)))
-    (lambda (camera-pos)
-      (let ((pos (-v (sprite-drawing-pos drawing) camera-pos)))
-	(when (and (< (- (x size)) (x pos) (x *window-dims*))
-		   (< (- (y size)) (y pos) (y *window-dims*)))
-	  (sdl:render-texture
-	   *renderer*
-	   spritesheet
-	   (sdl:make-rect (x src-pos) (y src-pos) (x size) (y size))
-	   (sdl:make-rect (round (x pos)) (round (y pos)) (x size) (y size))))))))
 
 (defun render-rect! (renderer rect-drawing camera-pos)
   "Renderer func. Renders a rect."
   (set-draw-color! renderer (rect-drawing-color rect-drawing))
-  (sdl:render-rect renderer
-		   (rect->sdl-rect (rect-offset (rect-drawing-rect rect-drawing)
-						(sub-v (zero-v) camera-pos)))
-		   :filled? (rect-drawing-filled? rect-drawing)))
+  (let* ((rect (rect-drawing-rect rect-drawing))
+	 (pos (-v (rect-pos rect) camera-pos))
+	 (size (rect-size rect)))
+    (when (and (< (- (x size)) (x pos) (x *window-dims*))
+	       (< (- (y size)) (y pos) (y *window-dims*)))
+      (sdl:render-rect renderer
+		       (rect->sdl-rect
+			(rect-offset rect (sub-v (zero-v) camera-pos)))
+		       :filled? (rect-drawing-filled? rect-drawing)))))
 
 (defun render-line! (renderer ld camera-pos)
   "Renderer func. Renders a line."
@@ -135,16 +126,19 @@
   "Interface to the *RENDER-LIST*"
   (push r *render-list*))
 
-(defun draw-slope! (tile-pos tile-type &key (color *white*))
-  "Pushes a slope to the DEBUG-RENDER-LIST"
+(defun slope-drawing (tile-pos tile-type color layer)
   (let* ((pos (tile-pos->pos tile-pos))
 	 (left (x pos))
 	 (right (+ left *tile-size*)))
-    (push-render!
-     (make-line-drawing
-      :color color
-      :a (make-v left (tile-slope-pos-y tile-pos tile-type left))
-      :b (make-v right (tile-slope-pos-y tile-pos tile-type right))))))
+    (make-line-drawing
+     :layer layer
+     :color color
+     :a (make-v left (tile-slope-pos-y tile-pos tile-type left))
+     :b (make-v right (tile-slope-pos-y tile-pos tile-type right)))))
+
+(defun draw-slope! (tile-pos tile-type &key (layer :debug) (color *white*))
+  "Pushes a slope to the DEBUG-RENDER-LIST"
+  (push-render! (slope-drawing tile-pos tile-type color layer)))
 
 (defun pixel-v (v)
   (make-v (round (x v))
@@ -164,13 +158,14 @@
 (defun layer< (a b)
   (< (position a *layers*) (position b *layers*)))
 
-(defun sort-by-layers (render-list)
-  (sort
-   (remove-if-not
-    (lambda (d)
-      (member (drawing-layer d) *visible-layers*))
-    render-list)
-   #'layer< :key #'drawing-layer))
+(defun nsort-by-layer (drawings)
+  (sort drawings #'layer< :key #'drawing-layer))
+
+(defun remove-invisible-layers (drawings)
+  (remove-if-not
+   #_(member _ *visible-layers*)
+   drawings
+   :key #'drawing-layer))
 
 (defun draw-rect! (rect color &key (layer :debug) filled?)
   (push-render!
@@ -179,14 +174,23 @@
 		      :layer layer
 		      :filled? filled?)))
 
+(defun tile-rect-drawing (pos color layer filled?)
+  (make-rect-drawing :color color
+		     :rect (tile-rect pos)
+		     :layer layer
+		     :filled? filled?))
+
 (defun draw-tile-rect! (pos color &key (layer :debug) filled?)
-  (draw-rect! (tile-rect pos) color :layer layer :filled? filled?))
+  (push-render! (tile-rect-drawing pos color layer filled?)))
+
+(defun point-drawing (pos color layer size)
+  (make-rect-drawing :rect (centered-rect pos (both-v size))
+		     :color color
+		     :layer layer
+		     :filled? t))
 
 (defun draw-point! (pos color &key (layer :debug) (size 5))
-  (draw-rect! (centered-rect pos (both-v size))
-	      color
-	      :layer layer
-	      :filled? t))
+  (push-render! (point-drawing pos color layer size)))
 
 (defun draw-line! (a b color &key (layer :debug))
   (push-render!
@@ -272,7 +276,8 @@
 (defun render-drawing! (drawing renderer font camera-pos)
   (cond
     ((compiled-drawing-p drawing)
-     (funcall (compiled-drawing-fn drawing) camera-pos))
+     (mapc #_(render-drawing! _ renderer font camera-pos)
+	   (compiled-drawing-drawings drawing)))
     ((sprite-drawing-p drawing) (render-sprite! renderer drawing camera-pos))
     ((rect-drawing-p drawing) (render-rect! renderer drawing camera-pos))
     ((line-drawing-p drawing) (render-line! renderer drawing camera-pos))
@@ -282,7 +287,7 @@
   (sdl:set-render-draw-color *renderer* 128 128 128 255)
   (sdl:render-clear *renderer*)
 
-  (setq render-list (sort-by-layers render-list))
+  (setq render-list (nsort-by-layer (remove-invisible-layers render-list)))
 
   (let ((render-list
 	 (remove-if
@@ -303,38 +308,25 @@
 
   (sdl:render-present *renderer*))
 
-(defun compile-drawings (drawings)
-  "Given a list of drawings return a list of compiled-drawings."
-  (mapcar #'compile-layer-group (group-by-layer (sort-by-layers drawings))))
-
-(defun group-by-layer (drawings)
-  "Return a list of (layer . drawings) pairs where drawings
-have the same layer."
-  (loop until (null drawings)
+(defun group-by (key list)
+  "Group list into lists sharing the same key.
+Key is a function. 
+Does not modify the order of the list.
+Returns a list of (key . sublist) pairs."
+  (loop until (null list)
      collecting
-       (let ((layer (drawing-layer (car drawings))))
-	 (cons layer
+       (let ((key-val (funcall key (car list))))
+	 (cons key-val
 	       (loop
-		  while (and drawings
-			     (eq (drawing-layer (car drawings)) layer))
-		  collecting (car drawings)
-		  do (setq drawings (cdr drawings)))))))
+		  while (and list
+			     (eq (funcall key (car list)) key-val))
+		  collecting (car list)
+		  do (setq list (cdr list)))))))
 
-(defun compile-drawing (drawing)
-  (cond
-    ((sprite-drawing-p drawing) (compile-sprite-drawing drawing))
-    ((rect-drawing-p drawing) #_(render-rect! *renderer* drawing _))
-    ((line-drawing-p drawing) #_(render-line! *renderer* drawing _))
-    ((text-line-drawing-p drawing)
-     (lambda (camera-pos)
-       (declare (ignore camera-pos))
-       (render-text! *renderer* *font* drawing)))))
-
-(defun compile-layer-group (group)
-  "Compile a (layer . drawings) group into a compiled-drawing."
-  (let ((drawings (map 'vector #'compile-drawing (cdr group))))
-    (make-compiled-drawing
-     :layer (car group)
-     :fn (lambda (camera-pos)
-	   (loop for d across drawings do
-		(funcall d camera-pos))))))
+(defun ncompile-drawings (drawings)
+  "Return a list of compiled drawings given a list of drawings."
+  (mapcar (lambda (pair)
+	    (let ((layer (car pair))
+		  (drawings (cdr pair)))
+	      (make-compiled-drawing :layer layer :drawings drawings)))
+	  (group-by #'drawing-layer (nsort-by-layer drawings))))

@@ -990,8 +990,7 @@ This can be abused with the machine gun in TAS."
 	(player (make-player :pos (tile-v 37 11)))
 	(gun-exps (make-gun-exps))
 	(active-systems (make-active-systems)))
-    (compile-stage-drawing! stage)
-    (let ((camera (make-camera (v/2 *window-dims*) (zero-v) player)))
+    (let ((camera (make-camera (physics-pos player) (zero-v) player)))
       (mapc #'create-entity!
 	    (list
 	     damage-numbers
@@ -1025,7 +1024,7 @@ This can be abused with the machine gun in TAS."
     (set s nil))
   (init-entity-registry!)
 
-  (setq *global-paused?* t)
+  (setq *global-paused?* nil)
 
   (create-game!))
 

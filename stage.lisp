@@ -50,13 +50,14 @@
     stage))
 
 (defun stage-fns-alist ()
-  (alist :draw-fn #'compiled-stage-drawing))
+  (alist :draw-fn #_(aval _ :drawings)))
 
 (defun make-stage (stage-data)
   (amerge
    (stage-fns-alist)
    (alist :subsystems *stage-subsystems*)
    (alist :data stage-data
+	  :drawings (ncompile-drawings (stage-drawing stage-data))
 	  :id (gen-entity-id))))
 
 (defun stage-dims (stage)
@@ -168,25 +169,27 @@ Stage-collisions returns the final data argument."
 
 (defun tile-attributes->color (tile-type)
   (cond ((null tile-type) *white*)
-	((member :slope tile-type))
+	((member :water tile-type) *cyan*)
 	((member :destroyable tile-type) *magenta*)
 	((member :hurts-player tile-type) *red*)
 	((member :solid-player tile-type) *blue*)
 	((member :foreground tile-type) *yellow*)
 	(t *red*)))
 
-(defun stage-drawing (stage)
+(defun stage-drawing (stage-data)
   (let ((drawings nil)
-	(data (aval stage :data)))
+	(data stage-data))
     (dotimes (row (array-dimension data 0))
       (dotimes (col (array-dimension data 1))
 	(let ((tile-type (first (aref data row col)))
 	      (tile-pos (second (aref data row col))))
-	  (if (member :slope tile-type)
-	      (draw-slope! (make-v col row) tile-type
-			   :color *green*)
-	      (draw-tile-rect! (tile-v col row)
-			       (tile-attributes->color tile-type)))
+	  (push
+	   (if (member :slope tile-type)
+	       (slope-drawing (make-v col row) tile-type *green* :debug)
+	       (tile-rect-drawing
+		(tile-v col row) (tile-attributes->color tile-type)
+		:debug nil))
+	   drawings)
 	  (when tile-pos
 	    (push
 	     (make-sprite-drawing
@@ -198,12 +201,3 @@ Stage-collisions returns the final data argument."
 	      :pos (tile-v col row))
 	     drawings)))))
     drawings))
-
-(defvar *compiled-stage-drawing* nil)
-(defun compiled-stage-drawing (stage)
-  (declare (ignore stage))
-  *compiled-stage-drawing*)
-
-(defun compile-stage-drawing! (stage)
-  (setq *compiled-stage-drawing*
-	(compile-drawings (stage-drawing stage))))
