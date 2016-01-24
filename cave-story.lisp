@@ -122,9 +122,7 @@
 		  (if *global-paused?*
 		      (draw-text-line! (zero-v) "PAUSED")
 		      (setq *global-game* (update! *global-game*)))
-		  (render! *renderer*
-			   *font*
-			   *render-list*
+		  (render! *render-list*
 			   (current-camera-pos))
 		  (setq frame-timer (- frame-timer
 				       (* *update-period* *frame-time*))))
@@ -992,6 +990,7 @@ This can be abused with the machine gun in TAS."
 	(player (make-player :pos (tile-v 37 11)))
 	(gun-exps (make-gun-exps))
 	(active-systems (make-active-systems)))
+    (compile-stage-drawing! stage)
     (let ((camera (make-camera (v/2 *window-dims*) (zero-v) player)))
       (mapc #'create-entity!
 	    (list

@@ -50,7 +50,7 @@
     stage))
 
 (defun stage-fns-alist ()
-  (alist :draw-fn #'stage-drawing))
+  (alist :draw-fn #'compiled-stage-drawing))
 
 (defun make-stage (stage-data)
   (amerge
@@ -198,3 +198,12 @@ Stage-collisions returns the final data argument."
 	      :pos (tile-v col row))
 	     drawings)))))
     drawings))
+
+(defvar *compiled-stage-drawing* nil)
+(defun compiled-stage-drawing (stage)
+  (declare (ignore stage))
+  *compiled-stage-drawing*)
+
+(defun compile-stage-drawing! (stage)
+  (setq *compiled-stage-drawing*
+	(compile-drawings (stage-drawing stage))))

@@ -19,6 +19,9 @@
 (defstruct (text-line-drawing (:include drawing))
   pos text)
 
+(defstruct (compiled-drawing (:include drawing))
+  fn)
+
 (defparameter *red* #(255 0 0 255))
 (defparameter *green* #(0 255 0 255))
 (defparameter *blue* #(0 0 255 255))
@@ -91,6 +94,21 @@
        (get-spritesheet keysym renderer)
        (sdl:make-rect (x src-pos) (y src-pos) (x size) (y size))
        (sdl:make-rect (round (x pos)) (round (y pos)) (x size) (y size))))))
+
+(defun compile-sprite-drawing (drawing)
+  (let* ((spritesheet (get-spritesheet
+		       (sprite-drawing-sheet-key drawing)
+		       *renderer*))
+	 (src-rect (sprite-drawing-src-rect drawing))
+	 (src-pos (rect-pos src-rect))
+	 (size (rect-size src-rect)))
+    (lambda (camera-pos)
+      (let ((pos (-v (sprite-drawing-pos drawing) camera-pos)))
+	(sdl:render-texture
+	 *renderer*
+	 spritesheet
+	 (sdl:make-rect (x src-pos) (y src-pos) (x size) (y size))
+	 (sdl:make-rect (round (x pos)) (round (y pos)) (x size) (y size)))))))
 
 (defun render-rect! (renderer rect-drawing camera-pos)
   "Renderer func. Renders a rect."
@@ -249,9 +267,18 @@
 	     (create-rect (+v start-pos (zero-v :x (* i (x dims))))
 			  dims)))))))
 
-(defun render! (renderer font render-list camera-pos)
-  (sdl:set-render-draw-color renderer 128 128 128 255)
-  (sdl:render-clear renderer)
+(defun render-drawing! (drawing renderer font camera-pos)
+  (cond
+    ((compiled-drawing-p drawing) (funcall (compiled-drawing-fn drawing)
+					   camera-pos))
+    ((sprite-drawing-p drawing) (render-sprite! renderer drawing camera-pos))
+    ((rect-drawing-p drawing) (render-rect! renderer drawing camera-pos))
+    ((line-drawing-p drawing) (render-line! renderer drawing camera-pos))
+    ((text-line-drawing-p drawing) (render-text! renderer font drawing))))
+
+(defun render! (render-list camera-pos)
+  (sdl:set-render-draw-color *renderer* 128 128 128 255)
+  (sdl:render-clear *renderer*)
 
   (setq render-list (sort-by-layers render-list))
 
@@ -264,19 +291,48 @@
 	  (lambda (x) (not (member (drawing-layer x) *screen-layers*)))
 	  render-list)))
 
-    (render-background! renderer camera-pos)
+    (render-background! *renderer* camera-pos)
     
     (dolist (r render-list)
-      (cond
-	((sprite-drawing-p r) (render-sprite! renderer r camera-pos))
-	((rect-drawing-p r) (render-rect! renderer r camera-pos))
-	((line-drawing-p r) (render-line! renderer r camera-pos))))
+      (render-drawing! r *renderer* *font* camera-pos))
 
     (dolist (r screen-render-list)
-      (cond
-	((sprite-drawing-p r) (render-sprite! renderer r (zero-v)))
-	((rect-drawing-p r) (render-rect! renderer r (zero-v)))
-	((line-drawing-p r) (render-line! renderer r (zero-v)))
-	((text-line-drawing-p r) (render-text! renderer font r)))))
+      (render-drawing! r *renderer* *font* (zero-v))))
 
-  (sdl:render-present renderer))
+  (sdl:render-present *renderer*))
+
+(defun compile-drawings (drawings)
+  "Given a list of drawings return a list of compiled-drawings."
+  (mapcar #'compile-layer-group (group-by-layer (sort-by-layers drawings))))
+
+(defun group-by-layer (drawings)
+  "Return a list of (layer . drawings) pairs where drawings
+have the same layer."
+  (loop until (null drawings)
+     collecting
+       (let ((layer (drawing-layer (car drawings))))
+	 (cons layer
+	       (loop
+		  while (and drawings
+			     (eq (drawing-layer (car drawings)) layer))
+		  collecting (car drawings)
+		  do (setq drawings (cdr drawings)))))))
+
+(defun compile-drawing (drawing)
+  (cond
+    ((sprite-drawing-p drawing) (compile-sprite-drawing drawing))
+    ((rect-drawing-p drawing) #_(render-rect! *renderer* drawing _))
+    ((line-drawing-p drawing) #_(render-line! *renderer* drawing _))
+    ((text-line-drawing-p drawing)
+     (lambda (camera-pos)
+       (declare (ignore camera-pos))
+       (render-text! *renderer* *font* drawing)))))
+
+(defun compile-layer-group (group)
+  "Compile a (layer . drawings) group into a compiled-drawing."
+  (let ((drawings (map 'vector #'compile-drawing (cdr group))))
+    (make-compiled-drawing
+     :layer (car group)
+     :fn (lambda (camera-pos)
+	   (loop for d across drawings do
+		(funcall d camera-pos))))))
