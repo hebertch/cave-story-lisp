@@ -7,6 +7,9 @@
 (defvar *font*)
 (defvar *global-game*)
 
+(defparameter *stage-viewer* t)
+(defvar *stage-viewer-camera-pos* (scale-v *window-dims* 1/2))
+
 ;; Debug params.
 (defparameter *update-period* 1
   "Number of frames per update. 1 for real-time.")
@@ -61,6 +64,18 @@
 		    (funcall action)
 		    (return))))
 
+      (setq *stage-viewer-camera-pos*
+	    (+v *stage-viewer-camera-pos*
+		(cond ((find :up pressed-keys)
+		       (make-v 0 (- (* *tile-size* 3))))
+		      ((find :down pressed-keys)
+		       (make-v 0 (* *tile-size* 3)))
+		      ((find :left pressed-keys)
+		       (make-v (- (* *tile-size* 3)) 0))
+		      ((find :right pressed-keys)
+		       (make-v (* *tile-size* 3) 0))
+		      (t (zero-v)))))
+
       (when (find :f1 pressed-keys)
 	(mapc (if debug-toggle-off?
 		  (progn
@@ -77,6 +92,13 @@
 	       (print layer)
 	       (setq debug-toggle-off? t)
 	       (toggle-visible-layer! layer)))))))
+
+(defun current-camera-pos ()
+  (if *stage-viewer*
+      *stage-viewer-camera-pos*
+      (camera-pos (estate (aval *global-game* :camera))
+		  (stage-dims->camera-bounds
+		   (stage-dims (aval *global-game* :stage))))))
 
 (defun main! ()
   "Entry point to the game."
@@ -99,13 +121,11 @@
 		(when (>= frame-timer (* *update-period* *frame-time*))
 		  (if *global-paused?*
 		      (draw-text-line! (zero-v) "PAUSED")
-		      (setq *global-game* (update-and-render! *global-game*)))
+		      (setq *global-game* (update! *global-game*)))
 		  (render! *renderer*
 			   *font*
 			   *render-list*
-			   (camera-pos (estate (aval *global-game* :camera))
-				       (stage-dims->camera-bounds
-					(stage-dims (aval *global-game* :stage)))))
+			   (current-camera-pos))
 		  (setq frame-timer (- frame-timer
 				       (* *update-period* *frame-time*))))
 
@@ -783,7 +803,7 @@ This can be abused with the machine gun in TAS."
 	    drawings))
     drawings))
 
-(defun update-and-render! (game)
+(defun update! (game)
   "The Main Loop, called once per *FRAME-TIME*."
   (declare (optimize debug))
   (when (eq *input-playback* :playback)
@@ -799,17 +819,19 @@ This can be abused with the machine gun in TAS."
     (:playback
      (draw-text-line! (zero-v) "PLAYBACK")))
 
-  (let ((active-update-systems (aval (estate (aval game :active-systems)) :update))
-	(stage (aval game :stage))
-	(player (aval game :player)))
-    (update-timers-subsystem! active-update-systems)
-    (update-physics-subsystem! active-update-systems)
-    (update-bullet-subsystem! active-update-systems)
-    (update-stage-collision-subsystem! active-update-systems stage)
-    (update-pickup-subsystem! active-update-systems player)
+  (unless *stage-viewer*
+    (let ((active-update-systems
+	   (aval (estate (aval game :active-systems)) :update))
+	  (stage (aval game :stage))
+	  (player (aval game :player)))
+      (update-timers-subsystem! active-update-systems)
+      (update-physics-subsystem! active-update-systems)
+      (update-bullet-subsystem! active-update-systems)
+      (update-stage-collision-subsystem! active-update-systems stage)
+      (update-pickup-subsystem! active-update-systems player)
 
-    (update-damage-collision-subsystem! active-update-systems player)
-    (update-dynamic-collision-subsystem! active-update-systems player))
+      (update-damage-collision-subsystem! active-update-systems player)
+      (update-dynamic-collision-subsystem! active-update-systems player)))
 
   (let ((active-draw-systems (aval (estate (aval game :active-systems)) :draw)))
     (update-drawable-subsystem! active-draw-systems))
