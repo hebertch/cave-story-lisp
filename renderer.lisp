@@ -104,11 +104,13 @@
 	 (size (rect-size src-rect)))
     (lambda (camera-pos)
       (let ((pos (-v (sprite-drawing-pos drawing) camera-pos)))
-	(sdl:render-texture
-	 *renderer*
-	 spritesheet
-	 (sdl:make-rect (x src-pos) (y src-pos) (x size) (y size))
-	 (sdl:make-rect (round (x pos)) (round (y pos)) (x size) (y size)))))))
+	(when (and (< (- (x size)) (x pos) (x *window-dims*))
+		   (< (- (y size)) (y pos) (y *window-dims*)))
+	  (sdl:render-texture
+	   *renderer*
+	   spritesheet
+	   (sdl:make-rect (x src-pos) (y src-pos) (x size) (y size))
+	   (sdl:make-rect (round (x pos)) (round (y pos)) (x size) (y size))))))))
 
 (defun render-rect! (renderer rect-drawing camera-pos)
   "Renderer func. Renders a rect."
@@ -269,8 +271,8 @@
 
 (defun render-drawing! (drawing renderer font camera-pos)
   (cond
-    ((compiled-drawing-p drawing) (funcall (compiled-drawing-fn drawing)
-					   camera-pos))
+    ((compiled-drawing-p drawing)
+     (funcall (compiled-drawing-fn drawing) camera-pos))
     ((sprite-drawing-p drawing) (render-sprite! renderer drawing camera-pos))
     ((rect-drawing-p drawing) (render-rect! renderer drawing camera-pos))
     ((line-drawing-p drawing) (render-line! renderer drawing camera-pos))
