@@ -345,16 +345,13 @@
 		       :vel (zero-v :y (y (stage-vel data))))))))
     (alist :bottom
 	   (collision-lambda (data)
-	     (aset
-	      data
-	      :sound-effects
-	      (if (aval data :ground-tile)
-		  (aval data :sound-effects)
-		  (cons :land (aval data :sound-effects)))
-	      :stage-physics
-	      (aset (aval data :stage-physics)
-		    :vel (zero-v :x (x (stage-vel data))))
-	      :new-ground-tile (aval data :tile-type)))
+	     (aupdate data
+		      :sound-effects
+		      (unless (aval data :ground-tile)
+			(pushfn :land))
+		      :stage-physics
+		      (asetfn :vel (zero-v :x (x (stage-vel data))))
+		      :new-ground-tile (constantly (aval data :tile-type))))
 	   :left stop-x :right stop-x
 	   :top
 	   (collision-lambda (data)

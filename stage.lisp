@@ -92,7 +92,7 @@
        ,@forms)))
 
 (defun stage-check/resolve-collision
-    (stage rect offset-dir &key (ground-tile nil ground-tile-supplied-p))
+    (stage rect offset-dir ground-tile ground-tile-supplied-p)
   "Returns (VALUES POS TILE-TYPE)
 Returns a NIL if no collision, otherwise returns a
 valid POS offset in direction OFFSET-DIR.
@@ -107,12 +107,13 @@ Returns the TILE-TYPE of the colliding tile."
 	  (return
 	    (values (flush-rect-with-wall rect tile-pos offset-dir)
 		    tile-type)))
-	 ((member :slope tile-type)
-	  (let* ((top-tile? (intersection tile-type '(:ltt :lts :rts :rtt)))
-		 ;; Test top tiles when going up,
-		 ;; and bottom tiles when going down.
-		 (should-test? (or (and top-tile? (eq offset-dir :down))
-				   (and (not top-tile?) (eq offset-dir :up)))))
+	 ((slope? tile-type)
+	  (let (;; Test top tiles if going up,
+		;; and bottom tiles if going down.
+		(should-test? (or (and (top-slope? tile-type)
+				       (eq offset-dir :down))
+				  (and (bottom-slope? tile-type)
+				       (eq offset-dir :up)))))
 
 	    (when should-test?
 	      ;; Only test if our center is inside the tile.
@@ -122,7 +123,7 @@ Returns the TILE-TYPE of the colliding tile."
 		       (y (tile-slope-pos-y tile-pos tile-type x))
 		       ;; Sticky collisions only apply when going down.
 		       (sticky? (and ground-tile-supplied-p
-				     (not top-tile?)
+				     (bottom-slope? tile-type)
 				     (sticky-collision?
 				      ground-tile
 				      tile-type
@@ -144,27 +145,22 @@ Stage-collisions returns the final data argument."
     (let* ((fn (cdr (assoc side collision-reactions)))
 	   (collision-rect (cdr (assoc side collision-rects))))
       (multiple-value-bind (new-pos tile-type)
-	  (let ((args (list stage
-			    (rect-offset collision-rect
-					 (aval (aval data :stage-physics) :pos))
-			    (opposite-dir side))))
-	    (when ground-tile-provided-p
-	      (appendf args (list :ground-tile ground-tile)))
-	    (apply #'stage-check/resolve-collision args))
+	  (let* ((pos (aval (aval data :stage-physics) :pos))
+		 (rect (rect-offset collision-rect pos)))
+	    (stage-check/resolve-collision
+	     stage rect (opposite-dir side) ground-tile ground-tile-provided-p))
 	(when new-pos
-	  (setq data (aset
-		      data
-		      :stage-physics
-		      (aset (aval data :stage-physics)
-			    :pos (sub-v new-pos (rect-pos collision-rect)))
-		      :tile-type tile-type))
+	  (setq data (aupdate data
+			      :stage-physics
+			      (asetfn :pos
+				      (sub-v new-pos (rect-pos collision-rect)))
+			      :tile-type (constantly tile-type)))
 	  (when fn
 	    (setq data (funcall fn data))))
-	(draw-rect! (rect-offset collision-rect (aval (aval data :stage-physics)
-						      :pos))
+	(draw-rect! (rect-offset collision-rect
+				 (aval (aval data :stage-physics) :pos))
 		    *blue*
-		    :layer
-		    :debug-stage-collision))))
+		    :layer :debug-stage-collision))))
   data)
 
 (defun tile-attributes->color (tile-type)
