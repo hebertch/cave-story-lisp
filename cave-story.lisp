@@ -100,40 +100,70 @@
 		  (stage-dims->camera-bounds
 		   (stage-dims (aval *global-game* :stage))))))
 
+(defvar *update-rolling-average* (make-rolling-average (* *fps* 3)))
+(defvar *frame-rolling-average* (make-rolling-average (* *fps* 3)))
+(defvar *render-rolling-average* (make-rolling-average (* *fps* 3)))
+(defvar *last-update-time*)
+(defvar *frame-timer*)
+
+(defun update-and-render! ()
+  (if *global-paused?*
+      (draw-text-line! (zero-v) "PAUSED")
+      (rolling-average-time *update-rolling-average*
+	(setq *global-game* (update! *global-game*))))
+
+  (draw-text-line!
+   (make-v 0 (- (y *window-dims*) *tile-size*))
+   (format nil "Renderer: ~,0f%"
+	   (rolling-average-percent *render-rolling-average*)))
+  (draw-text-line!
+   (make-v (* 6 *tile-size*) (- (y *window-dims*) *tile-size*))
+   (format nil "Update: ~,0f%"
+	   (rolling-average-percent *update-rolling-average*)))
+  (draw-text-line!
+   (make-v (* 12 *tile-size*) (- (y *window-dims*) *tile-size*))
+   (format nil "Total: ~,0f%"
+	   (rolling-average-percent *frame-rolling-average*)))
+
+  (rolling-average-time *render-rolling-average*
+    (render! *render-list* (current-camera-pos)))
+  (setq *frame-timer* (- *frame-timer*
+			 (* *update-period* *frame-time*))))
+
+(defun main-loop-iteration! ()
+  (let ((transient-input (gather-transient-input!)))
+    (handle-debug-input! transient-input)
+    (setq *global-game*
+	  (aset *global-game*
+		:input (gather-input (aval *global-game* :input)
+				     transient-input))))
+  (when (>= *frame-timer* (* *update-period* *frame-time*))
+    (rolling-average-time *frame-rolling-average* (update-and-render!)))
+
+  (let ((dt (- (sdl:get-ticks) *last-update-time*)))
+    ;; NOTE: if we are paused beyond our control, Don't play catchup.
+    (setq *frame-timer*
+	  (+ *frame-timer*
+	     (min dt (* 2 *frame-time*)))))
+  (setq *last-update-time* (sdl:get-ticks))
+  (music-update!)
+  (sdl:delay 1))
+
 (defun main! ()
   "Entry point to the game."
   (catch 'exit
     (unwind-protect
-	 (let ((frame-timer 0)
-	       last-update-time)
+	 (progn
+	   (setq *frame-timer* 0)
 	   (setq *global-game* (init!))
-	   (setq last-update-time (sdl:get-ticks))
+	   (setq *update-rolling-average* (make-rolling-average (* *fps* 3)))
+	   (setq *render-rolling-average* (make-rolling-average (* *fps* 3)))
+	   (setq *frame-rolling-average* (make-rolling-average (* *fps* 3)))
+	   (setq *last-update-time* (sdl:get-ticks))
 	   (loop do
 		(swank-tools:update)
 		(swank-tools:continuable
-		  (let ((transient-input (gather-transient-input!)))
-		    (handle-debug-input! transient-input)
-		    (setq *global-game*
-			  (aset *global-game*
-				:input (gather-input (aval *global-game* :input)
-						     transient-input)))))
-		
-		(when (>= frame-timer (* *update-period* *frame-time*))
-		  (if *global-paused?*
-		      (draw-text-line! (zero-v) "PAUSED")
-		      (setq *global-game* (update! *global-game*)))
-		  (render! *render-list* (current-camera-pos))
-		  (setq frame-timer (- frame-timer
-				       (* *update-period* *frame-time*))))
-
-		(let ((dt (- (sdl:get-ticks) last-update-time)))
-		  ;; NOTE: if we are paused beyond our control, Don't play catchup.
-		  (setq frame-timer
-			(+ frame-timer
-			   (min dt (* 2 *frame-time*)))))
-		(setq last-update-time (sdl:get-ticks))
-		(music-update!)
-		(sdl:delay 1)))
+		  (main-loop-iteration!))))
       (cleanup!))))
 
 (defun handle-input! (game)
@@ -754,7 +784,7 @@ This can be abused with the machine gun in TAS."
 	(lambda (hud)
 	  (aset hud
 		:last-health-amt
-		(aval (player-state (aval *global-game* :player)) :health-amt)))))
+		(aval (estate (aval *global-game* :player)) :health-amt)))))
 
 (defun textbox-tile-drawing (src-pos pos)
   (let ((size (both-v (tiles/2 1))))

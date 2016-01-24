@@ -351,7 +351,15 @@ Returns the value from body."
 			  (cons delta (butlast times)))))))
 (defun rolling-average (time-data)
   "Calculate the average from a rolling average."
-  (let ((total 0))
+  (let ((total 0)
+	(len (length (aval time-data :times))))
     (dolist (time (aval time-data :times))
       (setq total (+ total time)))
-    (/ total (length (aval time-data :times)))))
+    (if (zerop len)
+	0
+	(/ total len))))
+
+(defun rolling-average-percent (time-data)
+  "Return the rolling average as a percentage of the frame-time."
+  (let ((avg (rolling-average time-data)))
+    (* 100.0 (/ avg *frame-time*))))
