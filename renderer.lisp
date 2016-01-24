@@ -23,6 +23,7 @@
 (defparameter *green* #(0 255 0 255))
 (defparameter *blue* #(0 0 255 255))
 (defparameter *white* #(255 255 255 255))
+(defparameter *black* #(0 0 0 255))
 (defparameter *yellow* #(255 255 0 255))
 (defparameter *magenta* #(255 0 255 255))
 (defparameter *cyan* #(0 255 255 255))
@@ -37,7 +38,9 @@
 	:debug-stage-collision
 	:debug-pickup
 	:debug-damageable
-	:debug-dynamic-collision))
+	:debug-dynamic-collision
+	:debug-camera
+	:debug-mouse))
 (defparameter *game-layers*
   (list  :background
 	 :npc
@@ -52,7 +55,10 @@
 (defparameter *hud-layers*
   (list :hud-bg :hud :hud-fg
 	:text-box :text))
-(defparameter *layers* (append *game-layers* *debug-layers* *hud-layers*))
+(defparameter *debug-screen-layers*
+  (list :debug-mouse))
+(defparameter *layers* (append *game-layers* *debug-layers*
+			       *hud-layers* *debug-screen-layers*))
 (defparameter *screen-layers* (member (first *hud-layers*) *layers*))
 (defparameter *visible-layers* (append *game-layers* *hud-layers*))
 (defparameter *parallax-scale* 1/8)

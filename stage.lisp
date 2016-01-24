@@ -169,6 +169,8 @@ Stage-collisions returns the final data argument."
 (defun tile-attributes->color (tile-type)
   (cond ((null tile-type) *white*)
 	((member :slope tile-type))
+	((member :destroyable tile-type) *magenta*)
+	((member :hurts-player tile-type) *red*)
 	((member :solid-player tile-type) *blue*)
 	((member :foreground tile-type) *yellow*)
 	(t *red*)))

@@ -20,10 +20,10 @@ tile attribute lists."
   (let ((width (aval pxm :width))
 	(height (aval pxm :height))
 	(tile-offset-idxs (aval pxm :tile-offset-idxs)))
-    (let ((stage (make-array (list width height))))
-      (loop for x from 0 below width do
-	   (loop for y from 0 below height do
-		(setf (aref stage x y)
+    (let ((stage (make-array (list height width))))
+      (loop for y from 0 below height do
+	   (loop for x from 0 below width do
+		(setf (aref stage y x)
 		      (list (elt attrs (car tile-offset-idxs))
 			    (pxm-tile-offset-idx->tile-v
 			     (car tile-offset-idxs))))

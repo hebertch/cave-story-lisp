@@ -7,7 +7,7 @@
 (defvar *font*)
 (defvar *global-game*)
 
-(defparameter *stage-viewer* t)
+(defparameter *stage-viewer* nil)
 (defvar *stage-viewer-camera-pos* (scale-v *window-dims* 1/2))
 
 ;; Debug params.
@@ -803,6 +803,9 @@ This can be abused with the machine gun in TAS."
 	    drawings))
     drawings))
 
+(defun mouse->tile-pos (mouse-pos camera-pos)
+  (pos->tile-pos (+v mouse-pos camera-pos)))
+
 (defun update! (game)
   "The Main Loop, called once per *FRAME-TIME*."
   (declare (optimize debug))
@@ -842,13 +845,29 @@ This can be abused with the machine gun in TAS."
 
   ;; (draw-point! (player-nozzle-pos player) *red*)
   (let ((focus (camera-focus (estate (aval game :camera))))
-	(camera-bounds (stage-dims->camera-bounds (stage-dims (aval game :stage)))))
-    (draw-point! focus *cyan*)
-    (draw-point! (clamp-pos focus camera-bounds) *red*)
-    (draw-rect! camera-bounds *cyan*))
-  (draw-point! (camera-target-from-player (estate (aval game :player))) *white*)
-  ;; End Debug Drawings.
+	(camera-bounds (stage-dims->camera-bounds
+			(stage-dims (aval game :stage)))))
+    (unless *stage-viewer*
+      (draw-point! focus *cyan*)
+      (draw-point! (clamp-pos focus camera-bounds) *red*))
+    (draw-rect! camera-bounds *cyan* :layer :debug-camera))
+  (unless *stage-viewer*
+    (draw-point! (camera-target-from-player (estate (aval game :player)))
+		 *white*))
+  (when *stage-viewer*
+    (let ((mouse-pos (input-mouse-coords (aval game :input))))
+      (draw-rect! (make-rect
+		   :pos mouse-pos
+		   :size (make-v 4 4))
+		  *white*
+		  :filled? t
+		  :layer :debug-mouse)
+      (let ((tp (mouse->tile-pos mouse-pos (current-camera-pos))))
+	(draw-text-line! (make-v 320 0)
+			 (format nil "TILE: [~A, ~A]"
+				 (x tp) (y tp))))))
 
+  ;; End Debug Drawings.
   (play-sounds! *sfx-play-list*)
   (setq *sfx-play-list* nil)
 
@@ -965,28 +984,30 @@ This can be abused with the machine gun in TAS."
 (defun create-game! ()
   (let ((damage-numbers (make-damage-numbers))
 	(projectile-groups (make-projectile-groups))
-	(stage (make-stage (basic-stage)))
+	(stage (make-stage
+		(stage-from-file-data
+		 (read-pxm-file "./content/stages/Cave.pxm")
+		 (read-pxa-file "./content/stages/Cave.pxa"))))
 	(hud (make-hud))
-	(player (make-player))
+	(player (make-player :pos (tile-v 37 11)))
 	(gun-exps (make-gun-exps))
 	(active-systems (make-active-systems)))
     (let ((camera (make-camera (v/2 *window-dims*) (zero-v) player)))
       (mapc #'create-entity!
-	    (nconc
-	     (list
-	      damage-numbers
-	      projectile-groups
-	      stage
-	      hud
-	      player
-	      gun-exps
-	      active-systems
-	      camera
+	    (list
+	     damage-numbers
+	     projectile-groups
+	     stage
+	     hud
+	     player
+	     gun-exps
+	     active-systems
+	     camera
 
-	      (make-critter (tile-v (+ 14 1/4) 6))
-	      (make-elephant (tile-v 7 6))
-	      (make-dorito (tile-v (+ 14 1/4) 6) (zero-v) :medium))
-	     (mapcar #_(make-bat _ 7) '(1 3 6 7))))
+	     ;; (make-critter (tile-v (+ 14 1/4) 6))
+	     ;; (make-elephant (tile-v 7 6))
+	     ;; (make-dorito (tile-v (+ 14 1/4) 6) (zero-v) :medium))
+	     ))
 
       (make-game :player (aval player :id)
 		 :camera (aval camera :id)

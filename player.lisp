@@ -12,7 +12,7 @@
 (defparameter *player-subsystems*
   '(:timers :input :physics :stage-collision :drawable))
 
-(defun make-player ()
+(defun make-player (&key pos)
   (amerge
    (player-fns-alist)
    (alist :subsystems *player-subsystems*)
@@ -29,7 +29,7 @@
 	  :physics '(:stage-physics)
 	  :stage-physics
 	  (make-kin-2d
-	   :pos (scale-v *window-dims* 1/2)
+	   :pos pos
 	   :vel (zero-v)
 	   :clamper-vx
 	   (clamper+- *player-max-speed-x*)

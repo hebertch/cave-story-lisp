@@ -106,10 +106,10 @@
 		     (ti-released-buttons ti)))
 	   (:mouse-motion
 	    (multiple-value-bind (x y) (sdl:event-get-mouse-xy *event*)
-	      (setf (ti-mouse-coords ti) (vector x y))))
+	      (setf (ti-mouse-coords ti) (make-v x y))))
 	   (:mouse-wheel
 	    (multiple-value-bind (x y) (sdl:event-get-mouse-xy *event*)
-	      (setf (ti-mouse-wheel-dt ti) (vector x y))))
+	      (setf (ti-mouse-wheel-dt ti) (make-v x y))))
 
 	   ;; Window-Manager
 	   (:quit (quit))))
