@@ -122,8 +122,7 @@
 		  (if *global-paused?*
 		      (draw-text-line! (zero-v) "PAUSED")
 		      (setq *global-game* (update! *global-game*)))
-		  (render! *render-list*
-			   (current-camera-pos))
+		  (render! *render-list* (current-camera-pos))
 		  (setq frame-timer (- frame-timer
 				       (* *update-period* *frame-time*))))
 
