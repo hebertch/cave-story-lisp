@@ -33,7 +33,7 @@
      ,(lambda ()
 	      (when *global-paused?*
 		(setq *global-game*
-		      (update-and-render! *global-game*)))))))
+		      (update! *global-game*)))))))
 
 (defun make-game
     (&key player camera stage projectile-groups hud gun-exps
@@ -1026,7 +1026,7 @@ This can be abused with the machine gun in TAS."
     (set s nil))
   (init-entity-registry!)
 
-  (setq *global-paused?* nil)
+  (setq *global-paused?* t)
 
   (create-game!))
 
@@ -1652,22 +1652,97 @@ This can be abused with the machine gun in TAS."
 (defun read-pxa-file (path)
   (read-file-into-byte-vector path))
 
-;; Tile Attribute Interpretations for pxa
-#||
-// these flag constants come from the stage data somewhere I believe
-// (don't remember for sure) so they should stay constant.
-TA_SOLID_PLAYER	0x00001	// solid to player
-TA_SOLID_NPC	0x00002	// solid to npc's, enemies and enemy shots
-TA_SOLID_SHOT	0x00004	// solid to player's shots
-TA_SOLID	(TA_SOLID_PLAYER | TA_SOLID_SHOT | TA_SOLID_NPC)
+(defparameter *tile-attributes*
+  '(NIL NIL (:DESTROYABLE) (:SOLID-NPC) (:SOLID-NPC) (:SOLID-PLAYER :SOLID-NPC)
+    NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL
+    NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL
+    NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL
+    NIL (:FOREGROUND) (:SOLID-PLAYER :SOLID-NPC :SOLID-SHOT :FOREGROUND)
+    (:HURTS-PLAYER :FOREGROUND)
+    (:SOLID-PLAYER :SOLID-NPC :SOLID-SHOT :FOREGROUND :DESTROYABLE)
+    (:SOLID-NPC :FOREGROUND) (:FOREGROUND) (:SOLID-PLAYER :FOREGROUND)
+    (:FOREGROUND) (:FOREGROUND) (:FOREGROUND) (:FOREGROUND) (:FOREGROUND)
+    (:SOLID-PLAYER :FOREGROUND) (:SOLID-PLAYER :FOREGROUND)
+    (:SOLID-PLAYER :FOREGROUND) (:SOLID-PLAYER :FOREGROUND) (:FOREGROUND :SLOPE)
+    (:FOREGROUND :SLOPE) (:FOREGROUND :SLOPE) (:FOREGROUND :SLOPE)
+    (:FOREGROUND :SLOPE) (:FOREGROUND :SLOPE) (:FOREGROUND :SLOPE)
+    (:FOREGROUND :SLOPE) (:FOREGROUND) (:FOREGROUND) (:FOREGROUND) (:FOREGROUND)
+    (:FOREGROUND) (:FOREGROUND) (:FOREGROUND) (:FOREGROUND) (:FOREGROUND :WATER)
+    (:SOLID-PLAYER :SOLID-NPC :SOLID-SHOT :FOREGROUND)
+    (:HURTS-PLAYER :FOREGROUND :WATER) (:FOREGROUND) (:SOLID-NPC :FOREGROUND)
+    (:FOREGROUND) (:FOREGROUND) (:FOREGROUND) (:FOREGROUND) (:FOREGROUND)
+    (:FOREGROUND) (:FOREGROUND) (:FOREGROUND) (:FOREGROUND) (:FOREGROUND)
+    (:FOREGROUND) (:FOREGROUND :WATER :SLOPE) (:FOREGROUND :WATER :SLOPE)
+    (:FOREGROUND :WATER :SLOPE) (:FOREGROUND :WATER :SLOPE)
+    (:FOREGROUND :WATER :SLOPE) (:FOREGROUND :WATER :SLOPE)
+    (:FOREGROUND :WATER :SLOPE) (:FOREGROUND :WATER :SLOPE) (:FOREGROUND)
+    (:FOREGROUND) (:FOREGROUND) (:FOREGROUND) (:FOREGROUND) (:FOREGROUND)
+    (:FOREGROUND) (:FOREGROUND) (:CURRENT) (:CURRENT) (:CURRENT) (:CURRENT) NIL
+    NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL
+    NIL NIL NIL NIL NIL NIL NIL NIL (:FOREGROUND :WATER :CURRENT)
+    (:FOREGROUND :WATER :CURRENT) (:FOREGROUND :WATER :CURRENT)
+    (:FOREGROUND :WATER :CURRENT) NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL
+    NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL
+    NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL
+    NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL
+    NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL
+    NIL NIL NIL NIL))
 
-TA_HURTS_PLAYER	0x00010	// this tile hurts the player -10hp
-TA_FOREGROUND	0x00020	// tile is drawn in front of sprites
-TA_DESTROYABLE	0x00040	// tile is destroyable if player shoots it
-TA_WATER	0x00080	// tile is water/underwater
-TA_CURRENT	0x00100	// blows player (tilecode checked to see which direction)
-TA_SLOPE	0x00200	// is a slope (the tilecode is checked to see what kind)
-||#
+(defun tile-attribute-num->tile-attributes (num)
+  (let ((attrs (elt *tile-attributes* num)))
+    (if (member :slope attrs)
+	(let ((slope-idx (cond ((>= num 112)
+				(- num 112))
+			       (t (- num #x50)))))
+	 (cons (elt '(:ltt :lts :rts :rtt :lbt :lbs :rbs :rbt)
+		    slope-idx)
+	       attrs))
+	attrs)))
+
+(defun read-tile-key-table ()
+  "Read the tilekey.dat file to generate tile-attributes."
+  (mapcar (lambda (num)
+	    (remove nil (list (unless (zerop (logand num #x1)) :solid-player)
+			      (unless (zerop (logand num #x2)) :solid-npc)
+			      (unless (zerop (logand num #x4)) :solid-shot)
+			      (unless (zerop (logand num #x10)) :hurts-player)
+			      (unless (zerop (logand num #x20)) :foreground)
+			      (unless (zerop (logand num #x40)) :destroyable)
+			      (unless (zerop (logand num #x80)) :water)
+			      (unless (zerop (logand num #x100)) :current)
+			      (unless (zerop (logand num #x200)) :slope))))
+	  (with-open-file (stream "~/Projects/nx/tilekey.dat"
+				  :element-type '(unsigned-byte 8))
+	    (loop for i from 1 to 256
+	       collecting (read-uint32 stream)))))
+
+
+(defun pxm-tile-offset-idx->tile-v (idx)
+  "Get the tile position given an index into the pxa array."
+  (make-v (mod idx 16) (floor idx 16)))
+
+(defun pxm-and-attrs->stage (pxm attrs)
+  "Create a stage from a list of row-major tiles, and a vector of
+tile attribute lists."
+  (let ((width (aval pxm :width))
+	(height (aval pxm :height))
+	(tile-offset-idxs (aval pxm :tile-offset-idxs)))
+    (let ((stage (make-array (list height width))))
+      (loop for y from 0 below height do
+	   (loop for x from 0 below width do
+		(setf (aref stage y x)
+		      (list (elt attrs (car tile-offset-idxs))
+			    (pxm-tile-offset-idx->tile-v
+			     (car tile-offset-idxs))))
+	       (setq tile-offset-idxs
+		     (cdr tile-offset-idxs))))
+      stage)))
+
+(defun stage-from-file-data (pxm pxa)
+  "Create a stage given the file data."
+  (pxm-and-attrs->stage pxm
+			(map 'vector #'tile-attribute-num->tile-attributes
+			     pxa)))
 
 ;; Background Scrolling Types
 #||
