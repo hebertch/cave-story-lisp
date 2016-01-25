@@ -1,7 +1,6 @@
 (in-package :cave-story)
 
 (defun make-sprite-drawing (&key layer sheet-key src-rect pos)
-  (assert (and sheet-key src-rect pos layer))
   (alist :layer layer
 	 :sheet-key sheet-key
 	 :src-rect src-rect
@@ -9,7 +8,6 @@
 	 :type :sprite))
 
 (defun make-rect-drawing (&key layer color rect filled?)
-  (assert (and color rect layer))
   (alist :layer layer
 	 :color color
 	 :rect rect
@@ -17,21 +15,18 @@
 	 :type :rect))
 
 (defun make-line-drawing (&key layer color a b)
-  (assert (and color a b layer))
   (alist :layer layer
 	 :color color
 	 :a a :b b
 	 :type :line))
 
 (defun make-text-line-drawing (&key layer pos text)
-  (assert (and text pos layer))
   (alist :layer layer
 	 :pos pos
 	 :text text
 	 :type :text))
 
 (defun make-compiled-drawing (&key layer drawings)
-  (assert (and drawings layer))
   (alist :layer layer
 	 :drawings drawings
 	 :type :compiled))
@@ -74,7 +69,8 @@
 	 :floating-text))
 (defparameter *hud-layers*
   (list :hud-bg :hud :hud-fg
-	:text-box :text))
+	:text-box :text
+	:mouse))
 (defparameter *debug-screen-layers*
   (list :debug-mouse))
 (defparameter *layers* (append *game-layers* *debug-layers*
@@ -113,7 +109,6 @@
 	 (get-spritesheet keysym renderer)
 	 (sdl:make-rect (x src-pos) (y src-pos) (x size) (y size))
 	 (sdl:make-rect (round (x pos)) (round (y pos)) (x size) (y size)))))))
-
 
 (defun render-rect! (renderer rect-drawing camera-pos)
   "Renderer func. Renders a rect."
@@ -321,7 +316,6 @@ are sorted by layer."
   (sdl:render-clear *renderer*)
 
   (let ((drawings (nsort-by-layer (remove-invisible-layers render-list)))) 
-
     (render-background! *renderer* camera-pos)
     
     (dolist (r (game-drawings drawings))

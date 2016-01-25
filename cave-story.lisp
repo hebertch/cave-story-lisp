@@ -884,7 +884,7 @@ This can be abused with the machine gun in TAS."
   (let ((mouse-pos (input-mouse-coords (aval game :input))))
     (draw-point! mouse-pos
 		 *white*
-		 :layer :debug-mouse)
+		 :layer :mouse)
     (let ((tp (mouse->tile-pos mouse-pos (current-camera-pos))))
       (draw-text-line! (make-v 320 0)
 		       (format nil "TILE: [~A, ~A]"
@@ -1004,13 +1004,15 @@ This can be abused with the machine gun in TAS."
   (restore-entity-states! (first state))
   (setq *global-game* (second state)))
 
+(defun cave-stage ()
+  (stage-from-file-data
+   (read-pxm-file "./content/stages/Cave.pxm")
+   (read-pxa-file "./content/stages/Cave.pxa")))
+
 (defun create-game! ()
   (let ((damage-numbers (make-damage-numbers))
 	(projectile-groups (make-projectile-groups))
-	(stage (make-stage
-		(stage-from-file-data
-		 (read-pxm-file "./content/stages/Cave.pxm")
-		 (read-pxa-file "./content/stages/Cave.pxa"))))
+	(stage (make-stage (cave-stage)))
 	(hud (make-hud))
 	(player (make-player :pos (tile-v 48 37)))
 	(gun-exps (make-gun-exps))
@@ -1074,7 +1076,7 @@ This can be abused with the machine gun in TAS."
     (sdl:default-window-and-renderer
 	"Cave Story"
 	(x *window-dims*) (y *window-dims*)
-	0))
+	'()))
   (reset!))
 
 (defun cleanup! ()
