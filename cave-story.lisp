@@ -2348,4 +2348,16 @@ tile attribute lists."
     nil
     nil
     nil)
-  "A table of type index to entity object type.")
+  "A table of type index to entity type.")
+
+(defun decrypt-tsc-file (path)
+  "Loads in and decrypts a tsc script file. Returns a string."
+  (let* ((bytes (read-file-into-byte-vector path))
+	 (key-idx (floor (length bytes) 2))
+	 (key (aref bytes key-idx)))
+    (loop
+       for i from 0
+       for byte across bytes
+       unless (= i key-idx) do
+	 (setf (aref bytes i) (- byte key)))
+    (remove #\return (map 'string #'code-char bytes))))

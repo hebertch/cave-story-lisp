@@ -42,3 +42,5 @@
   :DOOR-ENEMY
   :DOOR
   :SAVE-SIGN)
+
+(decrypt-tsc-file "./content/stages/Cave.tsc")

@@ -105,7 +105,7 @@ char num_stages,
 }[num_stages]
 ** who knows?
 * Map: .pxm
-"PXM",char,uint16 xsize, uint16 ysize, char[xsize][ysize] tiles
+  "PXM",char,uint16 xsize, uint16 ysize, char[xsize][ysize] tiles
 * Tile Attribute: .pxa
 char[256] tilecode
 * Entity: .pxe
