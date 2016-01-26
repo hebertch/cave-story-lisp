@@ -100,7 +100,6 @@ the get- function that is produced."
 
 ;;; SPRITES
 
-
 (defun bmp-path (fname)
   (format nil "./content/~A.bmp" fname))
 

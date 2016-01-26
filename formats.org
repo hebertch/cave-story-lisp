@@ -112,6 +112,31 @@ char[256] tilecode
 "PXE",char, uint32 num_entities,
 { uint16 x, y, id1, id2, type, flags }[num_entities]
 
+;; id1 is a flag id; the object is created/not created if the
+;; id is set in a global flags list by the tsc scripts.
+;; Depends on appear-on-flagid and disappear-on-flagid
+
+;; id2 is a unique identifier for the entity.
+
+;; Flags for npcs
+(defparameter *entity-flags*
+(:solid-mushy 		#x0001)	; object blocks player but is a little "mushy" (normal solid state for enemies)
+(:ignoretile44		#x0002)
+(:invulnerable		#x0004)
+(:ignore-solid		#x0008)
+(:bouncy		#x0010)	; when solid-brick also set, acts like a mini trampoline
+(:shootable		#x0020)
+(:solid-brick		#x0040)	; object's entire bbox is rock-solid, just like a solid tile
+(:noreartopattack	#x0080)
+(:scriptontouch		#x0100)
+(:scriptondeath		#x0200)
+(:drop-powerups-dontuse	#x0400)	; not used here because it doesn't seem to be set on some npc.tbl entries which do in fact spawn powerups; see the nxflag which replaces it
+(:appear-on-flagid	#x0800)
+(:faces-right		#x1000)
+(:scriptonactivate	#x2000)
+(:disappear-on-flagid	#x4000)
+(:show-floattext	#x8000))
+
 * npc.tbl
 uint16[361] default_flags, uint16[361] initial_hp,
 uint8[361] spritesheet_num?, uint8[361] death_sound,

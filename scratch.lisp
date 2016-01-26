@@ -24,3 +24,5 @@
 (rolling-average-time *rolling-avg* (sleep 1))
 
 (drawings-rect (aval (first (ncompile-drawings (stage-drawing (cave-stage)))) :drawings))
+
+(interpret-pxe-data (read-pxe-file "./content/stages/Cave.pxe"))

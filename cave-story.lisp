@@ -1678,8 +1678,71 @@ This can be abused with the machine gun in TAS."
        :height ysize
        :tile-offset-idxs tile-offset-idxs))))
 
+(defun read-pxe-data (path)
+  (mapcar
+   (comp
+    #_(arem _ :x :y)
+    (lambda (d)
+      (aset d :tile-pos (make-v (aval d :x)
+				(aval d :y))))
+    (aupdatefn :type #_(aref *object-table* _)
+	       :flags #'pxe-flags->entity-flags))
+   (remove-if-not #'valid-entity (parse-pxe-file path))))
+
+(defun parse-pxe-file (path)
+  "Parses a pxe entity file."
+  (with-open-file (stream path :element-type '(unsigned-byte 8))
+    ;; Discard PXE,16
+    (dotimes (i 4) (read-byte stream))
+    (let ((num-entities (read-uint32 stream))
+	  entities)
+      (dotimes (i num-entities)
+	(push (alist :x (read-uint16 stream)
+		     :y (read-uint16 stream)
+		     :flag-id (read-uint16 stream)
+		     :entity-id (read-uint16 stream)
+		     :type (read-uint16 stream)
+		     :flags (read-uint16 stream))
+	      entities))
+      entities)))
+
+(defun valid-entity (entity)
+  (not (every (comp zerop #_(aval entity _))
+	      '(:flag-id :entity-id :type :flags))))
+
+(defun pxe-flags->entity-flags (flags)
+  "Takes an integer flags and parses it into a set of entity-flags."
+  (mapcar #'car
+	  (remove-if (lambda (f) (zerop (logand flags (second f))))
+		     *entity-flags*)))
+
 (defun read-pxa-file (path)
   (read-file-into-byte-vector path))
+
+(defparameter *entity-flags*
+  '(
+    ;; object blocks player but is a little "mushy"
+    ;; (normal solid state for enemies)
+    (:solid-mushy 		#x0001)
+    (:ignore-tile		#x0002)
+    (:invulnerable		#x0004)
+    (:ignore-solid		#x0008)
+    ;; when solid-brick also set, acts like a mini trampoline
+    (:bouncy			#x0010)
+    (:shootable			#x0020)
+    ;; object's entire bbox is rock-solid, just like a solid tile
+    (:solid-brick		#x0040)
+    (:no-rear-top-attack	#x0080)
+    (:script-on-touch		#x0100)
+    (:script-on-death		#x0200)
+    ;; not used here because it doesn't seem to be set on some npc.tbl
+    ;; entries which do in fact spawn powerups
+    (:drop-powerups-dont-use	#x0400)
+    (:appear-on-flag-id		#x0800)
+    (:faces-right		#x1000)
+    (:script-on-activate	#x2000)
+    (:disappear-on-flag-id	#x4000)
+    (:show-float-text		#x8000)))
 
 (defparameter *tile-attributes*
   '(NIL NIL (:DESTROYABLE) (:SOLID-NPC) (:SOLID-NPC) (:SOLID-PLAYER :SOLID-NPC)
@@ -1773,15 +1836,516 @@ tile attribute lists."
 			(map 'vector #'tile-attribute-num->tile-attributes
 			     pxa)))
 
-;; Background Scrolling Types
-#||
-BK_FIXED			0 // backdrop does not scroll
-BK_PARALLAX			1 // bk is parallax scroll
-BK_FOLLOWFG			2 // scrolls, but is 1:1 with foreground
-BK_HIDE				3 // draw #000021 blue instead of a graphic
-BK_HIDE2			4 // identical to BK_HIDE
-BK_FASTLEFT			5 // fast scroll left, items falling left (ironhead battle)
-BK_FASTLEFT_LAYERS		6 // fast scroll left w/ layers, items falling left (Outer Wall)
-BK_FASTLEFT_LAYERS_NOFALLLEFT	7 // fast left w/ layers, but items don't fall left (Balcony)
-BK_HIDE3			8 // identical to BK_HIDE
-||#
+(defparameter *object-table*
+  #(nil
+    :xp
+    :behemoth
+    nil
+    :smoke-cloud
+    :critter-hopping-green
+    :beetle-green
+    :basil
+    :beetle-freefly
+    :balrog-drop-in
+    nil
+    :igor-shot
+    :balrog
+    :forcefield
+    :santas-key
+    :chest-closed
+    :save-point
+    :recharge
+    :door
+    :balrog-bust-in
+    :computer
+    :chest-open
+    :teleporter
+    :teleporter-lights
+    :power-critter
+    :egg-elevator
+    :bat-circle
+    :big-spike
+    :critter-flying
+    :chthulu
+    :hermit-gunsmith
+    :bat-hang
+    :life-capsule
+    :balrog-shot-bounce
+    :bed
+    :mannan
+    :balrog-boss-flying
+    :signpost
+    :fireplace
+    :save-sign
+    :santa
+    :door-busted
+    :sue
+    :chalkboard
+    :polish
+    :polishbaby
+    :hvtrigger
+    :sandcroc
+    nil
+    :skullhead
+    :skeleton-shot
+    :crowwithskull
+    :blue-robot-sitting
+    :skullstep-foot
+    :skullstep
+    :kazuma
+    :beetle-brown
+    :crow
+    :giant-beetle
+    :door-enemy
+    :toroko
+    :king
+    :kazuma-at-computer
+    :toroko-shack
+    :critter-hopping-blue
+    :bat-blue
+    :miserys-bubble
+    :misery-float
+    :balrog-boss-running
+    :mushroom-enemy
+    :hidden-sparkle
+    :chinfish
+    :sprinkler
+    :water-droplet
+    :jack
+    :kanpachi-fishing
+    :yamashita-flowers
+    :yamashita-pavilion
+    :pot
+    :mahin
+    :gravekeeper
+    :giant-mushroom-enemy
+    :misery-stand
+    :npc-igor
+    :giant-beetle-shot
+    :terminal
+    :missile
+    :heart
+    :boss-igor
+    :boss-igor-defeated
+    nil
+    :cage
+    :sue-at-computer
+    :chaco
+    :giant-jelly
+    :jelly
+    :fan-left
+    :fan-up
+    :fan-right
+    :fan-down
+    :grate
+    :powercomp
+    :powersine
+    :mannan-shot
+    :frog
+    :hey
+    :hey-spawner
+    :malco
+    :balfrog-shot
+    :malco-broken
+    :minifrog
+    :ptelout
+    :ptelin
+    :professor-booster
+    :press
+    :frenzied-mimiga
+    :red-petals
+    :curly
+    :curly-boss
+    :tablechairs
+    :mimigac1
+    :mimigac2
+    :mimigac-enemy
+    :curlyboss-shot
+    :sunstone
+    :hidden-powerup
+    :puppy-run
+    nil
+    nil
+    nil
+    :puppy-wag
+    :puppy-sleep
+    :puppy-bark
+    :jenka
+    :armadillo
+    :skeleton
+    :puppy-carry
+    :largedoor-frame
+    :largedoor
+    :doctor
+    :toroko-frenzied
+    :toroko-block
+    :toroko-flower
+    :jenka-collapsed
+    :toroko-teleport-in
+    :kings-sword
+    :lightning
+    :critter-shooting-purple
+    :critter-shot
+    :block-moveh
+    :npc-player
+    :blue-robot
+    :shutter-stuck
+    :gaudi
+    :gaudi-dying
+    :gaudi-flying
+    :gaudi-flying-shot
+    :block-movev
+    :x-fishy-missile
+    :x-defeated
+    :pooh-black
+    :pooh-black-bubble
+    :pooh-black-dying
+    :dr-gero
+    :nurse-hasumi
+    :curly-collapsed
+    :gaudi-shopkeep
+    :booster-falling
+    :boulder
+    :balrog-boss-missiles
+    :balrog-missile
+    :firewhirr
+    :firewhirr-shot
+    :gaudi-armored
+    :gaudi-armored-shot
+    :gaudi-egg
+    :buyobuyo-base
+    :buyobuyo
+    :minicore-shot
+    :core-ghostie
+    :curly-ai
+    :cai-gun
+    :cai-mgun
+    :cai-watershield
+    :shutter-big
+    :shutter
+    :almond-lift
+    :fuzz-core
+    :fuzz
+    nil
+    :almond-robot
+    :waterlevel
+    :motorbike
+    :motorbike-broken
+    :blue-robot-remains
+    :grating
+    :motion-wall
+    :ironh-fishy
+    :ironh-shot
+    :fan-droplet
+    :dragon-zombie
+    :dragon-zombie-dead
+    :dragon-zombie-shot
+    :critter-hopping-aqua
+    :falling-spike-small
+    :falling-spike-large
+    :counter-bomb
+    :counter-bomb-number
+    :giant-beetle-2
+    nil
+    :beetle-freefly-2
+    :spike-small
+    :sky-dragon
+    :night-spirit
+    :night-spirit-shot
+    :sandcroc-oside
+    :pixel-cat
+    :itoh
+    :core-blast
+    :bubble-spawner
+    :mimiga-farmer-standing
+    :mimiga-farmer-walking
+    :jail-grating
+    :momorin
+    :chie
+    :megane
+    :kanpachi-standing
+    :bucket
+    :droll-guard
+    :red-flowers-sprouts
+    :red-flowers-blooming
+    :rocket
+    :orangebell
+    :orangebell-baby
+    :flowers-pens1
+    :midorin
+    :gunfish
+    :gunfish-shot
+    :proximity-press-hoz
+    :mimiga-cage
+    :mimiga-jailed
+    :critter-hopping-red
+    :red-bat
+    :red-bat-spawner
+    :lava-drip
+    :lava-drip-spawner
+    :proximity-press-vert
+    :boss-misery
+    :misery-shot
+    :misery-phase
+    :misery-ball
+    :black-lightning
+    :misery-ring
+    :xp-capsule
+    :helicopter
+    :helicopter-blade
+    :doctor-crowned
+    :red-crystal
+    :mimiga-sleeping
+    :curly-carried
+    :mimiga-caged
+    :chie-caged
+    :chaco-caged
+    :boss-doctor
+    :doctor-shot
+    :doctor-shot-trail
+    :doctor-blast
+    :boss-doctor-frenzied
+    :igor-balcony
+    :doctor-bat
+    :red-energy
+    :ironh-brick
+    :brick-spawner
+    :droll-shot
+    :droll
+    :puppy-items
+    :red-demon
+    :red-demon-shot
+    :little-family
+    :falling-block
+    :sue-teleport-in
+    :doctor-ghost
+    :udmini-platform
+    :misery-frenzied
+    :sue-frenzied
+    :ud-spinner
+    :ud-spinner-trail
+    :ud-smoke
+    :ud-pellet
+    :misery-critter
+    :misery-bat
+    :ud-minicore-idle
+    :quake
+    :ud-blast
+    :falling-block-spawner
+    :cloud
+    :cloud-spawner
+    nil
+    :intro-doctor
+    :intro-kings
+    :intro-crown
+    :misery-missile
+    :scroll-controller
+    nil
+    :gaudi-patient
+    :baby-puppy
+    :balrog-medic
+    :santa-caged
+    :stumpy
+    :bute-flying
+    :bute-sword
+    :bute-archer
+    :bute-arrow
+    :ma-pignon
+    :ma-pignon-rock
+    :ma-pignon-clone
+    :bute-dying
+    :mesa
+    :mesa-dying
+    :mesa-block
+    :curly-carried-shooting
+    :ccs-gun
+    :deleet
+    :bute-falling
+    :bute-spawner
+    :hp-lightning
+    :turning-human
+    :ahchoo
+    :transmogrifier
+    :building-fan
+    :rolling
+    :ballos-bone
+    :ballos-bone-spawner
+    :ballos-target
+    :straining
+    :ikachan
+    :ikachan-spawner
+    :numahachi
+    :green-devil
+    :green-devil-spawner
+    :ballos-priest
+    :ballos-smile
+    :ballos-rotator
+    :ballos-body-2
+    :ballos-eye-2
+    :ballos-skull
+    :ballos-platform
+    :hoppy
+    :ballos-spikes
+    :statue-base
+    :bute-archer-red
+    :statue
+    :the-cast
+    :bute-sword-red
+    :wall-collapser
+    :balrog-passenger
+    :balrog-flying
+    :puppy-ghost
+    :misery-wind
+    :droplet-spawner
+    :thank-you
+    nil
+    nil
+    :balfrog
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    :player
+    :heart3
+    :missile3
+    :lava-droplet
+    :skullhead-carried
+    :bbox-puppet
+    :smoke-dropper
+    nil
+    nil
+    nil
+    :core-controller
+    :core-front
+    :core-back
+    :core-marker
+    :minicore
+    nil
+    nil
+    nil
+    nil
+    nil
+    :polar-shot
+    :mgun-spawner
+    :mgun-leader
+    :mgun-trail
+    :mgun-l1-shot
+    :missile-shot
+    :supermissile-shot
+    :missile-boom-spawner
+    :fireball1
+    :fireball23
+    :fireball-trail
+    :blade12-shot
+    :blade3-shot
+    :blade-slash
+    :snake1-shot
+    :snake23-shot
+    :snake-trail
+    :nemesis-shot
+    :nemesis-shot-curly
+    :bubbler12-shot
+    :bubbler3-shot
+    :bubbler-sharp
+    :spur-shot
+    :spur-trail
+    :whimsical-star
+    nil
+    nil
+    nil
+    nil
+    :shots-end
+    :omega-body
+    :omega-leg
+    :omega-strut
+    :omega-shot
+    nil
+    :ironh
+    nil
+    nil
+    nil
+    nil
+    :x-mainobject
+    :x-body
+    :x-tread
+    :x-internals
+    :x-door
+    :x-target
+    :x-fishy-spawner
+    nil
+    nil
+    nil
+    :sisters-head
+    :sisters-body
+    :sisters-main
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    :udcore-main
+    :udcore-front
+    :udcore-back
+    :udcore-face
+    :udmini-rotator
+    :udmini-bbox
+    nil
+    nil
+    nil
+    nil
+    :heavy-press
+    :heavy-press-shield
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    :ballos-main
+    :ballos-body
+    :ballos-eye
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil
+    nil))
