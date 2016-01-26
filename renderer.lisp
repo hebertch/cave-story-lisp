@@ -139,12 +139,12 @@
   (let* ((rect (aval rect-drawing :rect))
 	 (pos (-v (rect-pos rect) camera-pos))
 	 (size (rect-size rect)))
-    (when (and (< (- (x size)) (x pos) (x *window-dims*))
-	       (< (- (y size)) (y pos) (y *window-dims*)))
-      (sdl:render-rect renderer
-		       (rect->sdl-rect
-			(rect-offset rect (sub-v (zero-v) camera-pos)))
-		       :filled? (aval rect-drawing :filled?)))))
+    (sdl:render-rect renderer
+		     (sdl:make-rect (round (x pos))
+				    (round (y pos))
+				    (round (x size))
+				    (round (y size)))
+		     :filled? (aval rect-drawing :filled?))))
 
 (defun render-line! (renderer ld camera-pos)
   "Renderer func. Renders a line."
