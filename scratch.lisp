@@ -25,4 +25,20 @@
 
 (drawings-rect (aval (first (ncompile-drawings (stage-drawing (cave-stage)))) :drawings))
 
-(interpret-pxe-data (read-pxe-file "./content/stages/Cave.pxe"))
+(read-pxe-file "./content/stages/Cave.pxe")
+
+;; Cave flags
+'(:APPEAR-ON-FLAG-ID
+  :FACES-RIGHT
+  :DISAPPEAR-ON-FLAG-ID
+  :SCRIPT-ON-ACTIVATE)
+
+;; Cave Types
+'(:LIFE-CAPSULE
+  :DROPLET-SPAWNER
+  :SPIKE-SMALL
+  :BAT-BLUE
+  :CRITTER-HOPPING-BLUE
+  :DOOR-ENEMY
+  :DOOR
+  :SAVE-SIGN)

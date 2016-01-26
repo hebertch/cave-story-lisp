@@ -1666,6 +1666,7 @@ This can be abused with the machine gun in TAS."
 (defun read-pxm-file (path)
   "Parses a pxm map file."
   (with-open-file (stream path :element-type '(unsigned-byte 8))
+    ;; Discard PXM,16
     (dotimes (i 4) (read-byte stream))
     (let* ((xsize (read-uint16 stream))
 	   (ysize (read-uint16 stream))
@@ -1678,16 +1679,18 @@ This can be abused with the machine gun in TAS."
        :height ysize
        :tile-offset-idxs tile-offset-idxs))))
 
-(defun read-pxe-data (path)
-  (mapcar
-   (comp
-    #_(arem _ :x :y)
-    (lambda (d)
-      (aset d :tile-pos (make-v (aval d :x)
-				(aval d :y))))
-    (aupdatefn :type #_(aref *object-table* _)
-	       :flags #'pxe-flags->entity-flags))
-   (remove-if-not #'valid-entity (parse-pxe-file path))))
+(defun read-pxe-file (path)
+  (remove-if-not
+   #'valid-entity
+   (mapcar
+    (comp
+     (lambda (e)
+       (apply #'arem e (remove-if #_(aval e _) '(:type :flags))))
+     (aupdatefn
+      :type #_(aref *entity-type-table* _)
+      :flags #'pxe-flags->entity-flags)
+     #'remove-entity-zero-flags)
+    (parse-pxe-file path))))
 
 (defun parse-pxe-file (path)
   "Parses a pxe entity file."
@@ -1697,18 +1700,23 @@ This can be abused with the machine gun in TAS."
     (let ((num-entities (read-uint32 stream))
 	  entities)
       (dotimes (i num-entities)
-	(push (alist :x (read-uint16 stream)
-		     :y (read-uint16 stream)
+	(push (alist :tile-pos (make-v (read-uint16 stream)
+				       (read-uint16 stream))
 		     :flag-id (read-uint16 stream)
-		     :entity-id (read-uint16 stream)
+		     :tsc-id (read-uint16 stream)
 		     :type (read-uint16 stream)
 		     :flags (read-uint16 stream))
 	      entities))
       entities)))
 
 (defun valid-entity (entity)
-  (not (every (comp zerop #_(aval entity _))
-	      '(:flag-id :entity-id :type :flags))))
+  (some #_(aval entity _) '(:flag-id :tsc-id :type :flags)))
+
+(defun remove-entity-zero-flags (e)
+  (apply #'arem
+	 e
+	 (remove-if-not (lambda (k) (zerop (aval e k)))
+			    '(:flag-id :tsc-id))))
 
 (defun pxe-flags->entity-flags (flags)
   "Takes an integer flags and parses it into a set of entity-flags."
@@ -1733,55 +1741,27 @@ This can be abused with the machine gun in TAS."
     ;; object's entire bbox is rock-solid, just like a solid tile
     (:solid-brick		#x0040)
     (:no-rear-top-attack	#x0080)
+    ;; Activate a script when the player touches this entity.
     (:script-on-touch		#x0100)
+    ;; Activate a script when the entity dies.
     (:script-on-death		#x0200)
     ;; not used here because it doesn't seem to be set on some npc.tbl
     ;; entries which do in fact spawn powerups
     (:drop-powerups-dont-use	#x0400)
+    ;; When flag-id is set in the global flags list,
+    ;; this entity should appear.
     (:appear-on-flag-id		#x0800)
+    ;; Sets the direction that the entity is initially facing.
     (:faces-right		#x1000)
+    ;; When the player interacts with the entity.
     (:script-on-activate	#x2000)
+    ;; When flag-id is set in the global flags list,
+    ;; this entity should disappear.
     (:disappear-on-flag-id	#x4000)
     (:show-float-text		#x8000)))
 
-(defparameter *tile-attributes*
-  '(NIL NIL (:DESTROYABLE) (:SOLID-NPC) (:SOLID-NPC) (:SOLID-PLAYER :SOLID-NPC)
-    NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL
-    NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL
-    NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL
-    NIL (:FOREGROUND) (:SOLID-PLAYER :SOLID-NPC :SOLID-SHOT :FOREGROUND)
-    (:HURTS-PLAYER :FOREGROUND)
-    (:SOLID-PLAYER :SOLID-NPC :SOLID-SHOT :FOREGROUND :DESTROYABLE)
-    (:SOLID-NPC :FOREGROUND) (:FOREGROUND) (:SOLID-PLAYER :FOREGROUND)
-    (:FOREGROUND) (:FOREGROUND) (:FOREGROUND) (:FOREGROUND) (:FOREGROUND)
-    (:SOLID-PLAYER :FOREGROUND) (:SOLID-PLAYER :FOREGROUND)
-    (:SOLID-PLAYER :FOREGROUND) (:SOLID-PLAYER :FOREGROUND) (:FOREGROUND :SLOPE)
-    (:FOREGROUND :SLOPE) (:FOREGROUND :SLOPE) (:FOREGROUND :SLOPE)
-    (:FOREGROUND :SLOPE) (:FOREGROUND :SLOPE) (:FOREGROUND :SLOPE)
-    (:FOREGROUND :SLOPE) (:FOREGROUND) (:FOREGROUND) (:FOREGROUND) (:FOREGROUND)
-    (:FOREGROUND) (:FOREGROUND) (:FOREGROUND) (:FOREGROUND) (:FOREGROUND :WATER)
-    (:SOLID-PLAYER :SOLID-NPC :SOLID-SHOT :FOREGROUND)
-    (:HURTS-PLAYER :FOREGROUND :WATER) (:FOREGROUND) (:SOLID-NPC :FOREGROUND)
-    (:FOREGROUND) (:FOREGROUND) (:FOREGROUND) (:FOREGROUND) (:FOREGROUND)
-    (:FOREGROUND) (:FOREGROUND) (:FOREGROUND) (:FOREGROUND) (:FOREGROUND)
-    (:FOREGROUND) (:FOREGROUND :WATER :SLOPE) (:FOREGROUND :WATER :SLOPE)
-    (:FOREGROUND :WATER :SLOPE) (:FOREGROUND :WATER :SLOPE)
-    (:FOREGROUND :WATER :SLOPE) (:FOREGROUND :WATER :SLOPE)
-    (:FOREGROUND :WATER :SLOPE) (:FOREGROUND :WATER :SLOPE) (:FOREGROUND)
-    (:FOREGROUND) (:FOREGROUND) (:FOREGROUND) (:FOREGROUND) (:FOREGROUND)
-    (:FOREGROUND) (:FOREGROUND) (:CURRENT) (:CURRENT) (:CURRENT) (:CURRENT) NIL
-    NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL
-    NIL NIL NIL NIL NIL NIL NIL NIL (:FOREGROUND :WATER :CURRENT)
-    (:FOREGROUND :WATER :CURRENT) (:FOREGROUND :WATER :CURRENT)
-    (:FOREGROUND :WATER :CURRENT) NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL
-    NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL
-    NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL
-    NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL
-    NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL NIL
-    NIL NIL NIL NIL))
-
 (defun tile-attribute-num->tile-attributes (num)
-  (let ((attrs (elt *tile-attributes* num)))
+  (let ((attrs (elt *tile-attributes-table* num)))
     (if (member :slope attrs)
 	(let ((slope-idx (cond ((>= num 112)
 				(- num 112))
@@ -1791,23 +1771,42 @@ This can be abused with the machine gun in TAS."
 	       attrs))
 	attrs)))
 
+(defparameter *tile-attributes*
+  '((:solid-player	#x001)
+    (:solid-npc		#x002)
+    (:solid-shot	#x004)
+    (:hurts-player	#x010)
+    (:foreground	#x020)
+    (:destroyable	#x040)
+    (:water		#x080)
+    (:current		#x100)
+    (:slope		#x200))
+  "Tile attributes for pxa file. Numbers correspond to the tilekey.dat
+file from nx engine.
+destroyable: destroyable purple/star blocks
+solid-npc/player/shot: solid (not passable) to different types of entities
+foreground: rendered on the foreground layer
+slope: a slope of one of :ltt :lts ... etc.
+water: tile is water
+hurts-player: causes 10 damage to the player
+current: tile has a current (wind/water) in one of 4 directions")
+
 (defun read-tile-key-table ()
-  "Read the tilekey.dat file to generate tile-attributes."
+  "Read the tilekey.dat file (from nx) to generate tile-attributes-table."
   (mapcar (lambda (num)
-	    (remove nil (list (unless (zerop (logand num #x1)) :solid-player)
-			      (unless (zerop (logand num #x2)) :solid-npc)
-			      (unless (zerop (logand num #x4)) :solid-shot)
-			      (unless (zerop (logand num #x10)) :hurts-player)
-			      (unless (zerop (logand num #x20)) :foreground)
-			      (unless (zerop (logand num #x40)) :destroyable)
-			      (unless (zerop (logand num #x80)) :water)
-			      (unless (zerop (logand num #x100)) :current)
-			      (unless (zerop (logand num #x200)) :slope))))
-	  (with-open-file (stream "~/Projects/nx/tilekey.dat"
+	    (mapcar #'first (remove-if
+			     (lambda (attr)
+			       (zerop (logand num (second attr))))
+			     *tile-attributes*)))
+	  (with-open-file (stream "./content/tilekey.dat"
 				  :element-type '(unsigned-byte 8))
 	    (loop for i from 1 to 256
 	       collecting (read-uint32 stream)))))
 
+(defparameter *tile-attributes-table*
+  (map 'vector #'identity (read-tile-key-table))
+  "Table of tile-attribute-idx (from a .pxa file) to a list
+of *tile-attributes*.")
 
 (defun pxm-tile-offset-idx->tile-v (idx)
   "Get the tile position given an index into the pxa array."
@@ -1836,7 +1835,7 @@ tile attribute lists."
 			(map 'vector #'tile-attribute-num->tile-attributes
 			     pxa)))
 
-(defparameter *object-table*
+(defparameter *entity-type-table*
   #(nil
     :xp
     :behemoth
@@ -2348,4 +2347,5 @@ tile attribute lists."
     nil
     nil
     nil
-    nil))
+    nil)
+  "A table of type index to entity object type.")
