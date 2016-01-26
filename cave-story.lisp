@@ -15,7 +15,7 @@
   "Number of frames per update. 1 for real-time.")
 
 (defparameter *debug-input-keybindings*
-  `((((:key :capslock :escape)) .
+  `((((:key :escape)) .
      ,(lambda () (quit)))
     (((:key :p)
       (:joy :start)) .
@@ -1076,7 +1076,9 @@ This can be abused with the machine gun in TAS."
     (sdl:default-window-and-renderer
 	"Cave Story"
 	(x *window-dims*) (y *window-dims*)
-	'()))
+	'()
+	'(:target-texture)))
+  (sdl:set-render-draw-blend-mode *renderer* :blend)
   (reset!))
 
 (defun cleanup! ()

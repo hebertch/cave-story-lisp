@@ -223,6 +223,15 @@ If fn is null and default is provided, return (funcall default val)."
   (make-rect :pos (add-v (rect-pos rect) offset-pos)
 	     :size (rect-size rect)))
 
+(defun rect-from-two-points (a b)
+  (let ((xmin (min (x a) (x b)))
+	(ymin (min (y a) (y b)))
+	(xmax (max (x a) (x b)))
+	(ymax (max (y a) (y b))))
+    (make-rect :pos (make-v xmin ymin)
+	       :size (make-v (- ymax ymin)
+			     (- xmax xmin)))))
+
 (defun centered-rect (pos size)
   (make-rect :pos (sub-v pos (scale-v size 1/2))
 	     :size size))

@@ -22,3 +22,5 @@
 (defparameter *rolling-avg* (alist :num-entries 360))
 
 (rolling-average-time *rolling-avg* (sleep 1))
+
+(drawings-rect (aval (first (ncompile-drawings (stage-drawing (cave-stage)))) :drawings))
