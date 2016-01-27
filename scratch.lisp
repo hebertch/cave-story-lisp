@@ -25,9 +25,6 @@
 
 (drawings-rect (aval (first (ncompile-drawings (stage-drawing (cave-stage)))) :drawings))
 
-(defparameter *pxe* (read-pxe-file "./content/stages/Cave.pxe"))
-
-
 ;; Cave flags
 '(:APPEAR-ON-FLAG-ID
   :FACES-RIGHT
@@ -46,3 +43,6 @@
 
 (defparameter *tsc* (decrypt-tsc-file "./content/stages/Cave.tsc"))
 (parse-decrypted-tsc-script *tsc*)
+
+;; TODO: update only on screen (or close to) entities
+

@@ -109,24 +109,27 @@
 (defun update-and-render! ()
   (if *global-paused?*
       (draw-text-line! (zero-v) "PAUSED")
-      (rolling-average-time *update-rolling-average*
-	(setq *global-game* (update! *global-game*))))
+      (progn
+	(rolling-average-time *update-rolling-average*
+	  (setq *global-game* (update! *global-game*)))
 
-  (draw-text-line!
-   (make-v 0 (- (y *window-dims*) *tile-size*))
-   (format nil "Renderer: ~,0f%"
-	   (rolling-average-percent *render-rolling-average*)))
-  (draw-text-line!
-   (make-v (* 6 *tile-size*) (- (y *window-dims*) *tile-size*))
-   (format nil "Update: ~,0f%"
-	   (rolling-average-percent *update-rolling-average*)))
-  (draw-text-line!
-   (make-v (* 12 *tile-size*) (- (y *window-dims*) *tile-size*))
-   (format nil "Total: ~,0f%"
-	   (rolling-average-percent *frame-rolling-average*)))
+	(draw-text-line!
+	 (make-v 0 (- (y *window-dims*) *tile-size*))
+	 (format nil "Renderer: ~,0f%"
+		 (rolling-average-percent *render-rolling-average*)))
+	(draw-text-line!
+	 (make-v (* 6 *tile-size*) (- (y *window-dims*) *tile-size*))
+	 (format nil "Update: ~,0f%"
+		 (rolling-average-percent *update-rolling-average*)))
+	(draw-text-line!
+	 (make-v (* 12 *tile-size*) (- (y *window-dims*) *tile-size*))
+	 (format nil "Total: ~,0f%"
+		 (rolling-average-percent *frame-rolling-average*)))
 
-  (rolling-average-time *render-rolling-average*
-    (render! *render-list* (current-camera-pos)))
+	(rolling-average-time *render-rolling-average*
+	  (render! *render-list* (current-camera-pos)))))
+
+  
   (setq *frame-timer* (- *frame-timer*
 			 (* *update-period* *frame-time*))))
 
