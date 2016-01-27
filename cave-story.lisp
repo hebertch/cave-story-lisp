@@ -1009,17 +1009,33 @@ This can be abused with the machine gun in TAS."
    (read-pxm-file "./content/stages/Cave.pxm")
    (read-pxa-file "./content/stages/Cave.pxa")))
 
+(defun make-pxe-entity (entity flags)
+  (when (or (not (member :appear-on-flag-id (aval entity :flags)))
+	    (member (aval entity :flag-id) flags))
+   (case (aval entity :type)
+     (:bat-blue (make-bat (aval entity :tile-pos)))
+     (:critter-hopping-blue
+      (make-critter (tile-pos (aval entity :tile-pos)))))))
+
+(defun make-pxe-entities (pxe flags)
+  "Convert a parsed pxe list to a list of entities."
+  (remove nil (mapcar #_(make-pxe-entity _ flags) pxe)))
+
 (defun create-game! ()
   (let ((damage-numbers (make-damage-numbers))
 	(projectile-groups (make-projectile-groups))
 	(stage (make-stage (cave-stage)))
+	(entities (make-pxe-entities
+		   (read-pxe-file "./content/stages/Cave.pxe")
+		   nil))
 	(hud (make-hud))
 	(player (make-player :pos (tile-v 48 37)))
 	(gun-exps (make-gun-exps))
 	(active-systems (make-active-systems)))
+    
     (let ((camera (make-camera (physics-pos player) (zero-v) player)))
       (mapc #'create-entity!
-	    (list
+	    (list*
 	     damage-numbers
 	     projectile-groups
 	     stage
@@ -1029,6 +1045,7 @@ This can be abused with the machine gun in TAS."
 	     active-systems
 	     camera
 
+	     entities
 	     ;; (make-critter (tile-v (+ 14 1/4) 6))
 	     ;; (make-elephant (tile-v 7 6))
 	     ;; (make-dorito (tile-v (+ 14 1/4) 6) (zero-v) :medium))
@@ -1116,15 +1133,14 @@ This can be abused with the machine gun in TAS."
 (defparameter *bat-subsystems*
   '(:timers :damage-collision :damageable :drawable :physics))
 
-(defun make-bat (tile-x tile-y)
+(defun make-bat (tile-pos)
   (amerge
    (bat-fns-alist)
    (alist :subsystems *bat-subsystems*)
    (alist
     :physics '(:wave)
     :wave (make-wave-motion
-	   :origin (tile-v tile-x
-			   tile-y)
+	   :origin (tile-pos tile-pos)
 	   :dir :up
 	   :amp (tiles 2)
 	   :speed (/ 0.0325
@@ -2518,3 +2534,14 @@ Returns (num . remaining-line)."
     (:XX1 "[shows distant view of island?]")
     (:YNJ "Ask yes or no, jump to event X if No")
     (:ZAM "All weapons drop to level 1")))
+
+
+(defparameter *song-names-table*
+  '(nil :egg :safety :gameover :gravity :grasstown :meltdown2 :eyesofflame
+    :gestation :town :fanfale1 :balrog :cemetary :plant :pulse :fanfale2
+    :fanfale3 :tyrant :run :jenka1 :labyrinth :access :oppression
+    :geothermal
+    :theme :oside :heroend :scorching :quiet :lastcave :balcony :charge
+    :lastbattle :credits :zombie :breakdown :hell :jenka2 :waterway :seal
+    :toroko :white :azarashi nil)
+  "Ordered list of song names; accessed by tsc scripts.")

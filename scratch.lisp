@@ -25,7 +25,8 @@
 
 (drawings-rect (aval (first (ncompile-drawings (stage-drawing (cave-stage)))) :drawings))
 
-(read-pxe-file "./content/stages/Cave.pxe")
+(defparameter *pxe* (read-pxe-file "./content/stages/Cave.pxe"))
+
 
 ;; Cave flags
 '(:APPEAR-ON-FLAG-ID
