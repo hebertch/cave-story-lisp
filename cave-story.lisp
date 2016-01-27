@@ -2355,9 +2355,15 @@ tile attribute lists."
   (let* ((bytes (read-file-into-byte-vector path))
 	 (key-idx (floor (length bytes) 2))
 	 (key (aref bytes key-idx)))
+    ;; The middle character is the "key".
+    ;; All other bytes have the key subtracted from it.
     (loop
        for i from 0
        for byte across bytes
        unless (= i key-idx) do
 	 (setf (aref bytes i) (- byte key)))
+    ;; Remove Carriage Return.
     (remove #\return (map 'string #'code-char bytes))))
+
+(defparameter *tsc-commands*
+  )

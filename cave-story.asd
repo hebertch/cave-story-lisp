@@ -5,7 +5,8 @@
   :author "Your Name <your.name@example.com>"
   :license "Specify license here"
   :depends-on (#:swank-tools
-	       #:sdl)
+	       #:sdl
+	       #:split-sequence)
   :serial t
   :components ((:file "package")
 	       (:file "math")
