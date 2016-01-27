@@ -2449,22 +2449,27 @@ Returns (num . remaining-line)."
   (let ((num (parse-integer line :junk-allowed t)))
     (cons num (rest-of-line line 4))))
 
+;; Following is heavily sourced from
+;; http://www.cavestory.org/guides/tsc_r2.txt
 (defparameter *tsc-command-table*
   '((:AE+ "Refill ammo")
     (:AM+ "Get weapon X, add Y to max ammo (just adds ammo if you have the weapon)")
     (:AM- "Lose weapon X")
     (:AMJ "Jump to event Y if you have weapon X")
     (:ANP "Animate entity X with method Y in direction Z [entity type determines Y values?]")
-    (:BOA "[animate boss entity?]")
+    (:BOA "Animate boss entity. Give map-boss scriptstate X.")
+    (:BSL "Start boss fight with entity W. Use 0000 to end the boss fight. (NPC flag 0200 must be set; should work with anything that has HP)")
+    (:CAT "Instantly display text. Use before a <MSG/2/3; works until <END. Same command as <SAT.")
+    (:CIL "Credits: Clear the illustration.")
     (:CLO "Close the text box (used after MSG/MS2/MS3)")
     (:CLR "Clear the text box (used after MSG/MS2/MS3)")
-    (:CMP "Change map coords X:Y to tile Z")
+    (:CMP "Change map coords X:Y to tile Z. Produces Smoke.")
     (:CMU "Change music to song X")
-    (:CNP "Change entity X to entity type Y with direction Z")
+    (:CNP "Change all entities X to entity type Y with direction Z")
     (:CPS "Stop propeller sound (used after SPS) (from helicopter cutscene after final battles)")
     (:CRE "Roll credits")
     (:CSS "Stop stream sound (used after SSS) (from River area)")
-    (:DNA "[something to do with bosses]")
+    (:DNA "Remove all entities of type X.")
     (:DNP "Entity X is removed completely")
     (:ECJ "Jump to event Y if any entity with ID X is present")
     (:END "End scripted event")
@@ -2477,17 +2482,17 @@ Returns (num . remaining-line)."
     (:FAO "Fade out with direction X")
     (:FL+ "Set flag X")
     (:FL- "Clear flag X")
-    (:FLA "Flash the screen")
+    (:FLA "Flash the screen white")
     (:FLJ "Jump to event Y if flag X is set")
     (:FMU "Fade the music to a low volume (good to use before CMU)")
-    (:FOB "[Focus view on boss entity X? why not use FON?], view movement takes Y ticks")
+    (:FOB "Focus on boss X in Y ticks. Use Y > 0.")
     (:FOM "Focus view on you (normal view), view movement takes X ticks (WARNING: speed 0000 crashes)")
     (:FON "Focus view on entity X, view movement takes Y ticks")
     (:FRE "Frees menu cursor [also used after ZAM for some reason?]")
     (:GIT "Show weapon/item X icon above text box - add 1000 to X for items - GIT0000 to hide")
     (:HMC "Removes main character entity (use SMC after)")
     (:INI "Resets memory and starts game from the beginning")
-    (:INP "@")
+    (:INP "Change entity X to type Y with direction Z and set entity flag 100 (0x8000).")
     (:IT+ "Get item X")
     (:IT- "Lose item X")
     (:ITJ "Jump to event Y if you have item X")
@@ -2500,8 +2505,8 @@ Returns (num . remaining-line)."
     (:MNA "Displays name of current map")
     (:MNP "Move entity X to coords Y:Z facing direction W")
     (:MOV "Move you to coords X:Y")
-    (:MP+ "@")
-    (:MPJ "[Jump to event X if map exists for current area?]")
+    (:MP+ "Set a map flag.")
+    (:MPJ "Jump to event X if map flag is set for the current area.")
     (:MS2 "Open invisible text box at top of screen (text follows)")
     (:MS3 "Open normal text box at top of screen (text follows)")
     (:MSG "Open normal text box (text follows)")
@@ -2509,7 +2514,7 @@ Returns (num . remaining-line)."
     (:MYD "Make you face direction X")
     (:NCJ "Jump to event Y if any entity of type X is present")
     (:NOD "Text box wait for button press (used after MSG/MS2/MS3)")
-    (:NUM "[used to output Y from AM+ as text, not sure exactly what it is]")
+    (:NUM "Prints the value [4a5b34+W*4] to the message box. Use 0000 to print the last used X from compatible commands (eg AM+).")
     (:PRI "Hides status bars and freezes game action until KEY or END (used with MSG/MS2/MS3)")
     (:PS+ "Set teleporter slot X to location Y")
     (:QUA "Shake the screen for X ticks")
@@ -2517,12 +2522,12 @@ Returns (num . remaining-line)."
     (:SAT "Instant text display on all messages until END (glitches scrolling text)")
     (:SIL "Show illustration during credits (use CIL after)")
     (:SK+ "Set skipflag X (remains set until program exits, to avoid repeating cutscenes/dialogue after retrying)")
-    (:SK- "@")
+    (:SK- "Clear skipflag X")
     (:SKJ "Jump to event Y if skipflag X is set")
     (:SLP "Teleporter location menu")
     (:SMC "Restores main character entity (used after HMC)")
-    (:SMP "[do something with entity X? - only used before and after the Omega fight]")
-    (:SNP "@[create enemy/entity type X?] at coords Y:Z with direction W")
+    (:SMP "Jump to event X if skipflag W is set. Does not create smoke.")
+    (:SNP "Create an entity of type X at coordinates Y:Z with direction W.")
     (:SOU "Play sound effect X")
     (:SPS "Start propeller sound (use CPS after) (from helicopter cutscene after final battles)")
     (:SSS "Start stream sound at pitch X (use CSS after) (from River area - normal pitch is 0400)")
@@ -2530,13 +2535,14 @@ Returns (num . remaining-line)."
     (:SVP "Save game")
     (:TAM "Trade weapon X for weapon Y, set max ammo to Z (max ammo 0000 = no change) (GLITCH: first weapon 0000)")
     (:TRA "Load map X, run event Y, transport you to coords Z:W")
-    (:TUR "Instant text display [until what? CLR?] (used after MSG/MS2/MS3)")
-    (:UNI "[0000 normal / 0001 zero-g movement, facing direction is locked (disables focus commands) (from Stream boss) / 0002 movement is locked, can still fire]")
+    (:TUR "Instantly display text. Use after a <MSG/2/3; works until another <MSG/2/3 or an <END.")
+    (:UNI "0000 normal / 0001 zero-g movement, facing direction is locked (disables focus commands) (from Stream boss) / 0002 movement is locked, can still fire")
     (:WAI "Pause script for X ticks")
     (:WAS "Pause script until your character touches the ground")
-    (:XX1 "[shows distant view of island?]")
+    (:XX1 "Show the island falling in manner W. Use 0000 to have it crash and 0001 to have it stop midway.")
     (:YNJ "Ask yes or no, jump to event X if No")
-    (:ZAM "All weapons drop to level 1")))
+    (:ZAM "All weapons drop to level 1"))
+  "List of (COMMAND-KEY DESCRIPTION) pairs for tsc script <XYZ commands.")
 
 
 (defparameter *song-names-table*
@@ -2548,3 +2554,321 @@ Returns (num . remaining-line)."
     :lastbattle :credits :zombie :breakdown :hell :jenka2 :waterway :seal
     :toroko :white :azarashi nil)
   "Ordered list of song names; accessed by tsc scripts.")
+
+(defparameter *sound-effects-table*
+  '((:snd-menu-move 1)
+    (:snd-msg 2)
+    (:snd-bonk-head 3)
+    (:snd-switch-weapon 4)
+    (:snd-menu-prompt 5)
+    (:snd-hoppy-jump 6)
+    (:snd-door 11)
+    (:snd-block-destroy 12)
+    (:snd-get-xp 14)
+    (:snd-player-jump 15)
+    (:snd-player-hurt 16)
+    (:snd-player-die 17)
+    (:snd-menu-select 18)
+    (:snd-health-refill 20)
+    (:snd-bubble 21)
+    (:snd-chest-open 22)
+    (:snd-thud 23)
+    (:snd-player-walk 24)
+    (:snd-funny-explode 25)
+    (:snd-quake 26)
+    (:snd-level-up 27)
+    (:snd-shot-hit 28)
+    (:snd-teleport 29)
+    (:snd-enemy-jump 30)
+    (:snd-tink 31)
+    (:snd-polar-star-l1-2 32)
+    (:snd-snake-fire 33)
+    (:snd-fireball 34)
+    (:snd-explosion1 35)
+    (:snd-gun-click 37)
+    (:snd-get-item 38)
+    (:snd-em-fire 39)
+    (:snd-stream1 40)
+    (:snd-stream2 41)
+    (:snd-get-missile 42)
+    (:snd-computer-beep 43)
+    (:snd-missile-hit 44)
+    (:snd-xp-bounce 45)
+    (:snd-ironh-shot-fly 46)
+    (:snd-explosion2 47)
+    (:snd-bubbler-fire 48)
+    (:snd-polar-star-l3 49)
+    (:snd-enemy-squeak 50)
+    (:snd-enemy-hurt 51)
+    (:snd-enemy-hurt-big 52)
+    (:snd-enemy-hurt-small 53)
+    (:snd-enemy-hurt-cool 54)
+    (:snd-enemy-squeak2 55)
+    (:snd-splash 56)
+    (:snd-enemy-damage 57)
+    (:snd-propellor 58)
+    (:snd-spur-charge-1 59)
+    (:snd-spur-charge-2 60)
+    (:snd-spur-charge-3 61)
+    (:snd-spur-fire-1 62)
+    (:snd-spur-fire-2 63)
+    (:snd-spur-fire-3 64)
+    (:snd-spur-maxed 65)
+    (:snd-expl-small 70)
+    (:snd-little-crash 71)
+    (:snd-big-crash 72)
+    (:snd-bubbler-launch 100)
+    (:snd-lightning-strike 101)
+    (:snd-jaws 102)
+    (:snd-charge-gun 103)
+    (:snd-104 104)
+    (:snd-puppy-bark 105)
+    (:snd-slash 106)
+    (:snd-block-move 107)
+    (:snd-igor-jump 108)
+    (:snd-critter-fly 109)
+    (:snd-droll-shot-fly 110)
+    (:snd-motor-run 111)
+    (:snd-motor-skip 112)
+    (:snd-booster 113)
+    (:snd-core-hurt 114)
+    (:snd-core-thrust 115)
+    (:snd-core-charge 116)
+    (:snd-nemesis-fire 117)
+    (:snd-150 150)
+    (:snd-151 151)
+    (:snd-152 152)
+    (:snd-153 153)
+    (:snd-154 154)
+    (:snd-155 155))
+  "AList of (SOUND-KEY SOUND-IDX).")
+
+(defparameter *directions-table*
+  #(:left :up :right :down :center)
+  "For TSC directions.
+NOTE: MYB is 0000 Right, 0002 Left (reversed).")
+
+(defparameter *maps-table*
+  #((:0 "Credits")
+    (:Pens1 "Arthur's House - normal")
+    (:Eggs "Egg Corridor")
+    (:EggX "Egg No. 00 - normal")
+    (:Egg6 "Egg No. 06")
+    (:EggR "Egg Observation Room")
+    (:Weed "Grasstown")
+    (:Santa "Santa's House")
+    (:Chako "Chaco's House")
+    (:MazeI "Labyrinth I (vertical starting room)")
+    (:Sand "Sand Zone - normal")
+    (:Mimi "Mimiga Village")
+    (:Cave "First Cave")
+    (:Start "Start Point")
+    (:Barr "Shack (Mimiga Village)")
+    (:Pool "Reservoir")
+    (:Cemet "Graveyard")
+    (:Plant "Yamashita Farm")
+    (:Shelt "Shelter (Grasstown)")
+    (:Comu "Assembly Hall (Mimiga Village)")
+    (:MiBox "Save Point (Mimiga Village)")
+    (:EgEnd1 "Side Room (Egg Corridor)")
+    (:Cthu "Cthulhu's Abode (Egg Corridor)")
+    (:Egg1 "Egg No. 01")
+    (:Pens2 "Arthur's House - Sue on computer")
+    (:Malco "Power Room (Grasstown)")
+    (:WeedS "Save Point (Grasstown)")
+    (:WeedD "Execution Chamber (Grasstown)")
+    (:Frog "Gum (Grasstown)")
+    (:Curly "Sand Zone Residence")
+    (:WeedB "Grasstown Hut")
+    (:Stream "Main Artery (Waterway)")
+    (:CurlyS "Small Room (Sand Zone)")
+    (:Jenka1 "Jenka's House - normal")
+    (:Dark "Deserted House (Sand Zone)")
+    (:Gard "Sand Zone Storehouse")
+    (:Jenka2 "Jenka's House - after Balrog attacks")
+    (:SandE "Sand Zone - after boss fight")
+    (:MazeH "Labyrinth H (sliding block room)")
+    (:MazeW "Labyrinth W (main area w/shop, camp)")
+    (:MazeO "Camp (Labyrinth)")
+    (:MazeD "Clinic Ruins (Labyrinth)")
+    (:MazeA "Labyrinth Shop")
+    (:MazeB "Labyrinth B (booster)")
+    (:MazeS "Boulder Chamber (Labyrinth)")
+    (:MazeM "Labyrinth M (gaudi eggs)")
+    (:Drain "Dark Place (Labyrinth)")
+    (:Almond "Core (Labyrinth)")
+    (:River "Waterway")
+    (:Eggs2 "Egg Corridor?")
+    (:Cthu2 "Cthulhu's Abode? (Egg Corridor?)")
+    (:EggR2 "Egg Observation Room?")
+    (:EggX2 "Egg No. 00 - hatched")
+    (:Oside "Outer Wall")
+    (:EgEnd2 "Side Room (Egg Corridor?)")
+    (:Itoh "Storehouse (Outer Wall)")
+    (:Cent "Plantation")
+    (:Jail1 "Jail No. 1 (Plantation)")
+    (:Momo "Hideout (Plantation)")
+    (:Lounge "Rest Area (Plantation)")
+    (:CentW "Teleporter (Plantation)")
+    (:Jail2 "Jail No. 2 (Plantation)")
+    (:Blcny1 "Balcony - normal")
+    (:Priso1 "Last Cave")
+    (:Ring1 "Throne Room (Balcony)")
+    (:Ring2 "The King's Table (Balcony)")
+    (:Prefa1 "Prefab House (Balcony) - normal")
+    (:Priso2 "Last Cave Hidden")
+    (:Ring3 "Black Space (Balcony)")
+    (:Little "Little House (Outer Wall)")
+    (:Blcny2 "Balcony - after boss fights")
+    (:Fall "Ending")
+    (:Kings "Intro")
+    (:Pixel "Waterway Cabin")
+    (:e_Maze "Credits - Labyrinth")
+    (:e_Jenk "Credits - Jenka's House")
+    (:e_Malc "Credits - Power Room")
+    (:e_Ceme "Credits - Graveyard")
+    (:e_Sky "Credits - Sky")
+    (:Prefa2 "Prefab House (Balcony) - entrance to hell")
+    (:Hell1 "Sacred Ground B1")
+    (:Hell2 "Sacred Ground B2")
+    (:Hell3 "Sacred Ground B3")
+    (:Mapi "Storage (Graveyard)")
+    (:Hell4 "Passage? - normal")
+    (:Hell42 "Passage? - from Sacred Ground B3")
+    (:Statue "Statue Chamber (Plantation/Sacred Grounds)")
+    (:Ballo1 "Seal Chamber (Sacred Grounds) - normal")
+    (:Ostep "Corridor (Sacred Grounds)")
+    (:e_Labo "Credits - Laboratory")
+    (:Pole "Hermit Gunsmith")
+    (:Island "[map is totally blank - TSC is called right before good/best endings]")
+    (:Ballo2 "Seal Chamber (Sacred Grounds) - after boss fight")
+    (:e_Blcn "Credits - Balcony")
+    (:Clock "Clock Room (Outer Wall)"))
+  "Ordered list of (map-key description) for TSC map ids.")
+
+(defparameter *weapons-table*
+ #(nil
+   :Snake
+   :Polar-Star
+   :Fireball
+   :Machine-Gun
+   :Missile-Launcher
+   :Missiles
+   :Bubbler
+   nil
+   :Blade
+   :Super-Missile-Launcher
+   :Super-Missiles
+   :Nemesis
+   :Spur)
+  "Ordered list of weapon-keys for TSC weapon ids.")
+
+(defparameter *item-table*
+  #(:blank
+    :arthurs-key
+    :Map-System
+    :Santas-Key
+    :Silver-Locket
+    :Beast-Fang
+    :Life-Capsule
+    :ID-Card
+    :Jellyfish-Juice
+    :Rusty-Key
+    :Gum-Key
+    :Gum-Base
+    :Charcoal
+    :Explosive
+    :Puppy
+    :Life-Pot
+    :Cure-All
+    :Clinic-Key
+    :Booster-0.8
+    :Arms-Barrier
+    :Turbocharge
+    :Curlys-Air-Tank
+    :Nikumaru-Counter
+    :Booster-v2.0
+    :Mimiga-Mask
+    :Teleporter-Room-Key
+    :Sues-Letter
+    :Controller
+    :Broken-Sprinkler
+    :Sprinkler
+    :Tow-Rope
+    :Clay-Figure-Medal
+    :Little-Man
+    :Mushroom-Badge
+    :Ma-Pignon
+    :Curlys-Underwear
+    :Alien-Medal
+    :Chacos-Lipstick
+    :Whimsical-Star
+    :Iron-Bond)
+  "Ordered list of items indexed by TSC item id.")
+
+(defparameter *equip-flags*
+  '((:Booster-v0.8 0001)
+    (:Map-System 0002)
+    (:Arms-Barrier 0004)
+    (:Turbocharge 0008)
+    (:Air-Tank 0016)
+    (:Booster-v2.0 0032)
+    (:Mimiga-Mask 0064)
+    (:Whimsical-Star 0128)
+    (:Nikumaru-Counter 0256))
+  "Flags TSC uses to set equipped items.")
+
+(defparameter *face-table*
+  #(:blank
+    :Sue-smile
+    :Sue-frown
+    :Sue-angry
+    :Sue-hurt
+    :Balrog-normal
+    :Toroko-normal
+    :King
+    :Toroko-angry
+    :Jack
+    :Kazuma
+    :Toroko-rage
+    :Igor
+    :Jenka
+    :Balrog-smile
+    :Misery-normal
+    :Misery-smile
+    :Booster-hurt
+    :Booster-normal
+    :Curly-smile
+    :Curly-frown
+    :Doctor
+    :Momorin
+    :Balrog-hurt
+    :Broken-robot
+    :Curly
+    :Misery-angry
+    :Human-Sue
+    :Itoh
+    :Ballos)
+  "Ordered list of TSC ids for showing character faces in dialogue.")
+
+(defparameter *illustrations-table*
+  #(:riding-Sky-Dragon
+    :fighting-Core
+    :fighting-Misery
+    :Momorins-rocket
+    :Outer-Wall
+    :fighting-Ironhead
+    :fighting-Balrog
+    :Clinic
+    :King-fighting-the-Doctor
+    :Jenka-with-puppies
+    :Curly-with-Mimiga-children
+    :riding-Balrog
+    nil
+    :Hell
+    :floating-island-blue-sky
+    :floating-island-orange-sky
+    :King-Jack-Sue
+    :Ballos)
+  "Ordered list of TSC ids for showing illustrations (in credits).
+NOTE: any other values (including 0013) show :riding-sky-dragon")

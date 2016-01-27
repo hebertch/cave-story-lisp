@@ -43,6 +43,3 @@
 
 (defparameter *tsc* (decrypt-tsc-file "./content/stages/Cave.tsc"))
 (parse-decrypted-tsc-script *tsc*)
-
-;; TODO: update only on screen (or close to) entities
-
