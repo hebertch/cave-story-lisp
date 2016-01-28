@@ -127,6 +127,10 @@
   (aset kin-2d
 	:accelerator-x (player-accelerator-x p)
 	:accelerator-y (player-accelerator-y p kin-2d)
+	:clamper-vx
+	(clamper+- (if (player-in-water? p)
+		       *player-max-speed-x-water*
+		       *player-max-speed-x*))
 	:inertia-vel
 	(player-inertia-vel p (estate (aval p :ground-inertia-entity)))))
 
@@ -258,17 +262,21 @@
 		((minusp vel-y) 2)
 		(t 0)))))
 
-(defun player-jump-physics (kin-2d)
+(defun player-jump-physics (kin-2d in-water?)
   (aset kin-2d
 	:vel
 	(+v (aval kin-2d :vel)
-	    (make-v 0 (- *player-jump-speed*)))))
+	    (make-v 0 (- (if in-water?
+			     *player-jump-speed-water*
+			     *player-jump-speed*))))))
 
 (defun player-jump (p)
   (cond ((not (aval p :jumping?))
 	 (aset (if (player-on-ground? p)
 		   (aupdate p
-			    :stage-physics #'player-jump-physics
+			    :stage-physics #_(player-jump-physics
+					      _
+					      (player-in-water? p))
 			    :sound-effects (pushfn :jump)
 			    :walk-cycle #'timed-cycle-pause)
 		   p)
@@ -389,7 +397,17 @@
 	       (aval p :ground-tile))))
     (aset res
 	  :ground-tile (aval res :new-ground-tile)
-	  :walk-cycle (timed-cycle-pause (aval res :walk-cycle)))))
+	  :walk-cycle (timed-cycle-pause (aval res :walk-cycle))
+	  :tiles
+	  (stage-get-colliding-tiles
+	   stage
+	   (rect-offset (aval *player-collision-rectangles-alist* :bottom)
+			(physics-pos p))))))
+
+(defun player-in-water? (p)
+  (some (lambda (tile)
+	  (water-tile? (second tile)))
+	(aval p :tiles)))
 
 (defun player-drawing (p)
   (declare (optimize debug))
