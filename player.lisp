@@ -72,7 +72,7 @@
      (player-gun-exp p (aval pickup :amt)))
     (:heart
      (player-add-health p (aval pickup :amt)))
-    (t p)))
+    (:missile p)))
 
 (defun player-add-health (p amt)
   (aupdate p

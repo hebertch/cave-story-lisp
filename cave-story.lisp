@@ -1529,12 +1529,12 @@ This can be abused with the machine gun in TAS."
 (defun make-drops (origin amt)
   "Makes the equivalent number of pickups to amt from origin."
   ;; 3/5 of the time choose doritos, otherwise missile or heart.
-  (let ((large-drop? (> amt 6)))
+  (let ((bundle? (> amt 6)))
    (case (random 4)
      (0 ;;Missile
-      )
+      (list (make-missile-pickup origin bundle?)))
      (1 ;;Heart
-      )
+      (list (make-heart-pickup origin bundle?)))
      (t
       (let* ((large (dorito-size->exp-amt :large))
 	     (medium (dorito-size->exp-amt :medium))
@@ -2995,8 +2995,8 @@ The number of smoke particles to create when destroyed.")
 				(tile-v 2 5)))
 		    (:missile
 		     (if bundle?
-			 (tile-v 0 5)
-			 (tile-v 0 7))))))
+			 (tile-v 0 7)
+			 (tile-v 0 5))))))
     (list
      (if (> (aval tm :ms-remaining) (* 2 *frame-time*))
 	 (unless (death-flash? tm)
