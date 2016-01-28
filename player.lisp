@@ -38,13 +38,15 @@
 
 (defparameter *player-walk-acc* 0.00083007812)
 (defparameter *player-max-speed-x* 0.15859375)
+(defparameter *player-max-speed-x-water* (/ *player-max-speed-x* 2))
 (defparameter *player-friction-acc* 0.00049804687)
 (defparameter *terminal-speed* 0.2998046875)
 (defparameter *gravity-acc* 0.00078125)
 (defparameter *player-jump-gravity-acc* 0.0003125)
 (defparameter *player-air-acc* 0.0003125)
 (defparameter *player-jump-speed* 0.25)
-(defparameter *player-hop-speed* (/ *player-jump-speed* 1.5))
+(defparameter *player-jump-speed-water* (* *player-jump-speed* 3/4))
+(defparameter *player-hop-speed* (* *player-jump-speed* 2/3))
 
 (defparameter *player-collision-rectangles-alist*
   (loop for (key x y w h) in

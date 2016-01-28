@@ -2955,8 +2955,7 @@ The number of smoke particles to create when destroyed.")
 	     :default-flags #'pxe-flags->entity-flags)))
 
 (defun pickup-fns-alist ()
-  (alist :pickup-rect-fn (lambda (a) (centered-rect (+v (aval a :pos)
-							(tile-dims/2))
+  (alist :pickup-rect-fn (lambda (a) (centered-rect (aval a :pos)
 						    (both-v (/ *tile-size* 2))))
 	 :pickup-kill-fn #'pickup-kill
 	 :ai-fn #'pickup-ai

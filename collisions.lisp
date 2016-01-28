@@ -86,6 +86,8 @@
 
 (defun slope? (tile-type)
   (intersection (ensure-list tile-type) '(:slope)))
+(defun water-tile? (tile-type)
+  (intersection tile-type '(:water)))
 (defun tall-slope? (tile-type)
   (intersection tile-type '(:ltt :rtt :lbt :rbt)))
 (defun short-slope? (tile-type)

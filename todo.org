@@ -1,4 +1,3 @@
-* health pickups
 * water
 * destroyable blocks
 * door enemy
