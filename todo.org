@@ -1,3 +1,9 @@
-* Compiler for drawings:
-  take a list of drawings and compile it into a list
-  of layers & functions that takes a camera-pos and a renderer
+* health pickups
+* water
+* destroyable blocks
+* door enemy
+* door/warp to stage
+* Experience text
+* optimize update times. Only update onscreen entities?
+* set song from music index
+* sound effects; might need to read pixtone files for these.

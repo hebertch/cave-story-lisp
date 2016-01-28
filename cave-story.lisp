@@ -236,29 +236,30 @@ This can be abused with the machine gun in TAS."
 (defparameter *dorito-subsystems*
   '(:timers :physics :stage-collision :drawable :pickup))
 
-(defun make-dorito (pos vel size)
-  (amerge
-   (dorito-fns-alist)
-   (alist :subsystems *dorito-subsystems*)
-   (dorito-pickup-data size)
-   (alist :timers
-	  '(:life-timer :anim-cycle)
-	  :life-timer
-	  (make-expiring-timer (s->ms 8) t)
-	  :anim-cycle
-	  (make-fps-cycle 14 (iota 6))
-	  :physics '(:stage-physics)
-	  :stage-physics
-	  (make-kin-2d :pos (-v pos
-				(rect-pos (dorito-collision-rect size)))
-		       :vel vel
-		       :accelerator-x
-		       (friction-accelerator *dorito-friction-acc*)
-		       :accelerator-y
-		       (const-accelerator *gravity-acc*)
-		       :clamper-vy
-		       (clamper+- *terminal-speed*))
-	  :size size)))
+(defun make-dorito (pos size)
+  (let ((vel (polar-vec->v (rand-angle) 0.07)))
+    (amerge
+     (dorito-fns-alist)
+     (alist :subsystems *dorito-subsystems*)
+     (dorito-pickup-data size)
+     (alist :timers
+	    '(:life-timer :anim-cycle)
+	    :life-timer
+	    (make-expiring-timer (s->ms 8) t)
+	    :anim-cycle
+	    (make-fps-cycle 14 (iota 6))
+	    :physics '(:stage-physics)
+	    :stage-physics
+	    (make-kin-2d :pos (-v pos
+				  (rect-pos (dorito-collision-rect size)))
+			 :vel vel
+			 :accelerator-x
+			 (friction-accelerator *dorito-friction-acc*)
+			 :accelerator-y
+			 (const-accelerator *gravity-acc*)
+			 :clamper-vy
+			 (clamper+- *terminal-speed*))
+	    :size size))))
 
 (defun dorito-ai (d)
   (aset d :dead? (not (timer-active? (aval d :life-timer)))))
@@ -1060,7 +1061,7 @@ This can be abused with the machine gun in TAS."
 	     entities
 	     ;; (make-critter (tile-v (+ 14 1/4) 6))
 	     ;; (make-elephant (tile-v 7 6))
-	     ;; (make-dorito (tile-v (+ 14 1/4) 6) (zero-v) :medium))
+	     ;; (make-dorito (tile-v (+ 14 1/4) 6) :medium))
 	     ))
 
       (make-game :player (aval player :id)
@@ -1543,11 +1544,11 @@ This can be abused with the machine gun in TAS."
 	     (num-small (floor (- amt (* large num-large) (* medium num-medium))
 			     small)))
 	(nconc
-	 (collect #_(make-dorito origin (polar-vec->v (rand-angle) 0.07) :large)
+	 (collect #_(make-dorito origin :large)
 		  num-large)
-	 (collect #_(make-dorito origin (polar-vec->v (rand-angle) 0.07) :medium)
+	 (collect #_(make-dorito origin :medium)
 		  num-medium)
-	 (collect #_(make-dorito origin (polar-vec->v (rand-angle) 0.07) :small)
+	 (collect #_(make-dorito origin :small)
 		  num-small)))))))
 
 (defun damage-reaction (obj)
@@ -2936,10 +2937,15 @@ NOTE: any other values (including 0013) show :riding-sky-dragon")
   "Table for use by the npc.tbl file. 
 The number of smoke particles to create when destroyed.")
 
+(defun entity-type-idx (entity-type)
+  "Returns the index of entity-type in the entity-type table."
+  (position entity-type *entity-type-table*))
+
 (defun entity-npc-data (entity-type)
   "Returns the npc-data for a given entity-type keyword."
   (let ((e (mapcar (lambda (pair)
-		     (cons (car pair) (elt (cdr pair) (position entity-type *entity-type-table*))))
+		     (cons (car pair)
+			   (elt (cdr pair) (entity-type-idx entity-type))))
 		   *npc-data*))
 	(get-sound (comp first #_(elt *sound-effects-table* _))))
     (aupdate e
