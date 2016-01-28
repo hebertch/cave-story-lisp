@@ -345,12 +345,15 @@ This can be abused with the machine gun in TAS."
 	(aupdatefn :sound-effects (pushfn :pickup))
 	(asetfn :dead? t)))
 
+(defun dorito-size->exp-amt (size)
+  (ecase size
+    (:small 1)
+    (:medium 10)
+    (:large 20)))
+
 (defun dorito-pickup-data (size)
   (make-pickup :type :dorito
-	       :amt (ecase size
-		      (:small 1)
-		      (:medium 10)
-		      (:large 20))))
+	       :amt (dorito-size->exp-amt size)))
 
 (defun dorito-collision-rect (size)
   (centered-rect (tile-dims/2)
@@ -1012,13 +1015,19 @@ This can be abused with the machine gun in TAS."
    (read-pxm-file "./content/stages/Cave.pxm")
    (read-pxa-file "./content/stages/Cave.pxa")))
 
-(defun make-pxe-entity (entity flags)
-  (when (or (not (member :appear-on-flag-id (aval entity :flags)))
-	    (member (aval entity :flag-id) flags))
-   (case (aval entity :type)
-     (:bat-blue (make-bat (aval entity :tile-pos)))
-     (:critter-hopping-blue
-      (make-critter (tile-pos (aval entity :tile-pos)))))))
+(defun make-pxe-entity (entity game-flags)
+  (let ((entity-flags (aval entity :flags))
+	(type (aval entity :type)))
+    (when (or (not (member :appear-on-flag-id entity-flags))
+	      (member (aval entity :flag-id) game-flags))
+      (let ((data (entity-npc-data type))
+	    (e
+	     (case type
+	       (:bat-blue (make-bat (aval entity :tile-pos)))
+	       (:critter-hopping-blue
+		(make-critter (tile-pos (aval entity :tile-pos)))))))
+	(when e
+	  (amerge data e))))))
 
 (defun make-pxe-entities (pxe flags)
   "Convert a parsed pxe list to a list of entities."
@@ -1149,8 +1158,7 @@ This can be abused with the machine gun in TAS."
 	   :speed (/ 0.0325
 		     *frame-time*))
     :timers '(:anim-cycle)
-    :anim-cycle (make-fps-cycle 14 #(0 2 1 2))
-    :health-amt 1)))
+    :anim-cycle (make-fps-cycle 14 #(0 2 1 2)))))
 
 (defun bat-drawing (b)
   (list (make-sprite-drawing :layer :enemy
@@ -1229,8 +1237,7 @@ This can be abused with the machine gun in TAS."
 	      :right stop-x :top stop-y)))))
 
 (defun make-num-death-cloud-particles (num pos)
-  (loop for i from 1 to num
-     collect (make-death-cloud-particle pos)))
+  (collect #_(make-death-cloud-particle pos) num))
 
 (defparameter *critter-dynamic-collision-rect*
   (make-rect :pos (tile-v 0 1/4) :size (tile-v 1 3/4)))
@@ -1266,7 +1273,6 @@ This can be abused with the machine gun in TAS."
      (alist
       :stage-physics (gravity-kin-2d :pos pos)
       :physics '(:stage-physics)
-      :health-amt 2
       :id id))))
 
 (defparameter *critter-subsystems*
@@ -1441,7 +1447,6 @@ This can be abused with the machine gun in TAS."
 	  :physics '(:stage-physics)
 	  :timers '(:anim-cycle)
 	  :anim-cycle (make-fps-cycle 12 #(0 2 4))
-	  :health-amt 8
 	  :facing :left)))
 
 (defparameter *elephant-dims* (make-v (tiles 2) (tiles 3/2)))
@@ -1520,7 +1525,32 @@ This can be abused with the machine gun in TAS."
 				      (pushfn (cons e (aval fn :id)))))
 		     :new-entities (pushfn fn)))))))
 
-(defun damage-reaction (num-particles obj)
+(defun make-drops (origin amt)
+  "Makes the equivalent number of pickups to amt from origin."
+  ;; 3/5 of the time choose doritos, otherwise missile or heart.
+  (let ((large-drop? (> amt 6)))
+   (case (random 4)
+     (0 ;;Missile
+      )
+     (1 ;;Heart
+      )
+     (t
+      (let* ((large (dorito-size->exp-amt :large))
+	     (medium (dorito-size->exp-amt :medium))
+	     (small (dorito-size->exp-amt :small))
+	     (num-large (floor amt large))
+	     (num-medium (floor (- amt (* large num-large)) medium))
+	     (num-small (floor (- amt (* large num-large) (* medium num-medium))
+			     small)))
+	(nconc
+	 (collect #_(make-dorito origin (polar-vec->v (rand-angle) 0.07) :large)
+		  num-large)
+	 (collect #_(make-dorito origin (polar-vec->v (rand-angle) 0.07) :medium)
+		  num-medium)
+	 (collect #_(make-dorito origin (polar-vec->v (rand-angle) 0.07) :small)
+		  num-small)))))))
+
+(defun damage-reaction (obj)
   (let ((amt (aval obj :damage-amt)))
     (funcall
      (if (< amt (aval obj :health-amt))
@@ -1536,10 +1566,9 @@ This can be abused with the machine gun in TAS."
 	    (aupdatefn
 	     :new-entities
 	     (appendfn
-	      (list
-	       (make-dorito origin (polar-vec->v (rand-angle) 0.07) :small)
-	       (make-dorito origin (polar-vec->v (rand-angle) 0.07) :small))
-	      (make-num-death-cloud-particles num-particles (origin obj)))
+	      (make-drops origin (aval obj :exp-for-kill))
+	      (make-num-death-cloud-particles (aval obj :smoke-amt)
+					      origin))
 	     :sound-effects (pushfn :enemy-explode)))))
      obj)))
 
@@ -1649,17 +1678,16 @@ This can be abused with the machine gun in TAS."
 	    data))))))
 
 (setfn bat-hit-react
-       #_(damage-reaction 3 _))
+       #'damage-reaction)
 (setfn bat-ai #'face-player-ai)
 (setfn critter-ai
        (comp face-player-ai
 	     critter-jump-ai
 	     shake-ai))
 (setfn critter-hit-react
-       (comp #_(damage-reaction 6 _)
-	     shake-hit-react))
+       (comp damage-reaction shake-hit-react))
 (setfn elephant-hit-react 
-       (comp #_(damage-reaction 6 _)
+       (comp damage-reaction
 	     elephant-rage-hit-react
 	     shake-hit-react))
 (setfn elephant-ai
@@ -1667,6 +1695,9 @@ This can be abused with the machine gun in TAS."
 	     elephant-rage-effects
 	     elephant-rage-ai
 	     shake-ai))
+
+(defun read-uint8 (in)
+  (read-byte in))
 
 (defun read-uint16 (in)
   (let ((u2 0))
@@ -1746,39 +1777,6 @@ This can be abused with the machine gun in TAS."
 (defun read-pxa-file (path)
   (read-file-into-byte-vector path))
 
-(defparameter *entity-flags*
-  '(
-    ;; object blocks player but is a little "mushy"
-    ;; (normal solid state for enemies)
-    (:solid-mushy 		#x0001)
-    (:ignore-tile		#x0002)
-    (:invulnerable		#x0004)
-    (:ignore-solid		#x0008)
-    ;; when solid-brick also set, acts like a mini trampoline
-    (:bouncy			#x0010)
-    (:shootable			#x0020)
-    ;; object's entire bbox is rock-solid, just like a solid tile
-    (:solid-brick		#x0040)
-    (:no-rear-top-attack	#x0080)
-    ;; Activate a script when the player touches this entity.
-    (:script-on-touch		#x0100)
-    ;; Activate a script when the entity dies.
-    (:script-on-death		#x0200)
-    ;; not used here because it doesn't seem to be set on some npc.tbl
-    ;; entries which do in fact spawn powerups
-    (:drop-powerups-dont-use	#x0400)
-    ;; When flag-id is set in the global flags list,
-    ;; this entity should appear.
-    (:appear-on-flag-id		#x0800)
-    ;; Sets the direction that the entity is initially facing.
-    (:faces-right		#x1000)
-    ;; When the player interacts with the entity.
-    (:script-on-activate	#x2000)
-    ;; When flag-id is set in the global flags list,
-    ;; this entity should disappear.
-    (:disappear-on-flag-id	#x4000)
-    (:show-float-text		#x8000)))
-
 (defun tile-attribute-num->tile-attributes (num)
   (let ((attrs (elt *tile-attributes-table* num)))
     (if (member :slope attrs)
@@ -1789,43 +1787,6 @@ This can be abused with the machine gun in TAS."
 		    slope-idx)
 	       attrs))
 	attrs)))
-
-(defparameter *tile-attributes*
-  '((:solid-player	#x001)
-    (:solid-npc		#x002)
-    (:solid-shot	#x004)
-    (:hurts-player	#x010)
-    (:foreground	#x020)
-    (:destroyable	#x040)
-    (:water		#x080)
-    (:current		#x100)
-    (:slope		#x200))
-  "Tile attributes for pxa file. Numbers correspond to the tilekey.dat
-file from nx engine.
-destroyable: destroyable purple/star blocks
-solid-npc/player/shot: solid (not passable) to different types of entities
-foreground: rendered on the foreground layer
-slope: a slope of one of :ltt :lts ... etc.
-water: tile is water
-hurts-player: causes 10 damage to the player
-current: tile has a current (wind/water) in one of 4 directions")
-
-(defun read-tile-key-table ()
-  "Read the tilekey.dat file (from nx) to generate tile-attributes-table."
-  (mapcar (lambda (num)
-	    (mapcar #'first (remove-if
-			     (lambda (attr)
-			       (zerop (logand num (second attr))))
-			     *tile-attributes*)))
-	  (with-open-file (stream "./content/tilekey.dat"
-				  :element-type '(unsigned-byte 8))
-	    (loop for i from 1 to 256
-	       collecting (read-uint32 stream)))))
-
-(defparameter *tile-attributes-table*
-  (map 'vector #'identity (read-tile-key-table))
-  "Table of tile-attribute-idx (from a .pxa file) to a list
-of *tile-attributes*.")
 
 (defun pxm-tile-offset-idx->tile-v (idx)
   "Get the tile position given an index into the pxa array."
@@ -1853,6 +1814,154 @@ tile attribute lists."
   (pxm-and-attrs->stage pxm
 			(map 'vector #'tile-attribute-num->tile-attributes
 			     pxa)))
+
+(defun decrypt-tsc-file (path)
+  "Loads in and decrypts a tsc script file. Returns a string."
+  (let* ((bytes (read-file-into-byte-vector path))
+	 (key-idx (floor (length bytes) 2))
+	 (key (aref bytes key-idx)))
+    ;; The middle character is the "key".
+    ;; All other bytes have the key subtracted from it.
+    (loop
+       for i from 0
+       for byte across bytes
+       unless (= i key-idx) do
+	 (setf (aref bytes i) (- byte key)))
+    ;; Remove Carriage Return.
+    (remove #\return (map 'string #'code-char bytes))))
+
+(defun parse-decrypted-tsc-script (script)
+  "Given the decrypted tsc script, return a parsed result."
+  (mapcar
+   (lambda (d)
+     (list (car d) (cons :script (cdr d))))
+   (split-sequence:split-sequence-if
+    (lambda (a) (and (consp a) (eq (car a) :end)))
+    (mapcan #'parse-tsc-line
+	    (remove-if (lambda (d) (zerop (length d)))
+		       (split-sequence:split-sequence #\newline script)))
+    :remove-empty-subseqs t)))
+
+(defun rest-of-line (line start)
+  (when (>= (length line) start)
+    (subseq line start)))
+
+(defun parse-tsc-line (line)
+  (if (zerop (length line))
+      nil
+      (case (aref line 0)
+	(#\# (list (cons :id (car (parse-tsc-num (subseq line 1))))))
+	(#\< (let ((parse (parse-tsc-command line))) 
+	       (cons (car parse) (parse-tsc-line (cdr parse)))))
+	(t (let ((parse (parse-tsc-text line)))
+	     (cons (car parse) (parse-tsc-line (cdr parse))))))))
+
+(defun parse-tsc-text (line)
+  "Assumes line starts with text for a message.
+Parses up to the next <."
+  (let ((text (first (split-sequence:split-sequence #\< line))))
+    (cons text (rest-of-line line (length text)))))
+
+(defun parse-tsc-command (line)
+  "Assumes line starts with a tsc command <XYX0001:1234...
+Returns (command . remaining-line)"
+  (let* ((cmd (make-keyword (subseq line 1 4)))
+	 (desc (second (assoc cmd *tsc-command-table*))))
+    (if (and (> (length line) 4) (digit-char-p (aref line 4)))
+	(let ((parse (parse-tsc-command-args (subseq line 4))))
+	  (cons (list cmd
+		      (cons :description desc)
+		      (cons :args (car parse)))
+		(cdr parse)))
+	(cons (list cmd (cons :description desc))
+	      (rest-of-line line 4)))))
+
+(defun parse-tsc-command-args (line)
+  "Assumes line is 0000:1234:5678..."
+  (let* ((parse (parse-tsc-num line))
+	 (arg (car parse))
+	 (line2 (cdr parse)))
+    (if (zerop (length line2))
+	(cons (list arg) line2)
+	(case (aref line2 0)
+	  (#\: (let ((parse2 (parse-tsc-command-args (subseq line2 1))))
+		 (cons (cons arg (car parse2))
+		       (cdr parse2))))
+	  (t (cons (list arg) line2))))))
+
+(defun parse-tsc-num (line)
+  "Assumes line starts with a tsc num 0000...
+Returns (num . remaining-line)."
+  (let ((num (parse-integer line :junk-allowed t)))
+    (cons num (rest-of-line line 4))))
+
+(defun collect (op count)
+  "Collects the results of calling op count times."
+  (loop for i from 1 to count collecting (funcall op)))
+
+(defun read-npc-table (path)
+  "Reads the npc.tbl file. Returns parallel lists, indexed by
+the entity type."
+  (with-open-file (stream path :element-type '(unsigned-byte 8))
+    (let ((count 361))
+      (alist
+       :default-flags (collect #_(read-uint16 stream) count)
+       :health-amt (collect #_ (read-uint16 stream) count)
+       :spritesheet-num (collect #_ (read-uint8 stream) count)
+       :death-sound (collect #_ (read-uint8 stream) count)
+       :hurt-sound (collect #_ (read-uint8 stream) count)
+       :smoke-amt (collect #_ (read-uint8 stream) count)
+       :exp-for-kill (collect #_ (read-uint32 stream) count)
+       :damage (collect #_ (read-uint32 stream) count)))))
+
+(defparameter *entity-flags*
+  '((:solid-mushy 		#x0001 "Pushes player out, but is not solid. Normal State for enemies.")
+    (:ignore-tile		#x0002)
+    (:invulnerable		#x0004 "Invulnerable. Plays clinking sound when shot.")
+    (:ignore-solid		#x0008)
+    (:bouncy			#x0010 "When :solid-brick is set, acts like a mini-trampoline")
+    (:shootable			#x0020)
+    (:solid-brick		#x0040 "Bounding box is solid, just like a solid tile.")
+    (:no-rear-top-attack	#x0080 "When attacked from the rear or top, damage is 0.")
+    (:script-on-touch		#x0100 "Activate tsc-id script when the player touches this entity.")
+    (:script-on-death		#x0200 "Activate tsc-id script when the entity dies.")
+    (:drop-powerups-dont-use	#x0400 "unused.")
+    (:appear-on-flag-id		#x0800 "This entity should spawn if the flag-id is set")
+    (:faces-right		#x1000 "Sets the initial direction the enemy is facing to be to the right.")
+    (:script-on-activate	#x2000 "Activate tsc-id script when the player interacts with this entity.")
+    (:disappear-on-flag-id	#x4000 "This entity should NOT spawn if the flag-id is set.")
+    (:show-float-text		#x8000 "This enemy should have a floating-text associated with it."))
+  "Flags that represent the entity's attributes. Set by npc.tbl and .tsc files.")
+
+(defparameter *tile-attribute-flags*
+  '((:solid-player	#x001 "Solid to the player.")
+    (:solid-npc		#x002 "Solid to NPCs.")
+    (:solid-shot	#x004 "Solid to bullets.")
+    (:hurts-player	#x010 "Causes 10HP of damage to player.")
+    (:foreground	#x020 "Drawn on the foreground layer.")
+    (:destroyable	#x040 "Destroyable purple star block.")
+    (:water		#x080 "Tile is underwater.")
+    (:current		#x100 "Tile has a water/wind current.")
+    (:slope		#x200 "Tile is sloped."))
+  "Tile attribute flags for pxa file. Numbers correspond to the tilekey.dat
+file from nx engine.")
+
+(defun read-tile-key-table ()
+  "Read the tilekey.dat file (from nx) to generate tile-attributes-table."
+  (mapcar (lambda (num)
+	    (mapcar #'first (remove-if
+			     (lambda (attr)
+			       (zerop (logand num (second attr))))
+			     *tile-attribute-flags*)))
+	  (with-open-file (stream "./content/tilekey.dat"
+				  :element-type '(unsigned-byte 8))
+	    (loop for i from 1 to 256
+	       collecting (read-uint32 stream)))))
+
+(defparameter *tile-attributes-table*
+  (map 'vector #'identity (read-tile-key-table))
+  "Table of tile-attribute-idx (from a .pxa file) to a list
+of *tile-attributes*.")
 
 (defparameter *entity-type-table*
   #(nil
@@ -2367,88 +2476,7 @@ tile attribute lists."
     nil
     nil
     nil)
-  "A table of type index to entity type.")
-
-(defun decrypt-tsc-file (path)
-  "Loads in and decrypts a tsc script file. Returns a string."
-  (let* ((bytes (read-file-into-byte-vector path))
-	 (key-idx (floor (length bytes) 2))
-	 (key (aref bytes key-idx)))
-    ;; The middle character is the "key".
-    ;; All other bytes have the key subtracted from it.
-    (loop
-       for i from 0
-       for byte across bytes
-       unless (= i key-idx) do
-	 (setf (aref bytes i) (- byte key)))
-    ;; Remove Carriage Return.
-    (remove #\return (map 'string #'code-char bytes))))
-
-(defun parse-decrypted-tsc-script (script)
-  "Given the decrypted tsc script, return a parsed result."
-  (mapcar
-   (lambda (d)
-     (list (car d) (cons :script (cdr d))))
-   (split-sequence:split-sequence-if
-    (lambda (a) (and (consp a) (eq (car a) :end)))
-    (mapcan #'parse-tsc-line
-	    (remove-if (lambda (d) (zerop (length d)))
-		       (split-sequence:split-sequence #\newline script)))
-    :remove-empty-subseqs t)))
-
-(defun rest-of-line (line start)
-  (when (>= (length line) start)
-    (subseq line start)))
-
-(defun parse-tsc-line (line)
-  (if (zerop (length line))
-      nil
-      (case (aref line 0)
-	(#\# (list (cons :id (car (parse-tsc-num (subseq line 1))))))
-	(#\< (let ((parse (parse-tsc-command line))) 
-	       (cons (car parse) (parse-tsc-line (cdr parse)))))
-	(t (let ((parse (parse-tsc-text line)))
-	     (cons (car parse) (parse-tsc-line (cdr parse))))))))
-
-(defun parse-tsc-text (line)
-  "Assumes line starts with text for a message.
-Parses up to the next <."
-  (let ((text (first (split-sequence:split-sequence #\< line))))
-    (cons text (rest-of-line line (length text)))))
-
-(defun parse-tsc-command (line)
-  "Assumes line starts with a tsc command <XYX0001:1234...
-Returns (command . remaining-line)"
-  (let* ((cmd (make-keyword (subseq line 1 4)))
-	 (desc (second (assoc cmd *tsc-command-table*))))
-    (if (and (> (length line) 4) (digit-char-p (aref line 4)))
-	(let ((parse (parse-tsc-command-args (subseq line 4))))
-	  (cons (list cmd
-		      (cons :description desc)
-		      (cons :args (car parse)))
-		(cdr parse)))
-	(cons (list cmd (cons :description desc))
-	      (rest-of-line line 4)))))
-
-(defun parse-tsc-command-args (line)
-  "Assumes line is 0000:1234:5678..."
-  (let* ((parse (parse-tsc-num line))
-	 (arg (car parse))
-	 (line2 (cdr parse)))
-    (if (zerop (length line2))
-	(cons (list arg) line2)
-	(case (aref line2 0)
-	  (#\: (let ((parse2 (parse-tsc-command-args (subseq line2 1))))
-		 (cons (cons arg (car parse2))
-		       (cdr parse2))))
-	  (t (cons (list arg) line2))))))
-
-(defun parse-tsc-num (line)
-  "Assumes line starts with a tsc num 0000...
-Returns (num . remaining-line)."
-  (let ((num (parse-integer line :junk-allowed t)))
-    (cons num (rest-of-line line 4))))
-
+  "A table of TSC type index to entity type.")
 ;; Following is heavily sourced from
 ;; http://www.cavestory.org/guides/tsc_r2.txt
 (defparameter *tsc-command-table*
@@ -2643,10 +2671,13 @@ Returns (num . remaining-line)."
     (:snd-155 155))
   "AList of (SOUND-KEY SOUND-IDX).")
 
+(defun sound-effect-idx->sound-effect-key (idx)
+  (first (member idx *sound-effects-table* :key #'second)))
+
 (defparameter *directions-table*
   #(:left :up :right :down :center)
   "For TSC directions.
-NOTE: MYB is 0000 Right, 0002 Left (reversed).")
+NOTE: For MYB it is 0000 Right, 0002 Left (reversed).")
 
 (defparameter *maps-table*
   #((:0 "Credits")
@@ -2746,6 +2777,10 @@ NOTE: MYB is 0000 Right, 0002 Left (reversed).")
     (:Clock "Clock Room (Outer Wall)"))
   "Ordered list of (map-key description) for TSC map ids.")
 
+(defun map-idx->map-keyword (idx)
+  "Returns a keyword representing the map for the given tsc idx."
+  (first (elt *maps-table* idx)))
+
 (defparameter *weapons-table*
  #(nil
    :Snake
@@ -2762,6 +2797,10 @@ NOTE: MYB is 0000 Right, 0002 Left (reversed).")
    :Nemesis
    :Spur)
   "Ordered list of weapon-keys for TSC weapon ids.")
+
+(defun weapon-idx->weapon-keyword (idx)
+  "Return the keyword for a weapon given its tsc idx."
+  (elt *weapons-table* idx))
 
 (defparameter *item-table*
   #(:blank
@@ -2806,6 +2845,10 @@ NOTE: MYB is 0000 Right, 0002 Left (reversed).")
     :Iron-Bond)
   "Ordered list of items indexed by TSC item id.")
 
+(defun item-idx->keyword (idx)
+  "TSC item idx -> keyword."
+  (elt *item-table* idx))
+
 (defparameter *equip-flags*
   '((:Booster-v0.8 0001)
     (:Map-System 0002)
@@ -2817,6 +2860,12 @@ NOTE: MYB is 0000 Right, 0002 Left (reversed).")
     (:Whimsical-Star 0128)
     (:Nikumaru-Counter 0256))
   "Flags TSC uses to set equipped items.")
+
+(defun equip-flags-num->equip-flags (num)
+  "Takes an integer flags and parses it into a set of *equip-flags*."
+  (mapcar #'car
+	  (remove-if (lambda (f) (zerop (logand num (second f))))
+		     *equip-flags*)))
 
 (defparameter *face-table*
   #(:blank
@@ -2851,6 +2900,10 @@ NOTE: MYB is 0000 Right, 0002 Left (reversed).")
     :Ballos)
   "Ordered list of TSC ids for showing character faces in dialogue.")
 
+(defun face-idx->keyword (idx)
+  "TSC face idx (for messages) -> keyword."
+  (elt *face-table* idx))
+
 (defparameter *illustrations-table*
   #(:riding-Sky-Dragon
     :fighting-Core
@@ -2872,3 +2925,25 @@ NOTE: MYB is 0000 Right, 0002 Left (reversed).")
     :Ballos)
   "Ordered list of TSC ids for showing illustrations (in credits).
 NOTE: any other values (including 0013) show :riding-sky-dragon")
+
+(defun illustrations-idx->keyword (idx)
+  "TSC face idx (for credits) -> keyword."
+  (elt *illustrations-table* idx))
+
+(defparameter *npc-data* (read-npc-table "./content/npc.tbl")
+  "Alist read in from the npc table.")
+(defparameter *smoke-amounts-table* #(0 3 7 12)
+  "Table for use by the npc.tbl file. 
+The number of smoke particles to create when destroyed.")
+
+(defun entity-npc-data (entity-type)
+  "Returns the npc-data for a given entity-type keyword."
+  (let ((e (mapcar (lambda (pair)
+		     (cons (car pair) (elt (cdr pair) (position entity-type *entity-type-table*))))
+		   *npc-data*))
+	(get-sound (comp first #_(elt *sound-effects-table* _))))
+    (aupdate e
+	     :smoke-amt #_(elt *smoke-amounts-table* _)
+	     :hurt-sound get-sound
+	     :death-sound get-sound
+	     :default-flags #'pxe-flags->entity-flags)))
