@@ -85,7 +85,7 @@
       (flush-rect-pos rect y offset-dir))))
 
 (defun slope? (tile-type)
-  (member :slope tile-type))
+  (intersection (ensure-list tile-type) '(:slope)))
 (defun tall-slope? (tile-type)
   (intersection tile-type '(:ltt :rtt :lbt :rbt)))
 (defun short-slope? (tile-type)

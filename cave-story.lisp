@@ -3005,9 +3005,9 @@ The number of smoke particles to create when destroyed.")
 	    :sheet-key :npc-sym
 	    :src-rect
 	    (tile-rect (+v (anim-cycle-offset a) src-pos))
-	    :pos (aval a :pos)))
+	    :pos (-v (aval a :pos) (tile-dims/2))))
 	 (make-sprite-drawing
 	  :layer :pickup
 	  :sheet-key :npc-sym
 	  :src-rect (tile-rect (tile-v 1 0))
-	  :pos (aval a :pos))))))
+	  :pos (-v (aval a :pos) (tile-dims/2)))))))
