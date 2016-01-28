@@ -48,8 +48,7 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 
 (defun pickup-rect (obj)
   (funcall (aval obj :pickup-rect-fn) obj))
-(defun pickup-kill (obj)
-  (funcall (aval obj :pickup-kill-fn) obj))
+
 (defun pickup-data (obj)
   (funcall (aval obj :pickup-data-fn) obj))
 

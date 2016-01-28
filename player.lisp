@@ -70,7 +70,19 @@
   (ecase (aval pickup :type)
     (:dorito
      (player-gun-exp p (aval pickup :amt)))
+    (:heart
+     (player-add-health p (aval pickup :amt)))
     (t p)))
+
+(defun player-add-health (p amt)
+  (aupdate p
+	   :health-amt (lambda (old-amt)
+			 (min (aval p :max-health-amt) (+ old-amt amt)))
+	   :new-states
+	   (pushfn
+	    (hud-health-changed
+	     (estate (aval *global-game* :hud))))))
+
 
 (defun player-walk-acc (p)
   (const-accelerator

@@ -227,20 +227,20 @@ This can be abused with the machine gun in TAS."
   (alist :type type :amt amt))
 
 (defun dorito-fns-alist ()
-  (alist :ai-fn #'dorito-ai
+  (alist :ai-fn #'pickup-ai
 	 :draw-fn #'dorito-drawing
 	 :stage-collision-fn #'dorito-stage-collision
-	 :pickup-rect-fn #'dorito-pickup-rect
-	 :pickup-kill-fn #'dorito-pickup-kill))
+	 :pickup-rect-fn #'dorito-pickup-rect))
 
-(defparameter *dorito-subsystems*
-  '(:timers :physics :stage-collision :drawable :pickup))
+
+(defparameter *pickup-subsystems*
+  '(:timers :drawable :pickup))
 
 (defun make-dorito (pos size)
   (let ((vel (polar-vec->v (rand-angle) 0.07)))
     (amerge
      (dorito-fns-alist)
-     (alist :subsystems *dorito-subsystems*)
+     (alist :subsystems (list* :physics :stage-collision *pickup-subsystems*))
      (dorito-pickup-data size)
      (alist :timers
 	    '(:life-timer :anim-cycle)
@@ -261,7 +261,7 @@ This can be abused with the machine gun in TAS."
 			 (clamper+- *terminal-speed*))
 	    :size size))))
 
-(defun dorito-ai (d)
+(defun pickup-ai (d)
   (aset d :dead? (not (timer-active? (aval d :life-timer)))))
 
 (defun dorito-pos (d)
@@ -341,7 +341,7 @@ This can be abused with the machine gun in TAS."
 (defun dorito-pickup-rect (d)
   (rect-offset (dorito-collision-rect (aval d :size)) (physics-pos d)))
 
-(setfn dorito-pickup-kill
+(setfn pickup-kill
        (comp 
 	(aupdatefn :sound-effects (pushfn :pickup))
 	(asetfn :dead? t)))
@@ -2953,3 +2953,61 @@ The number of smoke particles to create when destroyed.")
 	     :hurt-sound get-sound
 	     :death-sound get-sound
 	     :default-flags #'pxe-flags->entity-flags)))
+
+(defun pickup-fns-alist ()
+  (alist :pickup-rect-fn (lambda (a) (centered-rect (+v (aval a :pos)
+							(tile-dims/2))
+						    (both-v (/ *tile-size* 2))))
+	 :pickup-kill-fn #'pickup-kill
+	 :ai-fn #'pickup-ai
+	 :draw-fn #'pickup-drawing))
+
+(defun make-heart-or-missile-pickup (pos type bundle?)
+  "Type is :heart or :missile."
+  (amerge
+   (pickup-fns-alist)
+   (alist :subsystems *pickup-subsystems*)
+   (make-pickup :type type :amt (ecase type
+				  (:heart (if bundle? 6 2))
+				  (:missile (if bundle? 3 1))))
+   (alist :timers
+	  '(:life-timer :anim-cycle)
+	  :life-timer
+	  (make-expiring-timer (s->ms 8) t)
+	  :pos pos
+	  :anim-cycle
+	  (make-fps-cycle 14 (iota 2))
+	  :type type
+	  :bundle? bundle?)))
+
+(defun make-heart-pickup (pos bundle?)
+  (make-heart-or-missile-pickup pos :heart bundle?))
+
+(defun make-missile-pickup (pos bundle?)
+  (make-heart-or-missile-pickup pos :missile bundle?))
+
+(defun pickup-drawing (a)
+  (let* ((tm (aval a :life-timer))
+	 (bundle? (aval a :bundle?))
+	 (src-pos (ecase (aval a :type)
+		    (:heart (if bundle?
+				(tile-v 4 5)
+				(tile-v 2 5)))
+		    (:missile
+		     (if bundle?
+			 (tile-v 0 5)
+			 (tile-v 0 7))))))
+    (list
+     (if (> (aval tm :ms-remaining) (* 2 *frame-time*))
+	 (unless (death-flash? tm)
+	   (make-sprite-drawing
+	    :layer :pickup
+	    :sheet-key :npc-sym
+	    :src-rect
+	    (tile-rect (+v (anim-cycle-offset a) src-pos))
+	    :pos (aval a :pos)))
+	 (make-sprite-drawing
+	  :layer :pickup
+	  :sheet-key :npc-sym
+	  :src-rect (tile-rect (tile-v 1 0))
+	  :pos (aval a :pos))))))
