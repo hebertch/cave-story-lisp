@@ -1,8 +1,7 @@
-(ql:quickload :cave-story)
-
+(proclaim '(optimize debug))
+(asdf:operate 'asdf:load-op :cave-story :force t)
 (in-package :cave-story)
 (swank:set-default-directory "/home/chebert/Projects/lisp/cave-story")
-
 
 (read-pxa-file "./content/stages/Cave.pxa")
 

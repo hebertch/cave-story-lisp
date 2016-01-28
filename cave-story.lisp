@@ -124,10 +124,10 @@
 	(draw-text-line!
 	 (make-v (* 12 *tile-size*) (- (y *window-dims*) *tile-size*))
 	 (format nil "Total: ~,0f%"
-		 (rolling-average-percent *frame-rolling-average*)))
+		 (rolling-average-percent *frame-rolling-average*)))))
 
-	(rolling-average-time *render-rolling-average*
-	  (render! *render-list* (current-camera-pos)))))
+  (rolling-average-time *render-rolling-average*
+    (render! *render-list* (current-camera-pos)))
 
   
   (setq *frame-timer* (- *frame-timer*
