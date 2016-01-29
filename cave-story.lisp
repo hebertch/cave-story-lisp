@@ -1026,7 +1026,9 @@ This can be abused with the machine gun in TAS."
 	     (case type
 	       (:bat-blue (make-bat (aval entity :tile-pos)))
 	       (:critter-hopping-blue
-		(make-critter (tile-pos (aval entity :tile-pos)))))))
+		(make-critter (tile-pos (aval entity :tile-pos))))
+	       (:door-enemy
+		(make-door-enemy (aval entity :tile-pos))))))
 	(when e
 	  (amerge data e))))))
 
@@ -1042,7 +1044,7 @@ This can be abused with the machine gun in TAS."
 		   (read-pxe-file "./content/stages/Cave.pxe")
 		   nil))
 	(hud (make-hud))
-	(player (make-player :pos (tile-v 37 11)))
+	(player (make-player :pos (tile-v 51 12)))
 	(gun-exps (make-gun-exps))
 	(active-systems (make-active-systems)))
     
@@ -3011,3 +3013,54 @@ The number of smoke particles to create when destroyed.")
 	  :sheet-key :npc-sym
 	  :src-rect (tile-rect (tile-v 1 0))
 	  :pos (-v (aval a :pos) (tile-dims/2)))))))
+
+
+;; Door behavior:
+;; open eye when player < 4 x tiles
+;; close eye when player > 4 x tiles
+;; look up and shake when hit
+;; damage/damageable rect is bottom tile
+
+(defparameter *door-enemy-subsystems*
+  '(:physics :timers :drawable :damageable :damage-collision))
+
+(defun door-enemy-fns-alist ()
+  (let ((rect-fn
+	 (lambda (d)
+	   (tile-rect (tile-pos (aval d :tile-pos))))))
+   (alist :ai-fn #'door-enemy-ai
+	  :draw-fn #'door-enemy-drawings
+	  :origin-fn
+	  (lambda (d)
+	    (tile-pos (+v (make-v 1/2 1/2) (aval d :tile-pos))))
+	  :damageable-hit-react-fn #'door-enemy-hit-react
+	  :damageable-rect-fn rect-fn
+	  :damage-collision-rect-fn rect-fn
+	  :damage-collision-amt-fn (constantly 1))))
+
+(defun make-door-enemy (tile-pos)
+  (amerge
+   (door-enemy-fns-alist)
+   (alist :subsystems *door-enemy-subsystems*)
+   (alist
+    :tile-pos tile-pos
+    :id (gen-entity-id))))
+
+(defun make-door-drawing (pos)
+  (make-sprite-drawing
+   :layer :foreground
+   :sheet-key :npc-sym
+   :src-rect (create-rect (tile-v 14 1)
+			  (tile-v 1 3/2))
+   :pos pos))
+
+(setfn door-enemy-ai
+       (comp shake-ai))
+
+(defun door-enemy-drawings (d)
+  (list
+   (make-door-drawing (+v (physics-pos d)
+			  (tile-pos (-v (aval d :tile-pos) (make-v 0 1/2)))))))
+
+(setfn door-enemy-hit-react
+       (comp damage-reaction shake-hit-react))

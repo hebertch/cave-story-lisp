@@ -1,7 +1,7 @@
-* destroyable blocks
 * door enemy
+* use damage amounts from npc table
 * door/warp to stage
 * Experience text
-* optimize update times. Only update onscreen entities?
+* optimize update times.
 * set song from music index
 * sound effects; might need to read pixtone files for these.
