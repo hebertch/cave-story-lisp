@@ -1,4 +1,3 @@
-* water
 * destroyable blocks
 * door enemy
 * door/warp to stage

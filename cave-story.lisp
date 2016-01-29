@@ -1042,7 +1042,7 @@ This can be abused with the machine gun in TAS."
 		   (read-pxe-file "./content/stages/Cave.pxe")
 		   nil))
 	(hud (make-hud))
-	(player (make-player :pos (tile-v 48 37)))
+	(player (make-player :pos (tile-v 37 11)))
 	(gun-exps (make-gun-exps))
 	(active-systems (make-active-systems)))
     
