@@ -98,7 +98,7 @@
       *stage-viewer-camera-pos*
       (camera-pos (estate (aval *global-game* :camera))
 		  (stage-dims->camera-bounds
-		   (stage-dims (aval *global-game* :stage))))))
+		   (stage-dims (estate (aval *global-game* :stage)))))))
 
 (defvar *update-rolling-average* (make-rolling-average (* *fps* 3)))
 (defvar *frame-rolling-average* (make-rolling-average (* *fps* 3)))
@@ -859,7 +859,7 @@ This can be abused with the machine gun in TAS."
   (unless *stage-viewer*
     (let ((active-update-systems
 	   (aval (estate (aval game :active-systems)) :update))
-	  (stage (aval game :stage))
+	  (stage (estate (aval game :stage)))
 	  (player (aval game :player)))
       (update-timers-subsystem! active-update-systems)
       (update-physics-subsystem! active-update-systems)
@@ -880,7 +880,7 @@ This can be abused with the machine gun in TAS."
   ;; (draw-point! (player-nozzle-pos player) *red*)
   (let ((focus (camera-focus (estate (aval game :camera))))
 	(camera-bounds (stage-dims->camera-bounds
-			(stage-dims (aval game :stage)))))
+			(stage-dims (estate (aval game :stage))))))
     (unless *stage-viewer*
       (draw-point! focus *cyan*)
       (draw-point! (clamp-pos focus camera-bounds) *red*))
@@ -1049,6 +1049,7 @@ This can be abused with the machine gun in TAS."
     (let ((camera (make-camera (physics-pos player) (zero-v) player)))
       (mapc #'create-entity!
 	    (list*
+	     stage
 	     damage-numbers
 	     projectile-groups
 	     stage
@@ -1066,7 +1067,7 @@ This can be abused with the machine gun in TAS."
 
       (make-game :player (aval player :id)
 		 :camera (aval camera :id)
-		 :stage stage
+		 :stage (aval stage :id)
 		 :hud (aval hud :id)
 		 :projectile-groups (aval projectile-groups :id)
 		 :gun-exps (aval gun-exps :id)

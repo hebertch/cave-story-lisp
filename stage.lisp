@@ -50,14 +50,20 @@
     stage))
 
 (defun stage-fns-alist ()
-  (alist :draw-fn #_(aval _ :drawings)))
+  (alist :draw-fn #'stage-drawings))
+
+(defun stage-drawings (stage)
+  (append (aval stage :drawings)
+	  (destroyable-tile-drawings stage)))
+
+
 
 (defun make-stage (stage-data)
   (amerge
    (stage-fns-alist)
    (alist :subsystems *stage-subsystems*)
    (alist :data stage-data
-	  :drawings (ncompile-drawings (stage-drawing stage-data))
+	  :drawings (ncompile-drawings (prerendered-stage-drawings stage-data))
 	  :id (gen-entity-id))))
 
 (defun stage-dims (stage)
@@ -172,7 +178,23 @@ Stage-collisions returns the final data argument."
 	((member :foreground tile-type) *yellow*)
 	(t *red*)))
 
-(defun stage-drawing (stage-data)
+(defun destroyable-tile-drawings (stage)
+  (let ((drawings nil)
+	(data (aval stage :data)))
+    (dotimes (row (array-dimension data 0))
+      (dotimes (col (array-dimension data 1))
+	(let ((tile-type (first (aref data row col))))
+	  (when (destroyable? tile-type)
+	    (push
+	     (make-sprite-drawing
+	      :layer :foreground
+	      :sheet-key :npc-sym
+	      :src-rect (tile-rect (tile-v 16 3))
+	      :pos (tile-v col row))
+	     drawings)))))
+    drawings))
+
+(defun prerendered-stage-drawings (stage-data)
   (let ((drawings nil)
 	(data stage-data))
     (dotimes (row (array-dimension data 0))
@@ -186,7 +208,7 @@ Stage-collisions returns the final data argument."
 		(tile-v col row) (tile-attributes->color tile-type)
 		:debug nil))
 	   drawings)
-	  (when tile-pos
+	  (when (and tile-pos (not (destroyable? tile-type)))
 	    (push
 	     (make-sprite-drawing
 	      :layer (if (member :foreground tile-type)
@@ -197,3 +219,26 @@ Stage-collisions returns the final data argument."
 	      :pos (tile-v col row))
 	     drawings)))))
     drawings))
+
+(defun destroyable? (tile-type)
+  (intersection (ensure-list tile-type) '(:destroyable)))
+
+(defun destroy-tile (stage tile-pos)
+  (let ((tiles (copy-array (aval stage :data))))
+    (setf (aref tiles (y tile-pos) (x tile-pos)) nil)
+    (aupdate stage
+	     :data (constantly tiles)
+	     :sound-effects
+	     (pushfn :enemy-explode)
+	     :new-entities
+	     (appendfn (make-num-death-cloud-particles
+			3
+			(+v (tile-pos tile-pos) (tile-dims/2)))))))
+
+(defun stage-tile-shot (stage tile)
+  "Stage reaction to a tile being shot."
+  (let ((tile-type (second tile))
+	(tile-pos (first tile)))
+    (if (destroyable? tile-type)
+	(destroy-tile stage tile-pos)
+	stage)))

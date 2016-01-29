@@ -60,14 +60,18 @@
   (aset p :dead? (ticked? p :life-timer)))
 
 (defun projectile-collision? (rect dir stage)
-  (loop for (tile-pos tile-type) in (stage-get-colliding-tiles stage rect)
+  "Generalized boolean.
+Returns the tile of the collision if one occurred."
+  (loop for tile in (stage-get-colliding-tiles stage rect)
      do
-       (cond
-	 ((wall? tile-type)
-	  (return t))
-	 ((slope? tile-type)
-	  (when (projectile-slope-collision? tile-type tile-pos rect dir)
-	    (return t))))))
+       (let ((tile-pos (stage-tile-pos tile))
+	     (tile-type (stage-tile-type tile)))
+	 (cond
+	   ((wall? tile-type)
+	    (return tile))
+	   ((slope? tile-type)
+	    (when (projectile-slope-collision? tile-type tile-pos rect dir)
+	      (return tile)))))))
 
 (defun projectile-slope-collision? (tile-type tile-pos rect dir)
   ;; TODO Merge projectile collisions with player collisions?
@@ -79,17 +83,15 @@
     (if (vertical? dir)
 	(let* ((x (x (center rect)))
 	       (y (tile-slope-pos-y tile-pos tile-type x)))
-	  (when (rect-slope-collision? rect x y (opposite-dir dir))
-	    t))
+	  (rect-slope-collision? rect x y (opposite-dir dir)))
 
 	(let* ((y (y (center rect)))
 	       (x (tile-slope-pos-x tile-pos tile-type y))
 	       (pos (tile-pos->pos tile-pos)))
-	  (when (and
-		 (<= (x pos) x (+ (x pos) *tile-size*))
-		 (<= (y pos) y (+ (y pos) *tile-size*))
-		 (rect-slope-collision? rect x y (opposite-dir dir)))
-	    t)))))
+	  (and
+	   (<= (x pos) x (+ (x pos) *tile-size*))
+	   (<= (y pos) y (+ (y pos) *tile-size*))
+	   (rect-slope-collision? rect x y (opposite-dir dir)))))))
 
 ;; Missiles
 (defun missile-projectile-collision-rect (lvl dir pos)
@@ -218,18 +220,21 @@
   (let ((pos (physics-pos p))
 	(lvl (aval p :lvl))
 	(dir (aval p :dir)))
-    (let ((dead?
+    (let ((tile
 	   (polar-star-projectile-collisions
 	    (polar-star-projectile-collision-rect lvl dir pos)
 	    dir stage)))
-      (if dead?
+      (if tile
 	  (aupdate p
-		   :dead? (constantly dead?)
+		   :dead? (constantly t)
 		   :new-entities
-		   (pushfn (make-projectile-wall-particle
-			    (offset-in-dir-pos (+v pos (tile-dims/2))
-					       (tiles/2 1)
-					       dir)))
+		   (appendfn
+		    (list
+		     (make-projectile-wall-particle
+		      (offset-in-dir-pos (+v pos (tile-dims/2))
+					 (tiles/2 1)
+					 dir))
+		     (stage-tile-shot stage tile)))
 		   :sound-effects
 		   (pushfn :hit-wall))
 	  p))))
@@ -280,10 +285,7 @@
 
 (defun polar-star-projectile-collisions (rect dir stage)
   (draw-rect! rect *yellow*)
-  (let ((dead?))
-    (when (projectile-collision? rect dir stage)
-      (setq dead? t))
-    dead?))
+  (projectile-collision? rect dir stage))
 
 (defun add-projectile-group (obj gun-name lvl dir nozzle-pos)
   (case gun-name
