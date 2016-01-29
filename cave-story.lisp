@@ -3044,23 +3044,87 @@ The number of smoke particles to create when destroyed.")
    (alist :subsystems *door-enemy-subsystems*)
    (alist
     :tile-pos tile-pos
+    :eye-state :closed
     :id (gen-entity-id))))
 
 (defun make-door-drawing (pos)
   (make-sprite-drawing
-   :layer :foreground
+   :layer :npc
    :sheet-key :npc-sym
    :src-rect (create-rect (tile-v 14 1)
 			  (tile-v 1 3/2))
    :pos pos))
 
 (setfn door-enemy-ai
-       (comp shake-ai))
+       (comp shake-ai
+	     door-eye-ai))
 
 (defun door-enemy-drawings (d)
-  (list
-   (make-door-drawing (+v (physics-pos d)
-			  (tile-pos (-v (aval d :tile-pos) (make-v 0 1/2)))))))
+  (let ((pos
+	 (+v (physics-pos d)
+	     (tile-pos (-v (aval d :tile-pos) (make-v 0 1/2))))))
+    (list
+     (cond
+       ((member :shake-timer (aval d :timers))
+	(make-sprite-drawing
+	 :layer :npc
+	 :sheet-key :npc-sym
+	 :src-rect (create-rect (tile-v 15 5)
+				(tile-v 1 3/2))
+	 :pos pos))
+       ((or (door-eye-closing? d) (door-eye-opening? d))
+	(make-sprite-drawing
+	 :layer :npc
+	 :sheet-key :npc-sym
+	 :src-rect (create-rect (tile-v 13 5)
+				(tile-v 1 3/2))
+	 :pos pos))
+       ((door-eye-open? d)
+	(make-sprite-drawing
+	 :layer :npc
+	 :sheet-key :npc-sym
+	 :src-rect (create-rect (tile-v 14 5)
+				(tile-v 1 3/2))
+	 :pos pos))
+       (t (make-door-drawing pos))))))
+
+(defun door-eye-opening? (d)
+  (eq :opening (aval d :eye-state)))
+
+(defun door-eye-open? (d)
+  (eq :open (aval d :eye-state)))
+
+(defun door-eye-closing? (d)
+  (eq :closing (aval d :eye-state)))
+
+(defun door-eye-ai (d)
+  (let* ((player-x (x (origin (estate (aval *global-game* :player)))))
+	 (door-x (x (origin d)))
+	 (player-in-range?
+	  (< (abs (- player-x door-x)) (* 4 *tile-size*))))
+    (cond ((door-eye-open? d)
+	   (if (not player-in-range?)
+	       (aupdate d
+			:eye-state (constantly :closing)
+			:eye-timer (constantly (make-expiring-timer 5 :t))
+			:timers (pushfn :eye-timer))
+	       d))
+	  ((door-eye-opening? d)
+	   (if (ticked? d :eye-timer)
+	       (aset d :eye-state :open)
+	       d))
+	  ((door-eye-closing? d)
+	   (if (ticked? d :eye-timer)
+	       (aset d :eye-state :closed)
+	       d))
+	  (t
+	   (if player-in-range?
+	       (aupdate d
+			:eye-state (constantly :opening)
+			:eye-timer (constantly (make-expiring-timer 5 :t))
+			:timers (pushfn :eye-timer))
+	       d)))))
 
 (setfn door-enemy-hit-react
-       (comp damage-reaction shake-hit-react))
+       (comp damage-reaction
+	     shake-hit-react))
