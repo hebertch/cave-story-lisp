@@ -1028,7 +1028,14 @@ This can be abused with the machine gun in TAS."
 	       (:critter-hopping-blue
 		(make-critter (tile-pos (aval entity :tile-pos))))
 	       (:door-enemy
-		(make-door-enemy (aval entity :tile-pos))))))
+		(make-door-enemy (aval entity :tile-pos)))
+	       (:spike-small
+		(make-spike (aval entity :tile-pos)
+			    (case (aval entity :tsc-id)
+			      (1 :up)
+			      (2 :right)
+			      (3 :down)
+			      (t :left)))))))
 	(when e
 	  (amerge data e))))))
 
@@ -3014,13 +3021,6 @@ The number of smoke particles to create when destroyed.")
 	  :src-rect (tile-rect (tile-v 1 0))
 	  :pos (-v (aval a :pos) (tile-dims/2)))))))
 
-
-;; Door behavior:
-;; open eye when player < 4 x tiles
-;; close eye when player > 4 x tiles
-;; look up and shake when hit
-;; damage/damageable rect is bottom tile
-
 (defparameter *door-enemy-subsystems*
   '(:physics :timers :drawable :damageable :damage-collision))
 
@@ -3128,3 +3128,37 @@ The number of smoke particles to create when destroyed.")
 (setfn door-enemy-hit-react
        (comp damage-reaction
 	     shake-hit-react))
+
+(defparameter *spike-subsystems*
+  '(:drawable :damage-collision))
+
+(defun spike-fns-alist ()
+  (alist :draw-fn #'spike-drawings
+	 :damage-collision-rect-fn #'spike-rect
+	 :damage-collision-amt-fn (constantly 2)))
+
+(defun spike-rect (s)
+  (tile-rect (tile-pos (aval s :tile-pos))))
+
+(defun make-spike (tile-pos dir)
+  (amerge
+   (spike-fns-alist)
+   (alist :subsystems *spike-subsystems*)
+   (alist
+    :tile-pos tile-pos
+    :dir dir
+    :id (gen-entity-id))))
+
+(defun spike-drawings (s)
+  (list
+   (make-sprite-drawing
+    :layer :npc
+    :sheet-key :npc-sym
+    :src-rect (tile-rect (tile-v (+ 16
+				    (ecase (aval s :dir)
+				      (:left 0)
+				      (:up 1)
+				      (:right 2)
+				      (:down 3)))
+				 25/2))
+    :pos (tile-pos (aval s :tile-pos)))))

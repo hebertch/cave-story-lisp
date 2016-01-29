@@ -1,6 +1,5 @@
-* door enemy
-* use damage amounts from npc table
 * spikes
+* use damage amounts from npc table
 * door/warp to stage
 * Experience text
 * optimize update times.
