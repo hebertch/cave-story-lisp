@@ -106,9 +106,8 @@ Returns the tile of the collision if one occurred."
 		   size))))
 
 (defun missile-projectile-collisions (rect dir stage)
-  (let ((dead? (projectile-collision? rect dir stage)))
-    (draw-rect! rect *yellow*)
-    dead?))
+  (draw-rect! rect *yellow*)
+  (projectile-collision? rect dir stage))
 
 (defun missile-projectile-pos (m)
   (physics-pos m))
@@ -121,17 +120,16 @@ Returns the tile of the collision if one occurred."
 			     :pos (missile-projectile-pos p))))
 
 
-
 (defun missile-projectile-stage-collision (p stage)
   (let ((dir (aval p :dir))
 	(lvl (aval p :lvl)))
-    (aset p
-	  :dead?
-	  (missile-projectile-collisions
-	   (missile-projectile-collision-rect lvl dir
-					      (missile-projectile-pos
-					       p))
-	   dir stage))))
+    (let ((tile
+	   (missile-projectile-collisions
+	    (missile-projectile-collision-rect lvl dir
+					       (missile-projectile-pos
+						p))
+	    dir stage)))
+      (projectile-tile-collision p (asetfn :dead? t) stage tile))))
 
 
 (defun missile-projectile-damage-amt (p)
@@ -216,6 +214,13 @@ Returns the tile of the collision if one occurred."
 (defun polar-star-projectile-damage-amt (p)
   (elt '(1 2 4) (aval p :lvl)))
 
+(defun projectile-tile-collision (p projectile-reaction stage tile)
+  (if tile
+      (aupdate (funcall projectile-reaction p)
+	       :new-entities
+	       (pushfn (stage-tile-shot stage tile)))
+      p))
+
 (defun polar-star-projectile-stage-collision (p stage)
   (let ((pos (physics-pos p))
 	(lvl (aval p :lvl))
@@ -223,21 +228,16 @@ Returns the tile of the collision if one occurred."
     (let ((tile
 	   (polar-star-projectile-collisions
 	    (polar-star-projectile-collision-rect lvl dir pos)
-	    dir stage)))
-      (if tile
-	  (aupdate p
-		   :dead? (constantly t)
-		   :new-entities
-		   (appendfn
-		    (list
-		     (make-projectile-wall-particle
-		      (offset-in-dir-pos (+v pos (tile-dims/2))
-					 (tiles/2 1)
-					 dir))
-		     (stage-tile-shot stage tile)))
-		   :sound-effects
-		   (pushfn :hit-wall))
-	  p))))
+	    dir stage))
+	  (react (aupdatefn
+		  :dead? (constantly t)
+		  :new-entities
+		  (pushfn (make-projectile-wall-particle
+			   (offset-in-dir-pos (+v pos (tile-dims/2))
+					      (tiles/2 1)
+					      dir)))
+		  :sound-effects (pushfn :hit-wall))))
+      (projectile-tile-collision p react stage tile))))
 
 (defun add-polar-star-projectile-group (obj lvl dir nozzle-pos)
   (let ((pg (list (make-polar-star-projectile nozzle-pos dir lvl))))

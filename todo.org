@@ -1,7 +1,6 @@
-* spikes
-* use damage amounts from npc table
-* door/warp to stage
 * Experience text
-* optimize update times.
-* set song from music index
 * sound effects; might need to read pixtone files for these.
+* optimize update times.
+* door/warp to stage
+* set song from music index
+* use damage amounts from npc table?

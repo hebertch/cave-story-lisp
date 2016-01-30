@@ -3135,7 +3135,7 @@ The number of smoke particles to create when destroyed.")
 (defun spike-fns-alist ()
   (alist :draw-fn #'spike-drawings
 	 :damage-collision-rect-fn #'spike-rect
-	 :damage-collision-amt-fn (constantly 2)))
+	 :damage-collision-amt-fn (constantly 5)))
 
 (defun spike-rect (s)
   (tile-rect (tile-pos (aval s :tile-pos))))
