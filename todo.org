@@ -1,6 +1,7 @@
 * Experience text
 * sound effects: copy from desktop to wav folder
 * set song from music index
+* die from drowning
 * door/warp to stage
 * optimize update times.
 * use damage amounts from npc table?

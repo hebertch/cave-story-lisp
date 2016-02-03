@@ -49,6 +49,13 @@
 (defmacro comp (&rest forms)
   (expand-composition forms))
 
+(defmacro defvar! (var &optional (val nil val-provided?) doc)
+  (if val-provided?
+      (list* 'defparameter var val (if doc (list doc) nil))
+      `(progn
+	 (makunbound ',var)
+	 (defvar ,var))))
+
 ;; Alist utilities
 (defun alist (&rest plist)
   (plist-alist plist))
