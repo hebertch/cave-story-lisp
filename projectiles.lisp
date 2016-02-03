@@ -64,8 +64,8 @@
 Returns the tile of the collision if one occurred."
   (loop for tile in (stage-get-colliding-tiles stage rect)
      do
-       (let ((tile-pos (stage-tile-pos tile))
-	     (tile-type (stage-tile-type tile)))
+       (let ((tile-pos (first tile))
+	     (tile-type (second tile)))
 	 (cond
 	   ((wall? tile-type)
 	    (return tile))

@@ -1,7 +1,7 @@
-(proclaim '(optimize debug))
-(asdf:operate 'asdf:load-op :cave-story :force t)
-(in-package :cave-story)
+(declaim (optimize debug))
 (swank:set-default-directory "/home/chebert/Projects/lisp/cave-story")
+(load "load.lisp")
+(in-package :cave-story)
 
 (read-pxa-file "./content/stages/Cave.pxa")
 
