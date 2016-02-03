@@ -7,14 +7,14 @@
 (defvar *font*)
 (defvar *global-game*)
 
-(defparameter *stage-viewer* nil)
+(defvar! *stage-viewer* nil)
 (defvar *stage-viewer-camera-pos* (scale-v *window-dims* 1/2))
 
 ;; Debug params.
-(defparameter *update-period* 1
+(defvar! *update-period* 1
   "Number of frames per update. 1 for real-time.")
 
-(defparameter *debug-input-keybindings*
+(defvar! *debug-input-keybindings*
   `((((:key :escape)) .
      ,(lambda () (quit)))
     (((:key :p)
@@ -220,8 +220,8 @@ This can be abused with the machine gun in TAS."
 (defun rect->collision-rects (rect &optional (buffer-size 6))
   (collision-rects (rect-pos rect) (rect-size rect) buffer-size))
 
-(defparameter *dorito-friction-acc* 0.00002)
-(defparameter *dorito-bounce-speed* 0.225)
+(defvar! *dorito-friction-acc* 0.00002)
+(defvar! *dorito-bounce-speed* 0.225)
 
 (defun make-pickup (&key type amt)
   (alist :type type :amt amt))
@@ -233,7 +233,7 @@ This can be abused with the machine gun in TAS."
 	 :pickup-rect-fn #'dorito-pickup-rect))
 
 
-(defparameter *pickup-subsystems*
+(defvar! *pickup-subsystems*
   '(:timers :drawable :pickup))
 
 (defun make-dorito (pos size)
@@ -301,7 +301,7 @@ This can be abused with the machine gun in TAS."
 (defun max-y-v (v max-y)
   (make-v (x v) (max (y v) max-y)))
 
-(defparameter *dorito-stage-collisions*
+(defvar! *dorito-stage-collisions*
   (alist
    :bottom
    (collision-lambda (data)
@@ -366,7 +366,7 @@ This can be abused with the machine gun in TAS."
 (defun single-loop-sprite-fns-alist ()
   (alist :ai-fn #'single-loop-sprite-ai))
 
-(defparameter *single-loop-sprite-subsystems*
+(defvar! *single-loop-sprite-subsystems*
   '(:timers))
 
 (defun make-single-loop-sprite (fps seq sheet-key tile-y layer)
@@ -406,7 +406,7 @@ This can be abused with the machine gun in TAS."
 
 ;; NOTE: This (ai/timers) is a kludge to make it so particle can set its
 ;; dead? flag based on single-loop-sprite.
-(defparameter *particle-subsystems* '(:drawable :timers :ai))
+(defvar! *particle-subsystems* '(:drawable :timers :ai))
 (defun make-particle (&key seq fps sheet-key tile-y pos)
   (amerge
    (particle-fns-alist)
@@ -487,7 +487,7 @@ This can be abused with the machine gun in TAS."
   (alist :draw-fn #'floating-number-drawing
 	 :ai-fn #'floating-number-ai))
 
-(defparameter *floating-number-subsystems*
+(defvar! *floating-number-subsystems*
   '(:timers :drawable :physics))
 (defun make-floating-number (entity amt)
   (amerge
@@ -587,15 +587,15 @@ This can be abused with the machine gun in TAS."
    "I'm on the Mimiga side and not gonna lose to you!!"
    :wait))
 
-(defparameter *text-speed* 100)
+(defvar! *text-speed* 100)
 (defun slow-text-speed! ()
   (setq *text-speed* 100))
 (defun fast-text-speed! ()
   (setq *text-speed* 25))
-(defparameter *cursor-blink-time* 100)
+(defvar! *cursor-blink-time* 100)
 
 #+nil
-(defparameter *text-display-subsystems*
+(defvar! *text-display-subsystems*
   '(:timers :drawable))
 
 #+nil
@@ -664,7 +664,7 @@ This can be abused with the machine gun in TAS."
 (defun hud-fns-alist ()
   (alist :draw-fn #'hud-drawing))
 
-(defparameter *hud-subsystems* '(:timers :drawable))
+(defvar! *hud-subsystems* '(:timers :drawable))
 (defun make-hud ()
   (amerge
    (hud-fns-alist)
@@ -906,7 +906,7 @@ This can be abused with the machine gun in TAS."
 
   (aset game :input (reset-transient-input (aval game :input))))
 
-(defparameter *input-playback* nil)
+(defvar! *input-playback* nil)
 
 (let (inputs playback-idx game-state)
   (defun record-frame-input (input)
@@ -932,9 +932,9 @@ This can be abused with the machine gun in TAS."
     (setq inputs nil)
     (setq game-state (save-current-state))))
 
-(defparameter *dialog-text-pos* (tiles/2-v 7 24))
+(defvar! *dialog-text-pos* (tiles/2-v 7 24))
 (defvar *global-paused?*)
-(defparameter *entity-systems* '(:game :dialog))
+(defvar! *entity-systems* '(:game :dialog))
 
 (defun make-active-systems
     (&key (update (list :game)) (draw (list :game)) (input (list :game)) (id (gen-entity-id)))
@@ -1153,7 +1153,7 @@ This can be abused with the machine gun in TAS."
 	 :damage-collision-amt-fn (constantly 1)
 	 :damageable-rect-fn #'physics-tile-rect))
 
-(defparameter *bat-subsystems*
+(defvar! *bat-subsystems*
   '(:timers :damage-collision :damageable :drawable :physics))
 
 (defun make-bat (tile-pos)
@@ -1202,7 +1202,7 @@ This can be abused with the machine gun in TAS."
 			(aval (estate (aval p :single-loop-sprite))
 			      :dead?)))))
 
-(defparameter *death-cloud-particle-subsystems*
+(defvar! *death-cloud-particle-subsystems*
   '(:drawable :physics :stage-collision :timers :ai))
 
 (defun make-death-cloud-particle (pos)
@@ -1250,7 +1250,7 @@ This can be abused with the machine gun in TAS."
 (defun make-num-death-cloud-particles (num pos)
   (collect #_(make-death-cloud-particle pos) num))
 
-(defparameter *critter-dynamic-collision-rect*
+(defvar! *critter-dynamic-collision-rect*
   (make-rect :pos (tile-v 0 1/4) :size (tile-v 1 3/4)))
 
 (defun gravity-kin-2d (&key (pos (zero-v)) (vel (zero-v)))
@@ -1286,7 +1286,7 @@ This can be abused with the machine gun in TAS."
       :physics '(:stage-physics)
       :id id))))
 
-(defparameter *critter-subsystems*
+(defvar! *critter-subsystems*
   '(:timers :drawable :physics :damageable
     :damage-collision :dynamic-collision :stage-collision))
 
@@ -1379,7 +1379,7 @@ This can be abused with the machine gun in TAS."
 	  :ground-tile ground-tile
 	  :ground-inertia-entity ground-inertia-entity)))
 
-(defparameter *critter-stage-collisions*
+(defvar! *critter-stage-collisions*
   (alist
    :bottom
    (collision-lambda (data)
@@ -1421,7 +1421,7 @@ This can be abused with the machine gun in TAS."
 (defun critter-inertia-vel (c)
   (stage-vel c))
 
-(defparameter *elephant-speed* 0.08)
+(defvar! *elephant-speed* 0.08)
 
 (defun elephant-fns-alist ()
   (alist :draw-fn #'elephant-drawing
@@ -1444,7 +1444,7 @@ This can be abused with the machine gun in TAS."
 	 :ai-fn #'elephant-ai
 	 :stage-collision-fn #'elephant-stage-collision))
 
-(defparameter *elephant-subsystems*
+(defvar! *elephant-subsystems*
   '(:timers :drawable :physics :stage-collision
     :damageable :damage-collision :dynamic-collision))
 
@@ -1460,7 +1460,7 @@ This can be abused with the machine gun in TAS."
 	  :anim-cycle (make-fps-cycle 12 #(0 2 4))
 	  :facing :left)))
 
-(defparameter *elephant-dims* (make-v (tiles 2) (tiles 3/2)))
+(defvar! *elephant-dims* (make-v (tiles 2) (tiles 3/2)))
 (defun elephant-drawing (e)
   (let ((src-pos
 	 (cond
@@ -1925,7 +1925,7 @@ the entity type."
        :exp-for-kill (collect #_ (read-uint32 stream) count)
        :damage (collect #_ (read-uint32 stream) count)))))
 
-(defparameter *entity-flags*
+(defvar! *entity-flags*
   '((:solid-mushy 		#x0001 "Pushes player out, but is not solid. Normal State for enemies.")
     (:ignore-tile		#x0002)
     (:invulnerable		#x0004 "Invulnerable. Plays clinking sound when shot.")
@@ -1944,7 +1944,7 @@ the entity type."
     (:show-float-text		#x8000 "This enemy should have a floating-text associated with it."))
   "Flags that represent the entity's attributes. Set by npc.tbl and .tsc files.")
 
-(defparameter *tile-attribute-flags*
+(defvar! *tile-attribute-flags*
   '((:solid-player	#x001 "Solid to the player.")
     (:solid-npc		#x002 "Solid to NPCs.")
     (:solid-shot	#x004 "Solid to bullets.")
@@ -1969,12 +1969,12 @@ file from nx engine.")
 	    (loop for i from 1 to 256
 	       collecting (read-uint32 stream)))))
 
-(defparameter *tile-attributes-table*
+(defvar! *tile-attributes-table*
   (map 'vector #'identity (read-tile-key-table))
   "Table of tile-attribute-idx (from a .pxa file) to a list
 of *tile-attributes*.")
 
-(defparameter *entity-type-table*
+(defvar! *entity-type-table*
   #(nil
     :xp
     :behemoth
@@ -2490,7 +2490,7 @@ of *tile-attributes*.")
   "A table of TSC type index to entity type.")
 ;; Following is heavily sourced from
 ;; http://www.cavestory.org/guides/tsc_r2.txt
-(defparameter *tsc-command-table*
+(defvar! *tsc-command-table*
   '((:AE+ "Refill ammo")
     (:AM+ "Get weapon X, add Y to max ammo (just adds ammo if you have the weapon)")
     (:AM- "Lose weapon X")
@@ -2584,7 +2584,7 @@ of *tile-attributes*.")
   "List of (COMMAND-KEY DESCRIPTION) pairs for tsc script <XYZ commands.")
 
 
-(defparameter *song-names-table*
+(defvar! *song-names-table*
   '(nil :egg :safety :gameover :gravity :grasstown :meltdown2 :eyesofflame
     :gestation :town :fanfale1 :balrog :cemetary :plant :pulse :fanfale2
     :fanfale3 :tyrant :run :jenka1 :labyrinth :access :oppression
@@ -2594,7 +2594,7 @@ of *tile-attributes*.")
     :toroko :white :azarashi nil)
   "Ordered list of song names; accessed by tsc scripts.")
 
-(defparameter *sound-effects-table*
+(defvar! *sound-effects-table*
   '((:snd-menu-move 1)
     (:snd-msg 2)
     (:snd-bonk-head 3)
@@ -2685,12 +2685,12 @@ of *tile-attributes*.")
 (defun sound-effect-idx->sound-effect-key (idx)
   (first (member idx *sound-effects-table* :key #'second)))
 
-(defparameter *directions-table*
+(defvar! *directions-table*
   #(:left :up :right :down :center)
   "For TSC directions.
 NOTE: For MYB it is 0000 Right, 0002 Left (reversed).")
 
-(defparameter *maps-table*
+(defvar! *maps-table*
   #((:0 "Credits")
     (:Pens1 "Arthur's House - normal")
     (:Eggs "Egg Corridor")
@@ -2792,7 +2792,7 @@ NOTE: For MYB it is 0000 Right, 0002 Left (reversed).")
   "Returns a keyword representing the map for the given tsc idx."
   (first (elt *maps-table* idx)))
 
-(defparameter *weapons-table*
+(defvar! *weapons-table*
  #(nil
    :Snake
    :Polar-Star
@@ -2813,7 +2813,7 @@ NOTE: For MYB it is 0000 Right, 0002 Left (reversed).")
   "Return the keyword for a weapon given its tsc idx."
   (elt *weapons-table* idx))
 
-(defparameter *item-table*
+(defvar! *item-table*
   #(:blank
     :arthurs-key
     :Map-System
@@ -2860,7 +2860,7 @@ NOTE: For MYB it is 0000 Right, 0002 Left (reversed).")
   "TSC item idx -> keyword."
   (elt *item-table* idx))
 
-(defparameter *equip-flags*
+(defvar! *equip-flags*
   '((:Booster-v0.8 0001)
     (:Map-System 0002)
     (:Arms-Barrier 0004)
@@ -2878,7 +2878,7 @@ NOTE: For MYB it is 0000 Right, 0002 Left (reversed).")
 	  (remove-if (lambda (f) (zerop (logand num (second f))))
 		     *equip-flags*)))
 
-(defparameter *face-table*
+(defvar! *face-table*
   #(:blank
     :Sue-smile
     :Sue-frown
@@ -2915,7 +2915,7 @@ NOTE: For MYB it is 0000 Right, 0002 Left (reversed).")
   "TSC face idx (for messages) -> keyword."
   (elt *face-table* idx))
 
-(defparameter *illustrations-table*
+(defvar! *illustrations-table*
   #(:riding-Sky-Dragon
     :fighting-Core
     :fighting-Misery
@@ -2941,9 +2941,9 @@ NOTE: any other values (including 0013) show :riding-sky-dragon")
   "TSC face idx (for credits) -> keyword."
   (elt *illustrations-table* idx))
 
-(defparameter *npc-data* (read-npc-table "./content/npc.tbl")
+(defvar! *npc-data* (read-npc-table "./content/npc.tbl")
   "Alist read in from the npc table.")
-(defparameter *smoke-amounts-table* #(0 3 7 12)
+(defvar! *smoke-amounts-table* #(0 3 7 12)
   "Table for use by the npc.tbl file. 
 The number of smoke particles to create when destroyed.")
 
@@ -3021,7 +3021,7 @@ The number of smoke particles to create when destroyed.")
 	  :src-rect (tile-rect (tile-v 1 0))
 	  :pos (-v (aval a :pos) (tile-dims/2)))))))
 
-(defparameter *door-enemy-subsystems*
+(defvar! *door-enemy-subsystems*
   '(:physics :timers :drawable :damageable :damage-collision))
 
 (defun door-enemy-fns-alist ()
@@ -3129,7 +3129,7 @@ The number of smoke particles to create when destroyed.")
        (comp damage-reaction
 	     shake-hit-react))
 
-(defparameter *spike-subsystems*
+(defvar! *spike-subsystems*
   '(:drawable :damage-collision))
 
 (defun spike-fns-alist ()

@@ -1,8 +1,8 @@
 (in-package :cave-story)
 
-(defparameter *camera-speed-scale-factor* 1/20)
-(defparameter *camera-acc* 2e-4)
-(defparameter *camera-max-speed* 0.15859374)
+(defvar! *camera-speed-scale-factor* 1/20)
+(defvar! *camera-acc* 2e-4)
+(defvar! *camera-max-speed* 0.15859374)
 
 (defun camera-target-from-player (player)
   (let ((h-facing (aval player :h-facing))
@@ -19,7 +19,7 @@
 (defun camera-fns-alist ()
   (alist :ai-fn #'camera-ai))
 
-(defparameter *camera-subsystems* '(:timers :physics))
+(defvar! *camera-subsystems* '(:timers :physics))
 
 (defun make-camera (focus vel player)
   (amerge

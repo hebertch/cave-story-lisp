@@ -26,7 +26,7 @@
 
 (defvar *event*)
 (defvar *joystick*)
-(defparameter *show-joy-buttons?* nil)
+(defvar! *show-joy-buttons?* nil)
 
 (defun reset-transient-input (input)
   "Return a copy of input with the transient-input cleared."

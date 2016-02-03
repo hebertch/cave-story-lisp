@@ -1,6 +1,6 @@
 (in-package :cave-story)
 
-(defparameter *collision-order* '(:bottom :left :right :top))
+(defvar! *collision-order* '(:bottom :left :right :top))
 
 (defun vertical? (dir) (member dir '(:up :down)))
 (defun horizontal? (dir) (member dir '(:left :right)))

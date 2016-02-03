@@ -12,7 +12,7 @@
 					      (missile-projectile-pos p)))
 	 :stage-collision-fn #'missile-projectile-stage-collision))
 
-(defparameter *missile-projectile-subsystems*
+(defvar! *missile-projectile-subsystems*
   '(:timers :physics :drawable :stage-collision :bullet))
 
 (defun make-missile-projectile 
@@ -176,7 +176,7 @@ Returns the tile of the collision if one occurred."
 						 (physics-pos p)))
 	 :stage-collision-fn #'polar-star-projectile-stage-collision))
 
-(defparameter *polar-star-projectile-subsystems*
+(defvar! *polar-star-projectile-subsystems*
   '(:timers :physics :drawable :bullet :stage-collision))
 
 (defun make-polar-star-projectile (nozzle-pos dir lvl)

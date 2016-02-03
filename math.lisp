@@ -50,6 +50,8 @@
   (expand-composition forms))
 
 (defmacro defvar! (var &optional (val nil val-provided?) doc)
+  "If no val is provided, make var unbound, and then defvar it.
+If val is provided, expand to a defparameter."
   (if val-provided?
       (list* 'defparameter var val (if doc (list doc) nil))
       `(progn

@@ -1,6 +1,6 @@
 (in-package :cave-story)
 
-(defparameter *player-invincible* nil)
+(defvar! *player-invincible* nil)
 
 (defun player-fns-alist ()
   (alist :stage-collision-fn #'player-stage-collision
@@ -9,7 +9,7 @@
 	 :input-fn #'player-input
 	 :draw-fn #'player-and-gun-drawing))
 
-(defparameter *player-subsystems*
+(defvar! *player-subsystems*
   '(:timers :input :physics :stage-collision :drawable))
 
 (defun make-player (&key pos)
@@ -36,19 +36,19 @@
 	   :clamper-vy
 	   (clamper+- *terminal-speed*)))))
 
-(defparameter *player-walk-acc* 0.00083007812)
-(defparameter *player-max-speed-x* 0.15859375)
-(defparameter *player-max-speed-x-water* (/ *player-max-speed-x* 2))
-(defparameter *player-friction-acc* 0.00049804687)
-(defparameter *terminal-speed* 0.2998046875)
-(defparameter *gravity-acc* 0.00078125)
-(defparameter *player-jump-gravity-acc* 0.0003125)
-(defparameter *player-air-acc* 0.0003125)
-(defparameter *player-jump-speed* 0.25)
-(defparameter *player-jump-speed-water* (* *player-jump-speed* 3/4))
-(defparameter *player-hop-speed* (* *player-jump-speed* 2/3))
+(defvar! *player-walk-acc* 0.00083007812)
+(defvar! *player-max-speed-x* 0.15859375)
+(defvar! *player-max-speed-x-water* (/ *player-max-speed-x* 2))
+(defvar! *player-friction-acc* 0.00049804687)
+(defvar! *terminal-speed* 0.2998046875)
+(defvar! *gravity-acc* 0.00078125)
+(defvar! *player-jump-gravity-acc* 0.0003125)
+(defvar! *player-air-acc* 0.0003125)
+(defvar! *player-jump-speed* 0.25)
+(defvar! *player-jump-speed-water* (* *player-jump-speed* 3/4))
+(defvar! *player-hop-speed* (* *player-jump-speed* 2/3))
 
-(defparameter *player-collision-rectangles-alist*
+(defvar! *player-collision-rectangles-alist*
   (loop for (key x y w h) in
        '((:bottom 11 16 10 15)
 	 (:top 7 2 18 15)
@@ -59,7 +59,7 @@
 (defun player-collision-rect (side)
   (aval *player-collision-rectangles-alist* side))
 
-(defparameter *player-damage-rect*
+(defvar! *player-damage-rect*
   (let ((left (left (player-collision-rect :left)))
 	(right (right (player-collision-rect :right)))
 	(top (top (player-collision-rect :top)))
@@ -358,7 +358,7 @@
       (setq p (aset p :gun-name-cycle (cycle-next (aval p :gun-name-cycle)))))
     p))
 
-(defparameter *player-stage-collisions*
+(defvar! *player-stage-collisions*
   (let ((stop-x
 	 (collision-lambda (data)
 	   (aset data

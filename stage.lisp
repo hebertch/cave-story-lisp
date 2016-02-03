@@ -1,6 +1,6 @@
 (in-package :cave-story)
 
-(defparameter *stage-subsystems* '(:drawable))
+(defvar! *stage-subsystems* '(:drawable))
 
 (defun basic-stage ()
   "Just a toy stage for debugging."

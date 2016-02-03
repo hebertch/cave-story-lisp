@@ -51,20 +51,20 @@
 (defun drawing-layer (drawing)
   (aval drawing :layer))
 
-(defparameter *red* #(255 0 0 255))
-(defparameter *green* #(0 255 0 255))
-(defparameter *blue* #(0 0 255 255))
-(defparameter *white* #(255 255 255 255))
-(defparameter *black* #(0 0 0 255))
-(defparameter *yellow* #(255 255 0 255))
-(defparameter *magenta* #(255 0 255 255))
-(defparameter *cyan* #(0 255 255 255))
+(defvar! *red* #(255 0 0 255))
+(defvar! *green* #(0 255 0 255))
+(defvar! *blue* #(0 0 255 255))
+(defvar! *white* #(255 255 255 255))
+(defvar! *black* #(0 0 0 255))
+(defvar! *yellow* #(255 255 0 255))
+(defvar! *magenta* #(255 0 255 255))
+(defvar! *cyan* #(0 255 255 255))
 
 (defvar *render-debug?* t
   "Whether to render the DEBUG-RENDER-LIST")
 (defvar *render-list* nil
   "The list of drawings to be rendered once per frame.")
-(defparameter *debug-layers*
+(defvar! *debug-layers*
   (list :debug
 	:debug-damage-collision
 	:debug-stage-collision
@@ -73,7 +73,7 @@
 	:debug-dynamic-collision
 	:debug-camera
 	:debug-mouse))
-(defparameter *game-layers*
+(defvar! *game-layers*
   (list  :background
 	 :npc
 	 :gun
@@ -84,18 +84,18 @@
 	 :foreground
 	 :particle
 	 :floating-text))
-(defparameter *hud-layers*
+(defvar! *hud-layers*
   (list :hud-bg :hud :hud-fg
 	:text-box :text
 	:mouse))
-(defparameter *debug-screen-layers*
+(defvar! *debug-screen-layers*
   (list :debug-mouse))
-(defparameter *layers* (append *game-layers* *debug-layers*
+(defvar! *layers* (append *game-layers* *debug-layers*
 			       *hud-layers* *debug-screen-layers*))
-(defparameter *screen-layers* (member (first *hud-layers*) *layers*))
-(defparameter *visible-layers* (append *game-layers* *hud-layers*))
-(defparameter *parallax-scale* 1/8)
-(defparameter *character-textures* (make-hash-table))
+(defvar! *screen-layers* (member (first *hud-layers*) *layers*))
+(defvar! *visible-layers* (append *game-layers* *hud-layers*))
+(defvar! *parallax-scale* 1/8)
+(defvar! *character-textures* (make-hash-table))
 
 (defun set-draw-color! (renderer c)
   "Sets the sdl:renderer draw color. c: #(r g b a)"

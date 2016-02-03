@@ -6,9 +6,9 @@
   cleanup-fn
   load-fn)
 
-(defparameter *resource-types* nil)
+(defvar! *resource-types* nil)
 
-(defparameter *sfx-fnames*
+(defvar! *sfx-fnames*
   '(:step "Step"
     :jump "Jump"
     :hurt "Hurt"
@@ -25,7 +25,7 @@
     :text-click "TextClick"
     :big-footstep "BigFootstep"))
 
-(defparameter *song-names*
+(defvar! *song-names*
   '(:ACCESS "access" :ANZEN "anzen" :BALCONY "balcony" :BALLOS "ballos" :BDOWN
     "bdown" :BREAKDOWN "breakdown" :CEMETERY "cemetery" :CREDITS "credits" :CURLY
     "curly" :DR "dr" :ENDING "ending" :ESCAPE "escape" :FANFALE1 "fanfale1"
@@ -38,7 +38,7 @@
     :VIVI "vivi" :WANPAK2 "wanpak2" :WANPAKU_ENDING "wanpaku_ending" :WANPAKU
     "wanpaku" :WEED "weed" :WHITE "white" :ZONBIE "zonbie"))
 
-(defparameter *spritesheet-fnames*
+(defvar! *spritesheet-fnames*
   '(:my-char "MyChar"
     :npc-sym "NpcSym"
     :prt-cave "PrtCave"
