@@ -3246,8 +3246,11 @@ Each field is a (key parse-type description).")
       (mapcar #'parse-pxt-channel-field track4-fields *pxt-channel-fields*)))))
 
 (defun parse-pxt-channel-field (val field)
-  (let ((type (second field))
-	(key (first field)))
+  "Parse a pxt colon-separated channel field val,
+given that it is expected to be associated with the channel field.
+Field is a (key type) list."
+  (let ((key (first field))
+	(type (second field)))
     (cons
      key
      (ecase type
@@ -3257,21 +3260,53 @@ Each field is a (key parse-type description).")
        (:wave-model (let ((idx (parse-integer val)))
 		      (first (assoc-value *pxt-wave-models* idx))))))))
 
-(defun pxt-tracks->wav (tracks)
-  "Converts tracks from a pxt file into an uncompressed .wav form
-for playback."
-  )
+(defun pxt-tracks->wav-bytes (tracks)
+  "Converts tracks from a pxt file into an vector of bytes
+for .wav form playback."
+  (let ((fn (pxt-tracks-function tracks)))
+    (map 'vector
+	 (lambda (x)
+	   (+ 128 (floor (* 127 (funcall fn x)))))
+	 (iota (aval (first tracks) :size)))))
 
-(defun pxt-track->wav (track)
-  "Convert a single pxt track into an uncompressed .wav form."
- )
+(defun pxt-tracks-function (tracks)
+  "Combines the pxt-track functions of tracks."
+  (let ((fns (mapcar #'pxt-track-function tracks)))
+    (lambda (x)
+      (let ((res 0))
+	(dolist (fn fns)
+	  (setq res (+ res (funcall fn x))))
+	res))))
+
+(defun volume-envelope-function (track)
+  "Returns the volume envelope as a function of samples."
+  ;; ax, bx, cx are all fractions of size out of 255.
+  ;; initial-y, ay, by, cy are all fractions out of 63.
+  (let* ((size (aval track :size))
+	 (ax (* size (/ (aval track :ax) 255)))
+	 (bx (* size (/ (aval track :bx) 255)))
+	 (cx (* size (/ (aval track :cx) 255)))
+	 (initial-y (/ (aval track :initial-y) 63))
+	 (ay (/ (aval track :ay) 63))
+	 (by (/ (aval track :by) 63))
+	 (cy (/ (aval track :cy) 63)))
+    (lambda (x)
+      (cond ((< x ax)
+	     (lerp (/ x ax) initial-y ay))
+	    ((< x bx)
+	     (lerp (/ (- x ax) (- bx ax)) ay by))
+	    ((< x cx)
+	     (lerp (/ (- x bx) (- cx bx)) by cy))
+	    (t
+	     (lerp (/ (- x cx) (- 255 cx)) cy 0))))))
 
 (defun pxt-track-function (track)
   "Return a function that when given a byte offset returns
 the sound value."
   (let* ((size (aval track :size))
 	 (pitch-wave (pitch-wave-function track))
-	 (volume-wave (volume-wave-function track)))
+	 (volume-wave (volume-wave-function track))
+	 (volume-envelope (volume-envelope-function track)))
     (lambda (x)
       (let* ((pitch (funcall pitch-wave x))
 	     (main-freq (aval track :main-freq))
@@ -3279,7 +3314,8 @@ the sound value."
 			 (t (* main-freq (- 1 (/ pitch 8))))))
 	     (volume (funcall volume-wave x))
 	     (main-top (aval track :main-top))
-	     (top (+ main-top (* volume main-top)))
+	     (top (min (funcall volume-envelope x)
+		       (+ main-top (* volume main-top))))
 	     (main-wave (pxt-wave-function size
 					   (aval track :main-model)
 					   freq
@@ -3324,41 +3360,28 @@ Offset is a fractional amount out of 256 of a period to offset the wave."
 			(+ (* slope (- x (+ osc-start (* 3 p/4))))
 			   (- amp))))))
 	      (:random
-	       (error "Random wave Not implemented"))))))))
+	       (* amp (- (random 2.0) 1.0)))))))))
 
-(defun plot-all-waves ()
-  (let* ((wave-function #_(pxt-wave-function 22050 _ 440.0 32 0))
+(defun plot-waves! (wave-models)
+  "Plot an example wave of of each wave-model in wave-models."
+  (let* ((wave-function #_(pxt-wave-function 1000 _ 1.0 32 0))
 	 (x (map 'vector (lambda (x) x) (iota 1000)))
 	 (w (cl-plplot:basic-window)))
-    (cl-plplot:add-plot-to-window
-     w
-     (cl-plplot:new-x-y-plot
-      x
-      (map 'vector (funcall wave-function :triangle) x)))
-    (cl-plplot:add-plot-to-window
-     w
-     (cl-plplot:new-x-y-plot
-      x
-      (map 'vector (funcall wave-function :square) x)))
-    (cl-plplot:add-plot-to-window
-     w
-     (cl-plplot:new-x-y-plot
-      x
-      (map 'vector (funcall wave-function :sine) x)))
-    (cl-plplot:add-plot-to-window
-     w
-     (cl-plplot:new-x-y-plot
-      x
-      (map 'vector (funcall wave-function :saw-up) x)))
-    (cl-plplot:add-plot-to-window
-     w
-     (cl-plplot:new-x-y-plot
-      x
-      (map 'vector (funcall wave-function :saw-down) x)))
+    (dolist (wave wave-models)
+      (cl-plplot:add-plot-to-window
+       w
+       (cl-plplot:new-x-y-plot
+	x
+	(map 'vector (funcall wave-function wave) x))))
     (cl-plplot:render w "xwin"))
   (values))
 
-(defun plot-offsets ()
+(defun plot-all-waves! ()
+  "Plot an example of each wave model."
+  (plot-waves! (mapcar #'second *pxt-wave-models*)))
+
+(defun plot-offsets! ()
+  "Creates a plot of two wave functions with different offsets."
   (let* ((wave-function #_(pxt-wave-function 22050 :saw-up 440.0 32 _))
 	 (x (map 'vector (lambda (x) x) (iota 1000)))
 	 (w (cl-plplot:basic-window)))
@@ -3377,42 +3400,24 @@ Offset is a fractional amount out of 256 of a period to offset the wave."
   (values))
 
 (defun pitch-wave-function (track)
+  "Returns the function to compute the pitch modulation wave of a given track."
   (pxt-wave-function (aval track :size)
 		     (aval track :pitch-model)
 		     (aval track :pitch-freq)
 		     (aval track :pitch-top)
 		     (aval track :pitch-offset)))
 (defun volume-wave-function (track)
+  "Returns the function to compute the volume modulation wave of a given track."
   (pxt-wave-function (aval track :size)
 		     (aval track :volume-model)
 		     (aval track :volume-freq)
 		     (aval track :volume-top)
 		     (aval track :volume-offset)))
 
-(defparameter *square-track*
-  '((:USE . T)
-    (:SIZE . 1000)
-    (:MAIN-MODEL . :square)
-    (:MAIN-FREQ . 44.0)
-    (:MAIN-TOP . 63)
-    (:MAIN-OFFSET . 0)
-    (:PITCH-MODEL . :square)
-    (:PITCH-FREQ . 1.0)
-    (:PITCH-TOP . 44)
-    (:PITCH-OFFSET . 0)
-    (:VOLUME-MODEL . :square)
-    (:VOLUME-FREQ . 1.0)
-    (:VOLUME-TOP . 23)
-    (:VOLUME-OFFSET . 0)
-    (:INITIAL-Y . 63)
-    (:AX . 0) (:AY . 63) (:BX . 164)
-    (:BY . 28) (:CX . 255) (:CY . 0)))
-
-(defun plot-track ()
-  (let* ((track
-	  *square-track*)
-	 (track-function (pxt-track-function track))
-	 (x (map 'vector #'identity (iota (aval *square-track* :size))))
+(defun plot-pxt-track! (track)
+  "Plots a track of a .pxt file using plPlot."
+  (let* ((track-function (pxt-track-function track))
+	 (x (map 'vector #'identity (iota (aval track :size))))
 	 (w (cl-plplot:basic-window)))
     (cl-plplot:add-plot-to-window
      w
@@ -3422,4 +3427,73 @@ Offset is a fractional amount out of 256 of a period to offset the wave."
     (cl-plplot:render w "xwin"))
   (values))
 
-(plot-track)
+(defun string-bytes (str)
+  (map 'vector #'char-code str))
+
+(defun uint32-bytes (u)
+  "Return byte sequence (little-endian) of a uint32 u."
+  (let ((bytes (make-array 4)))
+    (setf (aref bytes 0) (ldb (byte 8 0) u))
+    (setf (aref bytes 1) (ldb (byte 8 8) u))
+    (setf (aref bytes 2) (ldb (byte 8 16) u))
+    (setf (aref bytes 3) (ldb (byte 8 24) u))
+    bytes))
+
+(defun uint16-bytes (u)
+  "Return byte sequence (little-endian) of a uint16 u."
+  (let ((bytes (make-array 2)))
+    (setf (aref bytes 0) (ldb (byte 8 0) u))
+    (setf (aref bytes 1) (ldb (byte 8 8) u))
+    bytes))
+
+(defun wavefile-bytes (data)
+  "Given the 8-bit data bytes, create the wave file bytes."
+  (let ((contents
+	 (concatenate 'vector
+		      (string-bytes "WAVE")
+		      (string-bytes "fmt ")
+		      ;; fmt-length
+		      (uint32-bytes 16)
+		      ;; audio-format
+		      (uint16-bytes 1)
+		      ;; num-channels
+		      (uint16-bytes 1)
+		      ;; Samples/Second
+		      (uint32-bytes 22050)
+		      ;; byte-rate
+		      (uint32-bytes 22050)
+		      ;; block-align
+		      (uint16-bytes 1)
+		      ;; bits-per-sample
+		      (uint16-bytes 8)
+		      ;; Data-tag
+		      (string-bytes "data")
+		      ;; data-length
+		      (uint32-bytes (length data))
+		      ;; data
+		      data)))
+    (concatenate 'vector
+		 (string-bytes "RIFF")
+		 ;; Riff-length
+		 (uint32-bytes (length contents))
+		 contents)))
+
+(defun pxt-file->wave-file! (pxt-path wave-path)
+  "Read a .pxt file from pxt-path and write it to wave-path.
+Overwrites wave-path if it exists."
+  (with-open-file (stream wave-path :direction :output
+			  :element-type '(unsigned-byte 8)
+			  :if-exists :supersede)
+    (write-sequence
+     (wavefile-bytes (pxt-tracks->wav-bytes (read-pxt-file pxt-path)))
+     stream))
+  :done)
+
+(defun plot-pxt! (path)
+  (plot-pxt-track! (first (read-pxt-file path))))
+
+(plot-pxt! "./content/pxt/fx01.pxt")
+
+
+#+nil
+(play-sound-file "~/Projects/lisp/cave-story/test.wav")
