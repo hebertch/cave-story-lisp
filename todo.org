@@ -1,6 +1,6 @@
 * Experience text
-* sound effects; might need to read pixtone files for these.
-* optimize update times.
-* door/warp to stage
+* sound effects: copy from desktop to wav folder
 * set song from music index
+* door/warp to stage
+* optimize update times.
 * use damage amounts from npc table?

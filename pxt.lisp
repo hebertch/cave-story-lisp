@@ -1,4 +1,5 @@
 ;;;; pxt.lisp
+(in-package :cave-story)
 
 ;; Since I don't want to try to recreate pxt files
 ;; exactly, this is totally unused. Kept it around
@@ -333,6 +334,8 @@ Overwrites wave-path if it exists."
 
 (defun plot-pxt! (path)
   (plot-pxt-track! (first (read-pxt-file path))))
+
+(pxt-file->wave-file! "./content/pxt/fx46.pxt" "./test.wav")
 
 #+nil
 (play-sound-file "~/Projects/lisp/cave-story/test.wav")
