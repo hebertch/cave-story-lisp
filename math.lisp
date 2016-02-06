@@ -4,49 +4,61 @@
   "Sets the function-value of function name to be fn."
   `(setf (fdefinition ',function-name) ,fn))
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defun expand-partial-application (lst)
-    (let* ((rest? (not (null (cdr (last lst)))))
-	   (lst (if rest?
-		    (append (butlast lst) (list (car (last lst))
-						(cdr (last lst))))
-		    lst))
-	   (num-args (count '_ lst))
-	   (args (loop for n from 1 to num-args
-		    collecting (symbolicate 'a (format nil "~A" n))))
-	   (arg-list (loop
-			for a in (rest lst)
-			with i = 0
-			collecting
-			  (if (eq '_ a)
-			      (progn
-				(incf i)
-				(symbolicate 'a (format nil "~A" i)))
-			      a))))
-      `(lambda ,args
-	 (,@(if rest?
-		`(apply #',(first lst))
-		(list (first lst)))
-	    ,@arg-list))))
+(defun expand-partial-application (lst)
+  "Expand the body forms in lst into a partial application. _'s in the
+top level forms are replaced with arguments."
+  (let* ((rest? (not (null (cdr (last lst)))))
+	 (lst (if rest?
+		  (append (butlast lst) (list (car (last lst))
+					      (cdr (last lst))))
+		  lst))
+	 (num-args (count '_ lst))
+	 (args (loop for n from 1 to num-args
+		  collecting (gensym (format nil "A~A-" n))))
+	 (arg-list (loop
+		      for a in (rest lst)
+		      with i = 0
+		      collecting
+			(if (eq '_ a)
+			    (progn
+			      (incf i)
+			      (elt args (1- i)))
+			    a))))
+    `(lambda ,args
+       (,@(if rest?
+	      `(apply #',(first lst))
+	      (list (first lst)))
+	  ,@arg-list))))
 
-  (defun expand-composition (lst)
-    `(lambda (arg)
-       (funcall (compose
-		 ,@(loop for i in lst
-		      collecting (if (symbolp i)
-				     `(function ,i)
-				     i)))
-		arg)))
+(defun expand-composition (lst)
+  "Given a list of forms, lst, expand into function composition.
+Replace symbols with their function slots."
+  `(lambda (arg)
+     (funcall (compose
+	       ,@(loop for i in lst
+		    collecting (if (symbolp i)
+				   `(function ,i)
+				   i)))
+	      arg)))
 
-  (defun hash-underscore-reader (stream char arg)
-    (declare (ignore char arg))
-    (expand-partial-application (read stream t nil t)))
+(defun hash-underscore-reader (stream char arg)
+  "Reader for #_. Expands to partial application using PART."
+  (declare (ignore char arg))
+  `(part ,(read stream t nil t)))
 
-  (defun install-function-syntax! ()
-    (set-dispatch-macro-character #\# #\_ #'hash-underscore-reader))
-  (install-function-syntax!))
+(defun install-function-syntax! ()
+  (set-dispatch-macro-character #\# #\_ #'hash-underscore-reader))
+(install-function-syntax!)
+
+(defmacro part (&body forms)
+  "Partial function application. _'s are converted to args.
+E.g. (+ _ A _) ==> (lambda (#:a1 #:a2 #:a3) (+ #:a1 A #:a2)).
+Args cannot be referenced."
+  (apply #'expand-partial-application forms))
 
 (defmacro comp (&rest forms)
+  "Function composition. If a form is a symbol, its function value is used.
+Use COMPOSE when a function is stored in the value slot."
   (expand-composition forms))
 
 (defmacro defvar! (var &optional (val nil val-provided?) doc)

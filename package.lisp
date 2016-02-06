@@ -1,4 +1,9 @@
 ;;;; package.lisp
 
-(defpackage #:cave-story
-  (:use #:cl #:alexandria))
+(in-package :cl-user)
+
+#+nil
+(defpackage-form :cave-story)
+
+(DEFPACKAGE #:CAVE-STORY
+  (:USE #:COMMON-LISP #:ALEXANDRIA.0.DEV))
