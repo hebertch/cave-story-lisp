@@ -215,7 +215,8 @@
 	   (appendfn
 	    (list (incr-gun-exp (estate (aval *global-game* :gun-exps))
 				(player-current-gun-name p) amt)
-		  (hud-exp-changed (estate (aval *global-game* :hud)))))))
+		  (hud-exp-changed (estate (aval *global-game* :hud))))
+	    (experience-number-update :exp amt))))
 
 (defun char-sprite-pos (h-facing v-facing interacting? walk-idx)
   "Grabs the tile-pos for the character given the character's state."

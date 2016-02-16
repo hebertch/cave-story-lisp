@@ -157,12 +157,14 @@ Returns the tile of the collision if one occurred."
 					       (rand-val-between 0.001 0.0015)
 					       t))))))
     (aupdate obj
-	     :new-states (pushfn (projectile-groups-add
-				  (estate (aval *global-game*
-						:projectile-groups))
-				  (cons :missile-launcher
-					(mapcar (avalfn :id) pg))))
-	     :new-entities (appendfn pg))))
+	     :new-states
+	     (appendfn (list*
+			(projectile-groups-add
+			 (estate (aval *global-game*
+				       :projectile-groups))
+			 (cons :missile-launcher
+			       (mapcar (avalfn :id) pg)))
+			pg)))))
 
 (defun polar-star-projectile-fns-alist ()
   (alist :ai-fn #'polar-star-projectile-ai
@@ -201,7 +203,7 @@ Returns the tile of the collision if one occurred."
 	 (aupdate p
 		  :dead? (constantly t)
 		  :sound-effects (pushfn :dissipate)
-		  :new-entities
+		  :new-states
 		  (pushfn (make-projectile-star-particle
 			   (offset-in-dir-pos (+v (physics-pos p) (tile-dims/2))
 					      (tiles/2 1)
@@ -217,7 +219,7 @@ Returns the tile of the collision if one occurred."
 (defun projectile-tile-collision (p projectile-reaction stage tile)
   (if tile
       (aupdate (funcall projectile-reaction p)
-	       :new-entities
+	       :new-states
 	       (pushfn (stage-tile-shot stage tile)))
       p))
 
@@ -231,7 +233,7 @@ Returns the tile of the collision if one occurred."
 	    dir stage))
 	  (react (aupdatefn
 		  :dead? (constantly t)
-		  :new-entities
+		  :new-states
 		  (pushfn (make-projectile-wall-particle
 			   (offset-in-dir-pos (+v pos (tile-dims/2))
 					      (tiles/2 1)
@@ -244,12 +246,11 @@ Returns the tile of the collision if one occurred."
     (aupdate obj
 	     :sound-effects (pushfn :polar-star-shoot-3)
 	     :new-states
-	     (pushfn (projectile-groups-add
-		      (estate (aval *global-game* :projectile-groups))
-		      (cons :polar-star (mapcar (avalfn :id) pg))))
-	     :new-entities
 	     (appendfn
-	      (list (make-projectile-star-particle nozzle-pos))
+	      (list (make-projectile-star-particle nozzle-pos)
+		    (projectile-groups-add
+		     (estate (aval *global-game* :projectile-groups))
+		     (cons :polar-star (mapcar (avalfn :id) pg))))
 	      pg))))
 
 (defun make-polar-star-projectile-sprite-rect (lvl dir)

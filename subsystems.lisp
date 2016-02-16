@@ -106,13 +106,12 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 (defun apply-effects! (obj)
   (appendf *sfx-play-list* (aval obj :sound-effects))
   (loop for state in (aval obj :new-states) do
-       (estate-set! (aval state :id) state))
-  (loop for state in (aval obj :new-entities) do
-       (create-entity! state))
+       (if (estate (aval state :id))
+	   (estate-set! (aval state :id) state)
+	   (create-entity! state)))
   (arem obj
 	:sound-effects
-	:new-states
-	:new-entities))
+	:new-states))
 
 (defun update-world! (entity-id fn)
   (let ((obj (funcall fn (estate entity-id))))

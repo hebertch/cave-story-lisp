@@ -413,7 +413,7 @@ This can be abused with the machine gun in TAS."
    (alist :subsystems *particle-subsystems*)
    (let ((sprite (make-single-loop-sprite fps seq sheet-key tile-y :particle)))
      (alist :single-loop-sprite (aval sprite :id)
-	    :new-entities (list sprite)
+	    :new-states (list sprite)
 	    :pos pos))))
 
 (defun particle-drawing (p)
@@ -493,7 +493,10 @@ This can be abused with the machine gun in TAS."
   (amerge
    (floating-number-fns-alist)
    (alist :subsystems *floating-number-subsystems*)
-   (alist :entity entity
+   (alist :entity (if (eq :exp entity)
+		      (aval *global-game* :player)
+		      entity)
+	  :exp? (eq :exp entity)
 	  :amt amt
 	  :id (gen-entity-id)
 	  :timers '(:life-timer)
@@ -1213,7 +1216,7 @@ This can be abused with the machine gun in TAS."
 		  15 (mapcar #'1+ (alexandria.0.dev:iota 7))
 		  :npc-sym 0 :particle)))
      (alist :single-loop-sprite (aval sprite :id)
-	    :new-entities (list sprite)
+	    :new-states (list sprite)
 	    :physics '(:stage-physics)
 	    :stage-physics
 	    (make-kin-2d
@@ -1518,23 +1521,30 @@ This can be abused with the machine gun in TAS."
 		 (cond (recover? (adjoinfn :recover-timer))
 		       (rage? (adjoinfn :rage-timer)))))))
 
+(defun floating-number-update (id amt)
+  "Returns a list of new states for entities."
+  (let* ((d (estate (aval *global-game* :damage-numbers)))
+	 (dns (aval d :pairs))
+	 (existing-dn-pair (assoc id dns)))
+    (if existing-dn-pair
+	(list (floating-number-add-amt
+	       (estate (cdr existing-dn-pair)) amt))
+	(let ((fn (make-floating-number id amt)))
+	  (list (aupdate d :pairs
+			 (pushfn (cons id (aval fn :id))))
+		fn)))))
+
+(defun damage-number-update (id amt)
+  (floating-number-update id (- amt)))
+
 (defun damage-number-update-amtfn (amt)
   (lambda (obj)
-    (let* ((d (estate (aval *global-game* :damage-numbers)))
-	   (e (aval obj :id))
-	   (dns (aval d :pairs))
-	   (existing-dn-pair (assoc e dns)))
-      (if existing-dn-pair
-	  (aupdate obj
-		   :new-states
-		   (pushfn (floating-number-add-amt
-			    (estate (cdr existing-dn-pair)) (- amt))))
-	  (let ((fn (make-floating-number e (- amt))))
-	    (aupdate obj
-		     :new-states
-		     (pushfn (aupdate d :pairs
-				      (pushfn (cons e (aval fn :id)))))
-		     :new-entities (pushfn fn)))))))
+    (aupdate obj
+	     :new-states
+	     (appendfn (damage-number-update (aval obj :id) amt)))))
+
+(defun experience-number-update (id amt)
+  (floating-number-update id amt))
 
 (defun make-drops (origin amt)
   "Makes the equivalent number of pickups to amt from origin."
@@ -1575,7 +1585,7 @@ This can be abused with the machine gun in TAS."
 	    (asetfn
 	     :dead? t)
 	    (aupdatefn
-	     :new-entities
+	     :new-states
 	     (appendfn
 	      (make-drops origin (aval obj :exp-for-kill))
 	      (make-num-death-cloud-particles (aval obj :smoke-amt)
@@ -1657,16 +1667,16 @@ This can be abused with the machine gun in TAS."
       (aupdate e
 	       :sound-effects (pushfn :big-footstep)
 	       :new-states
-	       (pushfn (timed-camera-shake (estate (aval *global-game* :camera))
-					   (s->ms 1/2)))
-	       :new-entities
 	       (appendfn
-		(make-num-death-cloud-particles
-		 3 (+v (physics-pos e)
-		       (make-v (if (eq (aval e :facing) :left)
-				   (tiles 3/2)
-				   (tiles 1/2))
-			       (tiles 5/4))))))
+		(list*
+		 (timed-camera-shake (estate (aval *global-game* :camera))
+				     (s->ms 1/2))
+		 (make-num-death-cloud-particles
+		  3 (+v (physics-pos e)
+			(make-v (if (eq (aval e :facing) :left)
+				    (tiles 3/2)
+				    (tiles 1/2))
+				(tiles 5/4)))))))
       e))
 
 (let ((collision-rects
