@@ -1,5 +1,108 @@
 (in-package :cave-story)
 
+
+(defvar! *song-names-table*
+    '(nil :egg :safety :gameover :gravity :grasstown :meltdown2 :eyesofflame
+      :gestation :town :fanfale1 :balrog :cemetary :plant :pulse :fanfale2
+      :fanfale3 :tyrant :run :jenka1 :labyrinth :access :oppression
+      :geothermal
+      :theme :oside :heroend :scorching :quiet :lastcave :balcony :charge
+      :lastbattle :credits :zombie :breakdown :hell :jenka2 :waterway :seal
+      :toroko :white :azarashi nil)
+  "Ordered list of song names; accessed by tsc scripts.")
+
+
+(defvar! *sound-effects-table*
+  '((:snd-menu-move 1)
+    (:snd-msg 2)
+    (:snd-bonk-head 3)
+    (:snd-switch-weapon 4)
+    (:snd-menu-prompt 5)
+    (:snd-hoppy-jump 6)
+    (:snd-door 11)
+    (:snd-block-destroy 12)
+    (:snd-get-xp 14)
+    (:snd-player-jump 15)
+    (:snd-player-hurt 16)
+    (:snd-player-die 17)
+    (:snd-menu-select 18)
+    (:snd-health-refill 20)
+    (:snd-bubble 21)
+    (:snd-chest-open 22)
+    (:snd-thud 23)
+    (:snd-player-walk 24)
+    (:snd-funny-explode 25)
+    (:snd-quake 26)
+    (:snd-level-up 27)
+    (:snd-shot-hit 28)
+    (:snd-teleport 29)
+    (:snd-enemy-jump 30)
+    (:snd-tink 31)
+    (:snd-polar-star-l1-2 32)
+    (:snd-snake-fire 33)
+    (:snd-fireball 34)
+    (:snd-explosion1 35)
+    (:snd-gun-click 37)
+    (:snd-get-item 38)
+    (:snd-em-fire 39)
+    (:snd-stream1 40)
+    (:snd-stream2 41)
+    (:snd-get-missile 42)
+    (:snd-computer-beep 43)
+    (:snd-missile-hit 44)
+    (:snd-xp-bounce 45)
+    (:snd-ironh-shot-fly 46)
+    (:snd-explosion2 47)
+    (:snd-bubbler-fire 48)
+    (:snd-polar-star-l3 49)
+    (:snd-enemy-squeak 50)
+    (:snd-enemy-hurt 51)
+    (:snd-enemy-hurt-big 52)
+    (:snd-enemy-hurt-small 53)
+    (:snd-enemy-hurt-cool 54)
+    (:snd-enemy-squeak2 55)
+    (:snd-splash 56)
+    (:snd-enemy-damage 57)
+    (:snd-propellor 58)
+    (:snd-spur-charge-1 59)
+    (:snd-spur-charge-2 60)
+    (:snd-spur-charge-3 61)
+    (:snd-spur-fire-1 62)
+    (:snd-spur-fire-2 63)
+    (:snd-spur-fire-3 64)
+    (:snd-spur-maxed 65)
+    (:snd-expl-small 70)
+    (:snd-little-crash 71)
+    (:snd-big-crash 72)
+    (:snd-bubbler-launch 100)
+    (:snd-lightning-strike 101)
+    (:snd-jaws 102)
+    (:snd-charge-gun 103)
+    (:snd-104 104)
+    (:snd-puppy-bark 105)
+    (:snd-slash 106)
+    (:snd-block-move 107)
+    (:snd-igor-jump 108)
+    (:snd-critter-fly 109)
+    (:snd-droll-shot-fly 110)
+    (:snd-motor-run 111)
+    (:snd-motor-skip 112)
+    (:snd-booster 113)
+    (:snd-core-hurt 114)
+    (:snd-core-thrust 115)
+    (:snd-core-charge 116)
+    (:snd-nemesis-fire 117)
+    (:snd-150 150)
+    (:snd-151 151)
+    (:snd-152 152)
+    (:snd-153 153)
+    (:snd-154 154)
+    (:snd-155 155))
+  "AList of (SOUND-KEY SOUND-IDX).")
+
+(defun sound-effect-idx->sound-effect-key (idx)
+  (first (member idx *sound-effects-table* :key #'second)))
+
 (defstruct resource-type
   put-fn
   fnames-fn
@@ -9,34 +112,24 @@
 (defvar! *resource-types* nil)
 
 (defvar! *sfx-fnames*
-  '(:step "Step"
-    :jump "Jump"
-    :hurt "Hurt"
-    :enemy-explode "EnemyExplode"
-    :head-bump "HeadBump"
-    :land "Land"
-    :dissipate "Dissipate"
-    :hit-wall "HitWall"
-    :polar-star-shoot-3 "PolarStarShoot3"
-    :dorito-bounce "DoritoBounce"
-    :pickup "Pickup"
-    :enemy-hurt "EnemyHurt"
-    :player-die "PlayerDie"
-    :text-click "TextClick"
-    :big-footstep "BigFootstep"))
+    (mapcan (lambda (a)
+	      (let ((key (first a))
+		    (num (second a)))
+		(list key (format nil "~(fx~2,'0X~)" num))))
+	    *sound-effects-table*))
 
 (defvar! *song-names*
-  '(:ACCESS "access" :ANZEN "anzen" :BALCONY "balcony" :BALLOS "ballos" :BDOWN
-    "bdown" :BREAKDOWN "breakdown" :CEMETERY "cemetery" :CREDITS "credits" :CURLY
-    "curly" :DR "dr" :ENDING "ending" :ESCAPE "escape" :FANFALE1 "fanfale1"
-    :FANFALE2 "fanfale2" :FANFALE3 "fanfale3" :FIREEYE "fireeye" :GAMEOVER
-    "gameover" :GINSUKE "ginsuke" :GRAND "grand" :GRAVITY "gravity" :HELL "hell"
-    :IRONH "ironh" :JENKA2 "jenka2" :JENKA "jenka" :KAZE "kaze" :KODOU "kodou"
-    :LASTBT3 "lastbt3" :LASTCAVE2 "lastcave2" :LASTCAVE "lastcave" :MARINE
-    "marine" :MAZE "maze" :MDOWN2 "mdown2" :MURA "mura" :OSIDE "oside" :PLANT
-    "plant" :QUIET "quiet" :REQUIEM "requiem" :SILENCE "silence" :TOROKO "toroko"
-    :VIVI "vivi" :WANPAK2 "wanpak2" :WANPAKU_ENDING "wanpaku_ending" :WANPAKU
-    "wanpaku" :WEED "weed" :WHITE "white" :ZONBIE "zonbie"))
+    '(:ACCESS "access" :ANZEN "anzen" :BALCONY "balcony" :BALLOS "ballos" :BDOWN
+      "bdown" :BREAKDOWN "breakdown" :CEMETERY "cemetery" :CREDITS "credits" :CURLY
+      "curly" :DR "dr" :ENDING "ending" :ESCAPE "escape" :FANFALE1 "fanfale1"
+      :FANFALE2 "fanfale2" :FANFALE3 "fanfale3" :FIREEYE "fireeye" :GAMEOVER
+      "gameover" :GINSUKE "ginsuke" :GRAND "grand" :GRAVITY "gravity" :HELL "hell"
+      :IRONH "ironh" :JENKA2 "jenka2" :JENKA "jenka" :KAZE "kaze" :KODOU "kodou"
+      :LASTBT3 "lastbt3" :LASTCAVE2 "lastcave2" :LASTCAVE "lastcave" :MARINE
+      "marine" :MAZE "maze" :MDOWN2 "mdown2" :MURA "mura" :OSIDE "oside" :PLANT
+      "plant" :QUIET "quiet" :REQUIEM "requiem" :SILENCE "silence" :TOROKO "toroko"
+      :VIVI "vivi" :WANPAK2 "wanpak2" :WANPAKU_ENDING "wanpaku_ending" :WANPAKU
+      "wanpaku" :WEED "weed" :WHITE "white" :ZONBIE "zonbie"))
 
 (defvar! *spritesheet-fnames*
   '(:my-char "MyChar"

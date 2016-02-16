@@ -202,7 +202,7 @@ Returns the tile of the collision if one occurred."
   (cond ((not (timer-active? (aval p :life-timer)))
 	 (aupdate p
 		  :dead? (constantly t)
-		  :sound-effects (pushfn :dissipate)
+		  :sound-effects (pushfn :snd-polar-star-l1-2)
 		  :new-states
 		  (pushfn (make-projectile-star-particle
 			   (offset-in-dir-pos (+v (physics-pos p) (tile-dims/2))
@@ -238,13 +238,13 @@ Returns the tile of the collision if one occurred."
 			   (offset-in-dir-pos (+v pos (tile-dims/2))
 					      (tiles/2 1)
 					      dir)))
-		  :sound-effects (pushfn :hit-wall))))
+		  :sound-effects (pushfn :snd-tink))))
       (projectile-tile-collision p react stage tile))))
 
 (defun add-polar-star-projectile-group (obj lvl dir nozzle-pos)
   (let ((pg (list (make-polar-star-projectile nozzle-pos dir lvl))))
     (aupdate obj
-	     :sound-effects (pushfn :polar-star-shoot-3)
+	     :sound-effects (pushfn :snd-polar-star-l3)
 	     :new-states
 	     (appendfn
 	      (list (make-projectile-star-particle nozzle-pos)

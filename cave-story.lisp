@@ -302,35 +302,35 @@ This can be abused with the machine gun in TAS."
   (make-v (x v) (max (y v) max-y)))
 
 (defvar! *dorito-stage-collisions*
-  (alist
-   :bottom
-   (collision-lambda (data)
-     (aupdate data
-	      :sound-effects
-	      (pushfn :dorito-bounce)
-	      :stage-physics
-	      (asetfn :vel
-		      (set-y-v (stage-vel data)
-			       (- *dorito-bounce-speed*)))))
-   :right
-   (collision-lambda (data)
-     (if (plusp (x (stage-vel data)))
-	 (aupdate data
-		  :stage-physics
-		  (asetfn :vel (reverse-x-v (stage-vel data))))
-	 data))
-   :left
-   (collision-lambda (data)
-     (if (minusp (x (stage-vel data)))
-	 (aupdate data
-		  :stage-physics
-		  (asetfn :vel (reverse-x-v (stage-vel data))))
-	 data))
-   :top
-   (collision-lambda (data)
-     (aupdate data
-	      :stage-physics
-	      (asetfn :vel (max-y-v (stage-vel data) 0))))))
+    (alist
+     :bottom
+     (collision-lambda (data)
+       (aupdate data
+		:sound-effects
+		(pushfn :snd-block-move)
+		:stage-physics
+		(asetfn :vel
+			(set-y-v (stage-vel data)
+				 (- *dorito-bounce-speed*)))))
+     :right
+     (collision-lambda (data)
+       (if (plusp (x (stage-vel data)))
+	   (aupdate data
+		    :stage-physics
+		    (asetfn :vel (reverse-x-v (stage-vel data))))
+	   data))
+     :left
+     (collision-lambda (data)
+       (if (minusp (x (stage-vel data)))
+	   (aupdate data
+		    :stage-physics
+		    (asetfn :vel (reverse-x-v (stage-vel data))))
+	   data))
+     :top
+     (collision-lambda (data)
+       (aupdate data
+		:stage-physics
+		(asetfn :vel (max-y-v (stage-vel data) 0))))))
 
 (defun dorito-stage-collision (d stage)
   (let ((collision-rects (rect->collision-rects
@@ -343,7 +343,7 @@ This can be abused with the machine gun in TAS."
 
 (setfn pickup-kill
        (comp 
-	(aupdatefn :sound-effects (pushfn :pickup))
+	(aupdatefn :sound-effects (pushfn :snd-get-xp))
 	(asetfn :dead? t)))
 
 (defun dorito-size->exp-amt (size)
@@ -1579,7 +1579,7 @@ This can be abused with the machine gun in TAS."
 	  (damage-number-update-amtfn amt)
 	  (aupdatefn
 	   :health-amt #_(- _ amt)
-	   :sound-effects (pushfn :enemy-hurt)))
+	   :sound-effects (pushfn :snd-enemy-hurt)))
 	 (let ((origin (origin obj)))
 	   (comp
 	    (asetfn
@@ -1590,7 +1590,7 @@ This can be abused with the machine gun in TAS."
 	      (make-drops origin (aval obj :exp-for-kill))
 	      (make-num-death-cloud-particles (aval obj :smoke-amt)
 					      origin))
-	     :sound-effects (pushfn :enemy-explode)))))
+	     :sound-effects (pushfn :snd-little-crash)))))
      obj)))
 
 (defun elephant-dynamic-collision-rect (e)
@@ -1665,7 +1665,7 @@ This can be abused with the machine gun in TAS."
 	   (ticked? e :anim-cycle)
 	   (zerop (anim-cycle-idx e)))
       (aupdate e
-	       :sound-effects (pushfn :big-footstep)
+	       :sound-effects (pushfn :snd-thud)
 	       :new-states
 	       (appendfn
 		(list*
@@ -2594,106 +2594,7 @@ of *tile-attributes*.")
   "List of (COMMAND-KEY DESCRIPTION) pairs for tsc script <XYZ commands.")
 
 
-(defvar! *song-names-table*
-  '(nil :egg :safety :gameover :gravity :grasstown :meltdown2 :eyesofflame
-    :gestation :town :fanfale1 :balrog :cemetary :plant :pulse :fanfale2
-    :fanfale3 :tyrant :run :jenka1 :labyrinth :access :oppression
-    :geothermal
-    :theme :oside :heroend :scorching :quiet :lastcave :balcony :charge
-    :lastbattle :credits :zombie :breakdown :hell :jenka2 :waterway :seal
-    :toroko :white :azarashi nil)
-  "Ordered list of song names; accessed by tsc scripts.")
 
-(defvar! *sound-effects-table*
-  '((:snd-menu-move 1)
-    (:snd-msg 2)
-    (:snd-bonk-head 3)
-    (:snd-switch-weapon 4)
-    (:snd-menu-prompt 5)
-    (:snd-hoppy-jump 6)
-    (:snd-door 11)
-    (:snd-block-destroy 12)
-    (:snd-get-xp 14)
-    (:snd-player-jump 15)
-    (:snd-player-hurt 16)
-    (:snd-player-die 17)
-    (:snd-menu-select 18)
-    (:snd-health-refill 20)
-    (:snd-bubble 21)
-    (:snd-chest-open 22)
-    (:snd-thud 23)
-    (:snd-player-walk 24)
-    (:snd-funny-explode 25)
-    (:snd-quake 26)
-    (:snd-level-up 27)
-    (:snd-shot-hit 28)
-    (:snd-teleport 29)
-    (:snd-enemy-jump 30)
-    (:snd-tink 31)
-    (:snd-polar-star-l1-2 32)
-    (:snd-snake-fire 33)
-    (:snd-fireball 34)
-    (:snd-explosion1 35)
-    (:snd-gun-click 37)
-    (:snd-get-item 38)
-    (:snd-em-fire 39)
-    (:snd-stream1 40)
-    (:snd-stream2 41)
-    (:snd-get-missile 42)
-    (:snd-computer-beep 43)
-    (:snd-missile-hit 44)
-    (:snd-xp-bounce 45)
-    (:snd-ironh-shot-fly 46)
-    (:snd-explosion2 47)
-    (:snd-bubbler-fire 48)
-    (:snd-polar-star-l3 49)
-    (:snd-enemy-squeak 50)
-    (:snd-enemy-hurt 51)
-    (:snd-enemy-hurt-big 52)
-    (:snd-enemy-hurt-small 53)
-    (:snd-enemy-hurt-cool 54)
-    (:snd-enemy-squeak2 55)
-    (:snd-splash 56)
-    (:snd-enemy-damage 57)
-    (:snd-propellor 58)
-    (:snd-spur-charge-1 59)
-    (:snd-spur-charge-2 60)
-    (:snd-spur-charge-3 61)
-    (:snd-spur-fire-1 62)
-    (:snd-spur-fire-2 63)
-    (:snd-spur-fire-3 64)
-    (:snd-spur-maxed 65)
-    (:snd-expl-small 70)
-    (:snd-little-crash 71)
-    (:snd-big-crash 72)
-    (:snd-bubbler-launch 100)
-    (:snd-lightning-strike 101)
-    (:snd-jaws 102)
-    (:snd-charge-gun 103)
-    (:snd-104 104)
-    (:snd-puppy-bark 105)
-    (:snd-slash 106)
-    (:snd-block-move 107)
-    (:snd-igor-jump 108)
-    (:snd-critter-fly 109)
-    (:snd-droll-shot-fly 110)
-    (:snd-motor-run 111)
-    (:snd-motor-skip 112)
-    (:snd-booster 113)
-    (:snd-core-hurt 114)
-    (:snd-core-thrust 115)
-    (:snd-core-charge 116)
-    (:snd-nemesis-fire 117)
-    (:snd-150 150)
-    (:snd-151 151)
-    (:snd-152 152)
-    (:snd-153 153)
-    (:snd-154 154)
-    (:snd-155 155))
-  "AList of (SOUND-KEY SOUND-IDX).")
-
-(defun sound-effect-idx->sound-effect-key (idx)
-  (first (member idx *sound-effects-table* :key #'second)))
 
 (defvar! *directions-table*
   #(:left :up :right :down :center)

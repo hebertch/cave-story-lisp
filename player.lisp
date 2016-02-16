@@ -144,7 +144,7 @@
 	(lambda (p)
 	  (if (and (ticked? p :walk-cycle)
 		   (/= 0 (cycle-current (aval p :walk-cycle))))
-	      (aupdate p :sound-effects (pushfn :step))
+	      (aupdate p :sound-effects (pushfn :snd-player-walk))
 	      p))
 	apply-player-physics))
 
@@ -189,7 +189,7 @@
 	  :new-states
 	  (pushfn (active-systems-switch-to-dialog
 		   (estate (aval *global-game* :active-systems))))
-	  :sound-effects (pushfn :player-die))))
+	  :sound-effects (pushfn :snd-player-die))))
        (t
 	(comp
 	 (asetfn :ground-tile nil)
@@ -197,7 +197,7 @@
 	 (aupdatefn
 	  :invincible-timer #'reset-timer
 	  :health-amt #_(- _ dmg-amt)
-	  :sound-effects (pushfn :hurt)
+	  :sound-effects (pushfn :snd-player-hurt)
 	  :stage-physics #'player-short-hop-physics
 	  :new-states
 	  (appendfn
@@ -278,7 +278,7 @@
 			    :stage-physics #_(player-jump-physics
 					      _
 					      (player-in-water? p))
-			    :sound-effects (pushfn :jump)
+			    :sound-effects (pushfn :snd-player-jump)
 			    :walk-cycle #'timed-cycle-pause)
 		   p)
 	       :jumping? t
@@ -345,7 +345,7 @@
 	   (setq p
 		 (aupdate p
 			  :walk-cycle #'timed-cycle-pause
-			  :sound-effects (pushfn :step))))
+			  :sound-effects (pushfn :snd-player-walk))))
 	 (setq p (aset p :acc-dir nil))))
 
       (if (or (key-held? input :z) (joy-held? input :a))
@@ -360,34 +360,34 @@
     p))
 
 (defvar! *player-stage-collisions*
-  (let ((stop-x
-	 (collision-lambda (data)
-	   (aset data
-		 :stage-physics
-		 (aset (aval data :stage-physics)
-		       :vel (zero-v :y (y (stage-vel data))))))))
-    (alist :bottom
-	   (collision-lambda (data)
-	     (aupdate data
-		      :sound-effects
-		      (unless (aval data :ground-tile)
-			(pushfn :land))
-		      :stage-physics
-		      (asetfn :vel (zero-v :x (x (stage-vel data))))
-		      :new-ground-tile (constantly (aval data :tile-type))))
-	   :left stop-x :right stop-x
-	   :top
+    (let ((stop-x
 	   (collision-lambda (data)
 	     (aset data
-		   :sound-effects
-		   (if (minusp (y (stage-vel data)))
-		       (cons :head-bump (aval data :sound-effects))
-		       (aval data :sound-effects))
 		   :stage-physics
 		   (aset (aval data :stage-physics)
-			 :vel (make-v
-			       (x (stage-vel data))
-			       (max (y (stage-vel data)) 0))))))))
+			 :vel (zero-v :y (y (stage-vel data))))))))
+      (alist :bottom
+	     (collision-lambda (data)
+	       (aupdate data
+			:sound-effects
+			(unless (aval data :ground-tile)
+			  (pushfn :snd-thud))
+			:stage-physics
+			(asetfn :vel (zero-v :x (x (stage-vel data))))
+			:new-ground-tile (constantly (aval data :tile-type))))
+	     :left stop-x :right stop-x
+	     :top
+	     (collision-lambda (data)
+	       (aset data
+		     :sound-effects
+		     (if (minusp (y (stage-vel data)))
+			 (cons :snd-bonk-head (aval data :sound-effects))
+			 (aval data :sound-effects))
+		     :stage-physics
+		     (aset (aval data :stage-physics)
+			   :vel (make-v
+				 (x (stage-vel data))
+				 (max (y (stage-vel data)) 0))))))))
 
 (defun player-stage-collision (p stage)
   (let* ((collision-rects *player-collision-rectangles-alist*)

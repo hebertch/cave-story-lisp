@@ -1,5 +1,3 @@
-* Experience text
-* use sound effects
 * set song from music index
 * die from drowning
 * door/warp to stage

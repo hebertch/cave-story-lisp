@@ -229,7 +229,7 @@ Stage-collisions returns the final data argument."
     (aupdate stage
 	     :data (constantly tiles)
 	     :sound-effects
-	     (pushfn :enemy-explode)
+	     (pushfn :snd-little-crash)
 	     :new-states
 	     (appendfn (make-num-death-cloud-particles
 			3
