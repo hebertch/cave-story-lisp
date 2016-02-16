@@ -3,11 +3,11 @@
 (in-package :cl-user)
 
 #+nil
-(global-set-key (kbd "C-c m")
-		(lambda ()
-		  (interactive)
-		  (let ((slime-buffer-package 'cl-user))
-		    (slime-interactive-eval "(load-cave-story-system!)"))))
+(define-key chebert-slime-mode-map "a"
+  (lambda ()
+    (interactive)
+    (let ((slime-buffer-package 'cl-user))
+      (slime-interactive-eval "(load-cave-story-system!)"))))
 
 (defparameter *system-dependencies*
   '(:swank-tools

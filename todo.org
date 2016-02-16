@@ -1,5 +1,5 @@
 * Experience text
-* sound effects: copy from desktop to wav folder
+* use sound effects
 * set song from music index
 * die from drowning
 * door/warp to stage
