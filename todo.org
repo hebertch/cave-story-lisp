@@ -1,4 +1,5 @@
 * set song from music index
+* get dorito bounce sfx
 * die from drowning
 * door/warp to stage
 * optimize update times.
