@@ -188,6 +188,38 @@
 		   (list (make-keyword (string-upcase name))
 			 (format nil "Prt~A" name))))))
 
+(defvar! *stage-fnames-table*
+    (append
+     (mapcar (lambda (key)
+	       (cons key
+		     (let ((name (string-capitalize (symbol-name key))))
+		       (alist :stage name
+			      :entities name
+			      :attributes name
+			      :spritesheet key))))
+	     '(:weed :cent :santa :eggs))
+     (alist :sand (alist :stage "SandE"
+			 :entities "SandE"
+			 :attributes "Sand"
+			 :spritesheet :sand)
+	    :pens (alist :stage "Pens1"
+			 :entities "Pens1"
+			 :attributes "Pens"
+			 :spritesheet :pens)
+	    :hell (alist :stage "Hell1"
+			 :entities "Hell1"
+			 :attributes "Hell"
+			 :spritesheet :hell)
+	    :jail (alist :stage "Jail1"
+			 :entities "Jail1"
+			 :attributes "Jail"
+			 :spritesheet :jail)
+	    :maze (alist :stage "MazeI"
+			 :entities "MazeI"
+			 :attributes "Maze"
+			 :spritesheet :maze)))
+  "Alist of (keyword . (alist stage attributes entities spritesheet)).")
+
 (defmacro def-resource-type
     (name (load-args &body load-forms) fnames-form destruct-fn)
   "Introduces Anaphora of FNAME into the load definition. This is to keep consistent args with

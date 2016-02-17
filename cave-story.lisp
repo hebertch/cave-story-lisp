@@ -1046,19 +1046,21 @@ This can be abused with the machine gun in TAS."
   "Convert a parsed pxe list to a list of entities."
   (remove nil (mapcar #_(make-pxe-entity _ flags) pxe)))
 
-(defun entities-from-stage-name (stage-name)
+(defun entities-from-stage-key (stage-key)
   (make-pxe-entities
-   (read-pxe-file (format nil "./content/stages/~A.pxe" stage-name))
+   (read-pxe-file (format nil "./content/stages/~A.pxe"
+			  (aval (aval *stage-fnames-table* stage-key)
+				:entities)))
    nil))
 
 (defun create-game! ()
-  (let* ((stage-name "Cent")
+  (let* ((stage-key :maze)
 	 (damage-numbers (make-damage-numbers))
 	 (projectile-groups (make-projectile-groups))
-	 (stage (make-stage (stage-from-stage-name stage-name)))
-	 (entities (entities-from-stage-name stage-name))
+	 (stage (load-stage-from-stage-key stage-key))
+	 (entities (entities-from-stage-key stage-key))
 	 (hud (make-hud))
-	 (player (make-player :pos (tile-v 117 80)))
+	 (player (make-player :pos (tile-v 17 63)))
 	 (gun-exps (make-gun-exps))
 	 (active-systems (make-active-systems)))
     
@@ -2872,7 +2874,7 @@ The number of smoke particles to create when destroyed.")
 		     (cons (car pair)
 			   (elt (cdr pair) (entity-type-idx entity-type))))
 		   *npc-data*))
-	(get-sound (comp first #_(elt *sound-effects-table* _))))
+	(get-sound (comp first sound-effect-idx->sound-effect-key)))
     (aupdate e
 	     :smoke-amt #_(elt *smoke-amounts-table* _)
 	     :hurt-sound get-sound

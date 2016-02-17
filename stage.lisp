@@ -64,6 +64,24 @@
 	  :drawings (ncompile-drawings (prerendered-stage-drawings stage-data))
 	  :id (gen-entity-id))))
 
+(defun load-stage-from-stage-key (stage-key)
+  (let* ((stage-fnames (aval *stage-fnames-table* stage-key))
+	 (data
+	  (stage-from-file-data
+	   (read-pxm-file (format nil "./content/stages/~A.pxm"
+				  (aval stage-fnames :stage)))
+	   (read-pxa-file (format nil "./content/stages/~A.pxa"
+				  (aval stage-fnames :attributes))))))
+    (amerge
+     (stage-fns-alist)
+     (alist :subsystems *stage-subsystems*)
+     (alist :data data
+	    :drawings (ncompile-drawings
+		       (prerendered-stage-drawings
+			data
+			(aval stage-fnames :spritesheet)))
+	    :id (gen-entity-id)))))
+
 (defun stage-dims (stage)
   (let ((data (aval stage :data)))
     (tile-v (array-dimension data 1)
@@ -192,7 +210,7 @@ Stage-collisions returns the final data argument."
 	     drawings)))))
     drawings))
 
-(defun prerendered-stage-drawings (stage-data)
+(defun prerendered-stage-drawings (stage-data spritesheet-key)
   (let ((drawings nil)
 	(data stage-data))
     (dotimes (row (array-dimension data 0))
@@ -212,7 +230,7 @@ Stage-collisions returns the final data argument."
 	      :layer (if (member :foreground tile-type)
 			 :foreground
 			 :background)
-	      :sheet-key :cent
+	      :sheet-key spritesheet-key
 	      :src-rect (tile-rect (tile-pos tile-pos))
 	      :pos (tile-v col row))
 	     drawings)))))
