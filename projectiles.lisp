@@ -100,9 +100,9 @@ Returns the tile of the collision if one occurred."
 	   (w (if (vertical? dir) short-side *tile-size*))
 	   (h (if (vertical? dir) *tile-size*  short-side))
 	   (size (make-v w h)))
-      (create-rect (+v (tile-dims/2)
-		       (-v pos
-			   (v/2 size)))
+      (create-rect (+ (tile-dims/2)
+		      (- pos
+			 (v/2 size)))
 		   size))))
 
 (defun missile-projectile-collisions (rect dir stage)
@@ -140,9 +140,9 @@ Returns the tile of the collision if one occurred."
   (aset p :dead? t))
 
 (defun add-missile-projectile-group (obj lvl dir nozzle-pos)
-  (let* ((pos (sub-v nozzle-pos
-		     ;; Subtract the size of the sprite-rect to center it.
-		     (tile-dims/2)))
+  (let* ((pos (- nozzle-pos
+		 ;; Subtract the size of the sprite-rect to center it.
+		 (tile-dims/2)))
 	 (pg
 	  (if (< lvl 2)
 	      (list (make-missile-projectile lvl dir pos 0 0.05 0.001))
@@ -193,7 +193,7 @@ Returns the tile of the collision if one occurred."
 	  :physics '(:offset)
 	  :offset
 	  (make-offset-motion
-	   (sub-v nozzle-pos (tile-dims/2))
+	   (- nozzle-pos (tile-dims/2))
 	   dir 0.6 0)
 	  :sprite-rect
 	  (make-polar-star-projectile-sprite-rect lvl dir))))
@@ -205,7 +205,7 @@ Returns the tile of the collision if one occurred."
 		  :sound-effects (pushfn :snd-polar-star-l1-2)
 		  :new-states
 		  (pushfn (make-projectile-star-particle
-			   (offset-in-dir-pos (+v (physics-pos p) (tile-dims/2))
+			   (offset-in-dir-pos (+ (physics-pos p) (tile-dims/2))
 					      (tiles/2 1)
 					      (aval p :dir))))))
 	(t p)))
@@ -235,7 +235,7 @@ Returns the tile of the collision if one occurred."
 		  :dead? (constantly t)
 		  :new-states
 		  (pushfn (make-projectile-wall-particle
-			   (offset-in-dir-pos (+v pos (tile-dims/2))
+			   (offset-in-dir-pos (+ pos (tile-dims/2))
 					      (tiles/2 1)
 					      dir)))
 		  :sound-effects (pushfn :snd-tink))))
@@ -279,9 +279,9 @@ Returns the tile of the collision if one occurred."
 	 (w (if (vertical? dir) short-side *tile-size*))
 	 (h (if (vertical? dir) *tile-size*  short-side))
 	 (size (make-v w h)))
-    (create-rect (+v (tile-dims/2)
-		     (-v pos
-			 (v/2 size)))
+    (create-rect (+ (tile-dims/2)
+		    (- pos
+		       (v/2 size)))
 		 size)))
 
 (defun polar-star-projectile-collisions (rect dir stage)

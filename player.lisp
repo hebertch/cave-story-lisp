@@ -120,8 +120,8 @@
 
 (defun player-kin-2d-physics (p kin-2d)
   (draw-line! (aval kin-2d :pos)
-	      (+v (aval kin-2d :pos)
-		  (*v (aval kin-2d :vel) *debug-velocity-scale*))
+	      (+ (aval kin-2d :pos)
+		 (* (aval kin-2d :vel) *debug-velocity-scale*))
 	      *magenta*)
 
   (aset kin-2d
@@ -266,10 +266,10 @@
 (defun player-jump-physics (kin-2d in-water?)
   (aset kin-2d
 	:vel
-	(+v (aval kin-2d :vel)
-	    (make-v 0 (- (if in-water?
-			     *player-jump-speed-water*
-			     *player-jump-speed*))))))
+	(+ (aval kin-2d :vel)
+	   (make-v 0 (- (if in-water?
+			    *player-jump-speed-water*
+			    *player-jump-speed*))))))
 
 (defun player-jump (p)
   (cond ((not (aval p :jumping?))

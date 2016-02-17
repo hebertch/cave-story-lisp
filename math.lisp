@@ -162,9 +162,11 @@ If fn is null and default is provided, return (funcall default val)."
 (defun sub-v (a b)
   (make-v (- (x a) (x b))
 	  (- (y a) (y b))))
+
 (defun scale-v (v s)
   (make-v (* (x v) s)
 	  (* (y v) s)))
+
 (defun both-v (s)
   (make-v s s))
 (defun abs-v (a)
@@ -185,7 +187,7 @@ If fn is null and default is provided, return (funcall default val)."
   (scale-v v (apply #'* scalars)))
 
 (defun v/2 (v)
-  (scale-v v 1/2))
+  (/ v 2))
 (defun tiles/2-v (x y)
   (tile-pos/2 (make-v x y)))
 
@@ -199,9 +201,9 @@ If fn is null and default is provided, return (funcall default val)."
 
 
 (defun tile-pos (tp)
-  (scale-v tp *tile-size*))
+  (* tp *tile-size*))
 (defun tile-pos/2 (tp)
-  (scale-v tp (/ *tile-size* 2)))
+  (* tp (/ *tile-size* 2)))
 
 (defun tile-pos->pos (tp)
   (tile-pos tp))
@@ -209,10 +211,13 @@ If fn is null and default is provided, return (funcall default val)."
   (make-v (floor (x p) *tile-size*)
 	  (floor (y p) *tile-size*)))
 
+(defun magnitude (v)
+  (sqrt (+ (expt (x v) 2)
+	   (expt (y v) 2))))
+
 (defun dist (va vb)
-  (let ((disp (-v va vb)))
-    (sqrt (+ (expt (x disp) 2)
-	     (expt (y disp) 2)))))
+  (let ((disp (- va vb)))
+    (magnitude disp)))
 
 ;; Rect
 (defun create-rect (pos size)
@@ -233,7 +238,7 @@ If fn is null and default is provided, return (funcall default val)."
      (x (rect-size rect))))
 (defun center (rect)
   (add-v (rect-pos rect)
-	 (scale-v (rect-size rect) 1/2)))
+	 (* (rect-size rect) 1/2)))
 
 (defun tile-rect (pos)
   "Creates a *tile-size* square at pos."
@@ -254,7 +259,7 @@ If fn is null and default is provided, return (funcall default val)."
 			     (- xmax xmin)))))
 
 (defun centered-rect (pos size)
-  (make-rect :pos (sub-v pos (scale-v size 1/2))
+  (make-rect :pos (- pos (* size 1/2))
 	     :size size))
 
 (defun rects-collide? (a b)
@@ -393,3 +398,29 @@ Returns the value from body."
   "Return the rolling average as a percentage of the frame-time."
   (let ((avg (rolling-average time-data)))
     (* 100.0 (/ avg *frame-time*))))
+
+(defun + (&rest numbers)
+  (if (and (not (null numbers)) (typep (first numbers) 'v2))
+      (apply '+v (first numbers) (rest numbers))
+      (apply 'cl:+ numbers)))
+
+(defun - (number &rest numbers)
+  (typecase number
+    (v2 (apply '-v number numbers))
+    (t (apply 'cl:- number numbers))))
+
+(defun * (&rest numbers)
+  (let ((v (find-if (lambda (n) (typep n 'v2)) numbers)))
+    (if v
+	(scale-v v (apply 'cl:* (remove v numbers)))
+	(apply 'cl:* numbers))))
+
+(defun / (number &rest numbers)
+  (if (typep number 'v2)
+      (scale-v number (apply 'cl:/ 1 numbers))
+      (apply 'cl:/ number numbers)))
+
+(defun abs (number)
+  (typecase number
+    (v2 (abs-v number))
+    (t (cl:abs number))))

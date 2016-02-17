@@ -171,17 +171,22 @@
       "wanpaku" :WEED "weed" :WHITE "white" :ZONBIE "zonbie"))
 
 (defvar! *spritesheet-fnames*
-  '(:my-char "MyChar"
-    :npc-sym "NpcSym"
-    :prt-cave "PrtCave"
-    :arms "Arms"
-    :bullet "Bullet"
-    :npc-cemet "NpcCemet"
-    :caret "Caret"
-    :text-box "TextBox"
-    :bk-blue "bkBlue"
-    :npc-regu "NpcRegu"
-    :npc-eggs1 "NpcEggs1"))
+    (append '(:my-char "MyChar"
+	      :npc-sym "NpcSym"
+	      :arms "Arms"
+	      :bullet "Bullet"
+	      :npc-cemet "NpcCemet"
+	      :caret "Caret"
+	      :text-box "TextBox"
+	      :bk-blue "bkBlue"
+	      :npc-regu "NpcRegu"
+	      :npc-eggs1 "NpcEggs1")
+	    (loop for d in (directory #p "./content/Prt*.bmp")
+	       appending
+		 (let* ((fname (file-namestring d))
+			(name  (subseq fname 3 (position #\. fname))))
+		   (list (make-keyword (string-upcase name))
+			 (format nil "Prt~A" name))))))
 
 (defmacro def-resource-type
     (name (load-args &body load-forms) fnames-form destruct-fn)

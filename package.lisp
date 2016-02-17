@@ -6,4 +6,9 @@
 (defpackage-form :cave-story)
 
 (DEFPACKAGE #:CAVE-STORY
-  (:USE #:COMMON-LISP #:ALEXANDRIA.0.DEV))
+  (:USE #:COMMON-LISP #:ALEXANDRIA.0.DEV)
+  (:SHADOW CAVE-STORY::ABS
+           CAVE-STORY::/
+           CAVE-STORY::*
+           CAVE-STORY::-
+           CAVE-STORY::+))

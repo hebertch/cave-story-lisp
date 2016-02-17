@@ -56,8 +56,6 @@
   (append (aval stage :drawings)
 	  (destroyable-tile-drawings stage)))
 
-
-
 (defun make-stage (stage-data)
   (amerge
    (stage-fns-alist)
@@ -75,7 +73,7 @@
   "Return all tiles colliding with rect. ((TILE-POS TILE-TYPE) ...)"
   (let ((data (aval stage :data)))
     (let ((tile-tl (pos->tile-pos (rect-pos rect)))
-	  (tile-br (pos->tile-pos (+v (rect-pos rect) (rect-size rect)))))
+	  (tile-br (pos->tile-pos (+ (rect-pos rect) (rect-size rect)))))
       (loop named stage-loop
 	 ;; For each tile colliding with rect
 	 for row
@@ -159,7 +157,7 @@ Stage-collisions returns the final data argument."
 	  (setq data (aupdate data
 			      :stage-physics
 			      (asetfn :pos
-				      (sub-v new-pos (rect-pos collision-rect)))
+				      (- new-pos (rect-pos collision-rect)))
 			      :tile-type (constantly tile-type)))
 	  (when fn
 	    (setq data (funcall fn data))))
@@ -214,7 +212,7 @@ Stage-collisions returns the final data argument."
 	      :layer (if (member :foreground tile-type)
 			 :foreground
 			 :background)
-	      :sheet-key :prt-cave
+	      :sheet-key :cent
 	      :src-rect (tile-rect (tile-pos tile-pos))
 	      :pos (tile-v col row))
 	     drawings)))))
@@ -233,7 +231,7 @@ Stage-collisions returns the final data argument."
 	     :new-states
 	     (appendfn (make-num-death-cloud-particles
 			3
-			(+v (tile-pos tile-pos) (tile-dims/2)))))))
+			(+ (tile-pos tile-pos) (tile-dims/2)))))))
 
 (defun stage-tile-shot (stage tile)
   "Stage reaction to a tile being shot."

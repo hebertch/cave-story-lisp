@@ -59,7 +59,7 @@ new (values DELTA-POS VEL)."
     (:right (zero-v :x dist))))
 
 (defun offset-in-dir-pos (origin dist dir)
-  (+v origin (offset-in-dir dist dir)))
+  (+ origin (offset-in-dir dist dir)))
 
 (defun kin-2d-fns-alist ()
   (alist :physics-fn #'kin-2d-motion-physics
@@ -112,16 +112,16 @@ new (values DELTA-POS VEL)."
 (defun motion-set-pos (e)
   (let ((pos (zero-v)))
     (loop for key in (aval e :physics) do
-	 (setq pos (+v pos (motion-pos (aval e key)))))
+	 (setq pos (+ pos (motion-pos (aval e key)))))
     pos))
 
 (defun wave-physics (w)
   (aupdate w :rads #_(+ _ (* *frame-time* (aval w :speed)))))
 
 (defun wave-offset (w)
-  (+v (aval w :origin)
-      (offset-in-dir (* (aval w :amp) (sin (aval w :rads)))
-		     (aval w :dir))))
+  (+ (aval w :origin)
+     (offset-in-dir (* (aval w :amp) (sin (aval w :rads)))
+		    (aval w :dir))))
 
 (defun kin-2d-motion-physics (m)
   (multiple-value-bind (dpos nvel)
@@ -130,13 +130,13 @@ new (values DELTA-POS VEL)."
 		     (aval m :accelerator-y)
 		     :clamper-vx (aval m :clamper-vx)
 		     :clamper-vy (aval m :clamper-vy))
-    (let ((pos (+v (aval m :pos) dpos)))
+    (let ((pos (+ (aval m :pos) dpos)))
       (when (aval m :inertia-vel)
 	(setq pos
-	      (+v pos
-		  (accelerate-2d (aval m :inertia-vel)
-				 (const-accelerator 0)
-				 (const-accelerator 0)))))
+	      (+ pos
+		 (accelerate-2d (aval m :inertia-vel)
+				(const-accelerator 0)
+				(const-accelerator 0)))))
       (aset m
 	    :pos pos
 	    :vel nvel))))
@@ -160,11 +160,11 @@ new (values DELTA-POS VEL)."
 	:target-vel targ-vel))
 
 (defun target-kin-2d-motion-physics (m)
-  (let* ((disp (sub-v (aval m :target)
-		      (aval m :pos)))
-	 (disp-speeds (abs-v (scale-v disp (/ *camera-speed-scale-factor*
-					      *frame-time*))))
-	 (target-speeds (abs-v (aval m :target-vel)))
+  (let* ((disp (- (aval m :target)
+		  (aval m :pos)))
+	 (disp-speeds (abs (* disp (/ *camera-speed-scale-factor*
+				      *frame-time*))))
+	 (target-speeds (abs (aval m :target-vel)))
 
 	 ;; Camera velocity clamped by speed proportional to distance,
 	 ;; and by a max speed
@@ -195,5 +195,5 @@ new (values DELTA-POS VEL)."
 		       (const-accelerator (* (signum (y disp)) *camera-acc*))
 		       :clamper-vx clamper-x :clamper-vy clamper-y)
       (aset m
-	    :pos (+v (aval m :pos) pos)
+	    :pos (+ (aval m :pos) pos)
 	    :vel vel))))

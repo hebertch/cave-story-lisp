@@ -7,10 +7,10 @@
 (defun camera-target-from-player (player)
   (let ((h-facing (aval player :h-facing))
 	(v-facing (aval player :v-facing))
-	(pos (+v (physics-pos player)
-		 (tile-dims/2))))
+	(pos (+ (physics-pos player)
+		(tile-dims/2))))
 
-    (+v
+    (+
      (if v-facing
 	 (offset-in-dir (tiles/2 7) v-facing)
 	 (zero-v))
@@ -75,8 +75,8 @@
    c))
 
 (defun stage-dims->camera-bounds (stage-dims)
-  (create-rect (scale-v *window-dims* 1/2)
-	       (sub-v stage-dims *window-dims*)))
+  (create-rect (* *window-dims* 1/2)
+	       (- stage-dims *window-dims*)))
 
 (defun camera-focus (c)
   (aval (aval c :target) :pos))
@@ -85,7 +85,7 @@
   (let ((pos (clamp-pos (camera-focus camera) camera-bounds))
 	(shake-h (aval camera :shake-h))
 	(shake-v (aval camera :shake-v)))
-    (+v pos
-	(if shake-h (wave-offset shake-h) (zero-v))
-	(if shake-v (wave-offset shake-v) (zero-v))
-	(scale-v *window-dims* -1/2))))
+    (+ pos
+       (if shake-h (wave-offset shake-h) (zero-v))
+       (if shake-v (wave-offset shake-v) (zero-v))
+       (* *window-dims* -1/2))))

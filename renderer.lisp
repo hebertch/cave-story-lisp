@@ -115,7 +115,7 @@
 (defun render-texture! (renderer drawing camera-pos)
   "Renderer func. Renders a sprite."
   (let ((src (aval drawing :src-rect))
-	(pos (sub-v (aval drawing :pos) camera-pos)))
+	(pos (- (aval drawing :pos) camera-pos)))
     (let ((src-pos (rect-pos src))
 	  (size (rect-size src)))
       (sdl:render-texture
@@ -137,7 +137,7 @@
   "Renderer func. Renders a rect."
   (set-draw-color! renderer (aval rect-drawing :color))
   (let* ((rect (aval rect-drawing :rect))
-	 (pos (-v (rect-pos rect) camera-pos))
+	 (pos (- (rect-pos rect) camera-pos))
 	 (size (rect-size rect)))
     (sdl:render-rect renderer
 		     (sdl:make-rect (round (x pos))
@@ -149,8 +149,8 @@
 (defun render-line! (renderer ld camera-pos)
   "Renderer func. Renders a line."
   (set-draw-color! renderer (aval ld :color))
-  (let ((a (sub-v (aval ld :a) camera-pos))
-	(b (sub-v (aval ld :b) camera-pos)))
+  (let ((a (- (aval ld :a) camera-pos))
+	(b (- (aval ld :b) camera-pos)))
     (sdl:render-draw-line renderer
 			  (round (x a))
 			  (round (y a))
@@ -306,7 +306,7 @@
 	    texture
 	    (rect->sdl-rect (create-rect (zero-v) dims))
 	    (rect->sdl-rect
-	     (create-rect (+v start-pos (zero-v :x (* i (x dims))))
+	     (create-rect (+ start-pos (zero-v :x (* i (x dims))))
 			  dims)))))))
 
 (defun render-drawing! (drawing renderer font camera-pos)

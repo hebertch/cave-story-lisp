@@ -16,7 +16,7 @@
 	(gun-bob-y-off (if (and walking? (= walk-idx 0))
 			   -2
 			   0)))
-    (+v pos (make-v gun-x-off (+ gun-y-off gun-bob-y-off)))))
+    (+ pos (make-v gun-x-off (+ gun-y-off gun-bob-y-off)))))
 
 (defvar! *gun-x-idxs*
   '(:spur :snake :polar-star :fireball :machine-gun :missile-launcher
@@ -98,13 +98,13 @@
     (loop for v-facing in '(nil :up :down)
        do
 	 (let* ((l-src (gun-sprite-rect gun-name :left v-facing))
-		(l-off (sub-v (make-v (elt npp (setq i (1+ i)))
-				      (elt npp (setq i (1+ i))))
-			      (rect-pos l-src)))
+		(l-off (- (make-v (elt npp (setq i (1+ i)))
+				  (elt npp (setq i (1+ i))))
+			  (rect-pos l-src)))
 		(r-src (gun-sprite-rect gun-name :right v-facing))
-		(r-off (sub-v (make-v (elt npp (setq i (1+ i)))
-				      (elt npp (setq i (1+ i))))
-			      (rect-pos r-src))))
+		(r-off (- (make-v (elt npp (setq i (1+ i)))
+				  (elt npp (setq i (1+ i))))
+			  (rect-pos r-src))))
 	   (setq nozzle-offsets
 		 (acons v-facing
 			(list (list (x l-off) (x r-off))
@@ -139,15 +139,15 @@
 (defun player-nozzle-pos (p)
   (let ((actual-v-facing (player-actual-v-facing p))
 	(k (aval p :stage-physics)))
-    (+v (nozzle-offset (aval p :h-facing)
-		       actual-v-facing
-		       (player-current-gun-name p))
-	(gun-pos
-	 (aval k :pos)
-	 (aval p :h-facing)
-	 actual-v-facing
-	 (player-walking? p)
-	 (player-walk-idx p)))))
+    (+ (nozzle-offset (aval p :h-facing)
+		      actual-v-facing
+		      (player-current-gun-name p))
+       (gun-pos
+	(aval k :pos)
+	(aval p :h-facing)
+	actual-v-facing
+	(player-walking? p)
+	(player-walk-idx p)))))
 
 (defun gun-level (exp exp-list)
   (let ((lvl (position-if-not (lambda (lvl-exp)

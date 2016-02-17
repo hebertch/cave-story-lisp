@@ -65,16 +65,16 @@
 		    (return))))
 
       (setq *stage-viewer-camera-pos*
-	    (+v *stage-viewer-camera-pos*
-		(cond ((find :up pressed-keys)
-		       (make-v 0 (- (* *tile-size* 3))))
-		      ((find :down pressed-keys)
-		       (make-v 0 (* *tile-size* 3)))
-		      ((find :left pressed-keys)
-		       (make-v (- (* *tile-size* 3)) 0))
-		      ((find :right pressed-keys)
-		       (make-v (* *tile-size* 3) 0))
-		      (t (zero-v)))))
+	    (+ *stage-viewer-camera-pos*
+	       (cond ((find :up pressed-keys)
+		      (make-v 0 (- (* *tile-size* 3))))
+		     ((find :down pressed-keys)
+		      (make-v 0 (* *tile-size* 3)))
+		     ((find :left pressed-keys)
+		      (make-v (- (* *tile-size* 3)) 0))
+		     ((find :right pressed-keys)
+		      (make-v (* *tile-size* 3) 0))
+		     (t (zero-v)))))
 
       (when (find :f1 pressed-keys)
 	(mapc (if debug-toggle-off?
@@ -205,17 +205,17 @@ This can be abused with the machine gun in TAS."
   (let* ((bs buffer-size)
 	 (dbs (* 2 bs)))
     (alist
-     :top (create-rect (+v (make-v bs 0) pos)
-		       (-v size (make-v dbs bs)))
+     :top (create-rect (+ (make-v bs 0) pos)
+		       (- size (make-v dbs bs)))
 
-     :bottom (create-rect (+v (make-v bs bs) pos)
-			  (-v size (make-v dbs bs)))
+     :bottom (create-rect (+ (make-v bs bs) pos)
+			  (- size (make-v dbs bs)))
 
-     :left (create-rect (+v (make-v 0 bs) pos)
-			(-v size (make-v bs dbs)))
+     :left (create-rect (+ (make-v 0 bs) pos)
+			(- size (make-v bs dbs)))
 
-     :right (create-rect (+v (make-v bs bs) pos)
-			 (-v size (make-v bs dbs))))))
+     :right (create-rect (+ (make-v bs bs) pos)
+			 (- size (make-v bs dbs))))))
 
 (defun rect->collision-rects (rect &optional (buffer-size 6))
   (collision-rects (rect-pos rect) (rect-size rect) buffer-size))
@@ -250,8 +250,8 @@ This can be abused with the machine gun in TAS."
 	    (make-fps-cycle 14 (iota 6))
 	    :physics '(:stage-physics)
 	    :stage-physics
-	    (make-kin-2d :pos (-v pos
-				  (rect-pos (dorito-collision-rect size)))
+	    (make-kin-2d :pos (- pos
+				 (rect-pos (dorito-collision-rect size)))
 			 :vel vel
 			 :accelerator-x
 			 (friction-accelerator *dorito-friction-acc*)
@@ -283,8 +283,8 @@ This can be abused with the machine gun in TAS."
 
       :src-rect
       (create-rect
-       (+v (anim-cycle-offset d)
-	   (tile-v 0 (1+ (position (aval d :size) '(:small :medium :large)))))
+       (+ (anim-cycle-offset d)
+	  (tile-v 0 (1+ (position (aval d :size) '(:small :medium :large)))))
        (make-v (tiles 1) (1- (tiles 1))))
 
       :pos (physics-pos d)))))
@@ -432,21 +432,21 @@ This can be abused with the machine gun in TAS."
 		 :fps 14
 		 :sheet-key :caret
 		 :tile-y 3
-		 :pos (sub-v center-pos (tile-dims/2))))
+		 :pos (- center-pos (tile-dims/2))))
 
 (defun make-projectile-wall-particle (center-pos)
   (make-particle :seq (mapcar (curry #'+ 11) (alexandria:iota 4))
 		 :fps 14
 		 :sheet-key :caret
 		 :tile-y 0
-		 :pos (sub-v center-pos (tile-dims/2))))
+		 :pos (- center-pos (tile-dims/2))))
 
 (defun number-drawing
     (pos number &key (layer :hud) (centered? t) (show-sign? t))
   (let* ((neg? (minusp number))
 	 (digits (fixnum->digits number))
 	 (pos (if centered?
-		  (sub-v pos (tiles/2-v (/ (length digits) 2) 1/2))
+		  (- pos (tiles/2-v (/ (length digits) 2) 1/2))
 		  pos))
 	 (drawings nil))
 
@@ -463,7 +463,7 @@ This can be abused with the machine gun in TAS."
 		 :src-rect (create-rect src-pos (tile-dims/2))
 		 :pos pos)
 		drawings))
-	(setq pos (+v pos (tiles/2-v 1 0)))))
+	(setq pos (+ pos (tiles/2-v 1 0)))))
     drawings))
 
 (defun fixnum->digits (number)
@@ -507,8 +507,8 @@ This can be abused with the machine gun in TAS."
 				      (/ (tiles 1/30) *frame-time*)))))
 
 (defun floating-number-drawing (fn)
-  (number-drawing (+v (origin (estate (aval fn :entity)))
-		      (physics-pos fn))
+  (number-drawing (+ (origin (estate (aval fn :entity)))
+		     (physics-pos fn))
 		  (aval fn :amt)
 		  :layer :floating-text))
 
@@ -630,7 +630,7 @@ This can be abused with the machine gun in TAS."
        (let ((char-dims (get-text-size *font* " "))
 	     (w (x (get-text-size *font* (text-display-text td)))))
 	 (draw-rect!
-	  (create-rect (+v (text-display-pos td) (make-v w 0)) char-dims)
+	  (create-rect (+ (text-display-pos td) (make-v w 0)) char-dims)
 	  *white*
 	  :layer :text
 	  :filled? t)))
@@ -841,7 +841,7 @@ This can be abused with the machine gun in TAS."
     drawings))
 
 (defun mouse->tile-pos (mouse-pos camera-pos)
-  (pos->tile-pos (+v mouse-pos camera-pos)))
+  (pos->tile-pos (+ mouse-pos camera-pos)))
 
 (defun update! (game)
   "The Main Loop, called once per *FRAME-TIME*."
@@ -1014,10 +1014,10 @@ This can be abused with the machine gun in TAS."
   (restore-entity-states! (first state))
   (setq *global-game* (second state)))
 
-(defun cave-stage ()
+(defun stage-from-stage-name (stage-name)
   (stage-from-file-data
-   (read-pxm-file "./content/stages/Cave.pxm")
-   (read-pxa-file "./content/stages/Cave.pxa")))
+   (read-pxm-file (format nil "./content/stages/~A.pxm" stage-name))
+   (read-pxa-file (format nil "./content/stages/~A.pxa" stage-name))))
 
 (defun make-pxe-entity (entity game-flags)
   (let ((entity-flags (aval entity :flags))
@@ -1046,17 +1046,21 @@ This can be abused with the machine gun in TAS."
   "Convert a parsed pxe list to a list of entities."
   (remove nil (mapcar #_(make-pxe-entity _ flags) pxe)))
 
+(defun entities-from-stage-name (stage-name)
+  (make-pxe-entities
+   (read-pxe-file (format nil "./content/stages/~A.pxe" stage-name))
+   nil))
+
 (defun create-game! ()
-  (let ((damage-numbers (make-damage-numbers))
-	(projectile-groups (make-projectile-groups))
-	(stage (make-stage (cave-stage)))
-	(entities (make-pxe-entities
-		   (read-pxe-file "./content/stages/Cave.pxe")
-		   nil))
-	(hud (make-hud))
-	(player (make-player :pos (tile-v 51 12)))
-	(gun-exps (make-gun-exps))
-	(active-systems (make-active-systems)))
+  (let* ((stage-name "Cent")
+	 (damage-numbers (make-damage-numbers))
+	 (projectile-groups (make-projectile-groups))
+	 (stage (make-stage (stage-from-stage-name stage-name)))
+	 (entities (entities-from-stage-name stage-name))
+	 (hud (make-hud))
+	 (player (make-player :pos (tile-v 117 80)))
+	 (gun-exps (make-gun-exps))
+	 (active-systems (make-active-systems)))
     
     (let ((camera (make-camera (physics-pos player) (zero-v) player)))
       (mapc #'create-entity!
@@ -1178,9 +1182,9 @@ This can be abused with the machine gun in TAS."
   (list (make-sprite-drawing :layer :enemy
 			     :sheet-key :npc-cemet
 			     :src-rect
-			     (tile-rect (+v (tile-v 2 2)
-					    (anim-cycle-offset b)
-					    (facing-offset b)))
+			     (tile-rect (+ (tile-v 2 2)
+					   (anim-cycle-offset b)
+					   (facing-offset b)))
 			     :pos (physics-pos b))))
 
 (defun facing-offset (obj)
@@ -1220,7 +1224,7 @@ This can be abused with the machine gun in TAS."
 	    :physics '(:stage-physics)
 	    :stage-physics
 	    (make-kin-2d
-	     :pos (-v pos (tile-dims/2))
+	     :pos (- pos (tile-dims/2))
 	     :vel (polar-vec->v (rand-angle)
 				(rand-val-between 0.1 0.3))
 	     :clamper-vx
@@ -1333,8 +1337,8 @@ This can be abused with the machine gun in TAS."
     (list
      (make-sprite-drawing :layer :enemy
 			  :sheet-key :npc-cemet
-			  :src-rect (tile-rect (+v (tile-v sprite-tile-x 0)
-						   (facing-offset c)))
+			  :src-rect (tile-rect (+ (tile-v sprite-tile-x 0)
+						  (facing-offset c)))
 			  :pos (physics-pos c)))))
 
 
@@ -1362,7 +1366,7 @@ This can be abused with the machine gun in TAS."
 			(aset
 			 kin-2d
 			 :vel (zero-v :x (x (aval kin-2d :vel)))
-			 :pos (-v
+			 :pos (-
 			       (flush-rect-pos
 				player-rect
 				(y (rect-pos dynamic-collision-rect))
@@ -1414,7 +1418,7 @@ This can be abused with the machine gun in TAS."
        *critter-stage-collisions*))))
 
 (defun physics-tile-origin (c)
-  (+v (physics-pos c) (tile-dims/2)))
+  (+ (physics-pos c) (tile-dims/2)))
 (defun physics-tile-rect (c)
   (tile-rect (physics-pos c)))
 
@@ -1475,19 +1479,19 @@ This can be abused with the machine gun in TAS."
       :layer :enemy
       :sheet-key :npc-eggs1
       :src-rect
-      (create-rect (+v src-pos
-		       (make-v 0 (if (eq (aval e :facing) :left)
-				     0
-				     (tiles 3/2))))
+      (create-rect (+ src-pos
+		      (make-v 0 (if (eq (aval e :facing) :left)
+				    0
+				    (tiles 3/2))))
 		   *elephant-dims*)
       :pos (physics-pos e)))))
 
 (defun elephant-origin (e)
-  (+v (physics-pos e)
-      (scale-v *elephant-dims* 1/2)))
+  (+ (physics-pos e)
+     (* *elephant-dims* 1/2)))
 
 (defun elephant-inertia-vel (e)
-  (scale-v (stage-vel e) 1/3))
+  (* (stage-vel e) 1/3))
 
 (defun elephant-damageable-rect (e)
   (create-rect (physics-pos e) *elephant-dims*))
@@ -1597,9 +1601,9 @@ This can be abused with the machine gun in TAS."
   (let ((pos (physics-pos e)))
     (cond
       ((timer-active? (aval e :recover-timer))
-       (setq pos (+v pos (make-v 0 (tiles 1/4)))))
+       (setq pos (+ pos (make-v 0 (tiles 1/4)))))
       ((= 1 (anim-cycle-idx e))
-       (setq pos (+v pos (make-v 0 (tiles 1/8))))))
+       (setq pos (+ pos (make-v 0 (tiles 1/8))))))
     (create-rect pos *elephant-dims*)))
 
 (defun elephant-damage-collision-amt (e)
@@ -1613,7 +1617,7 @@ This can be abused with the machine gun in TAS."
 	 (pos (if (eq (aval e :facing) :left)
 		  (make-v 0 y)
 		  (make-v (tiles 1) y))))
-    (create-rect (+v (physics-pos e) pos) dims)))
+    (create-rect (+ (physics-pos e) pos) dims)))
 
 (defun rage-timer (e)
   (aval e :rage-timer))
@@ -1672,11 +1676,11 @@ This can be abused with the machine gun in TAS."
 		 (timed-camera-shake (estate (aval *global-game* :camera))
 				     (s->ms 1/2))
 		 (make-num-death-cloud-particles
-		  3 (+v (physics-pos e)
-			(make-v (if (eq (aval e :facing) :left)
-				    (tiles 3/2)
-				    (tiles 1/2))
-				(tiles 5/4)))))))
+		  3 (+ (physics-pos e)
+		       (make-v (if (eq (aval e :facing) :left)
+				   (tiles 3/2)
+				   (tiles 1/2))
+			       (tiles 5/4)))))))
       e))
 
 (let ((collision-rects
@@ -2924,13 +2928,13 @@ The number of smoke particles to create when destroyed.")
 	    :layer :pickup
 	    :sheet-key :npc-sym
 	    :src-rect
-	    (tile-rect (+v (anim-cycle-offset a) src-pos))
-	    :pos (-v (aval a :pos) (tile-dims/2))))
+	    (tile-rect (+ (anim-cycle-offset a) src-pos))
+	    :pos (- (aval a :pos) (tile-dims/2))))
 	 (make-sprite-drawing
 	  :layer :pickup
 	  :sheet-key :npc-sym
 	  :src-rect (tile-rect (tile-v 1 0))
-	  :pos (-v (aval a :pos) (tile-dims/2)))))))
+	  :pos (- (aval a :pos) (tile-dims/2)))))))
 
 (defvar! *door-enemy-subsystems*
   '(:physics :timers :drawable :damageable :damage-collision))
@@ -2939,15 +2943,15 @@ The number of smoke particles to create when destroyed.")
   (let ((rect-fn
 	 (lambda (d)
 	   (tile-rect (tile-pos (aval d :tile-pos))))))
-   (alist :ai-fn #'door-enemy-ai
-	  :draw-fn #'door-enemy-drawings
-	  :origin-fn
-	  (lambda (d)
-	    (tile-pos (+v (make-v 1/2 1/2) (aval d :tile-pos))))
-	  :damageable-hit-react-fn #'door-enemy-hit-react
-	  :damageable-rect-fn rect-fn
-	  :damage-collision-rect-fn rect-fn
-	  :damage-collision-amt-fn (constantly 1))))
+    (alist :ai-fn #'door-enemy-ai
+	   :draw-fn #'door-enemy-drawings
+	   :origin-fn
+	   (lambda (d)
+	     (tile-pos (+ (make-v 1/2 1/2) (aval d :tile-pos))))
+	   :damageable-hit-react-fn #'door-enemy-hit-react
+	   :damageable-rect-fn rect-fn
+	   :damage-collision-rect-fn rect-fn
+	   :damage-collision-amt-fn (constantly 1))))
 
 (defun make-door-enemy (tile-pos)
   (amerge
@@ -2972,8 +2976,8 @@ The number of smoke particles to create when destroyed.")
 
 (defun door-enemy-drawings (d)
   (let ((pos
-	 (+v (physics-pos d)
-	     (tile-pos (-v (aval d :tile-pos) (make-v 0 1/2))))))
+	 (+ (physics-pos d)
+	    (tile-pos (- (aval d :tile-pos) (make-v 0 1/2))))))
     (list
      (cond
        ((member :shake-timer (aval d :timers))
