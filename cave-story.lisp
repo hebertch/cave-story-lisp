@@ -1054,7 +1054,7 @@ This can be abused with the machine gun in TAS."
    nil))
 
 (defun create-game! ()
-  (let* ((stage-key :maze)
+  (let* ((stage-key :maze-i)
 	 (damage-numbers (make-damage-numbers))
 	 (projectile-groups (make-projectile-groups))
 	 (stage (load-stage-from-stage-key stage-key))

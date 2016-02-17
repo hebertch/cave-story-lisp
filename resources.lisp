@@ -189,35 +189,32 @@
 			 (format nil "Prt~A" name))))))
 
 (defvar! *stage-fnames-table*
-    (append
-     (mapcar (lambda (key)
-	       (cons key
-		     (let ((name (string-capitalize (symbol-name key))))
-		       (alist :stage name
-			      :entities name
-			      :attributes name
-			      :spritesheet key))))
-	     '(:weed :cent :santa :eggs))
-     (alist :sand (alist :stage "SandE"
-			 :entities "SandE"
-			 :attributes "Sand"
-			 :spritesheet :sand)
-	    :pens (alist :stage "Pens1"
-			 :entities "Pens1"
-			 :attributes "Pens"
-			 :spritesheet :pens)
-	    :hell (alist :stage "Hell1"
-			 :entities "Hell1"
-			 :attributes "Hell"
-			 :spritesheet :hell)
-	    :jail (alist :stage "Jail1"
-			 :entities "Jail1"
-			 :attributes "Jail"
-			 :spritesheet :jail)
-	    :maze (alist :stage "MazeI"
-			 :entities "MazeI"
-			 :attributes "Maze"
-			 :spritesheet :maze)))
+    (mapcar (lambda (key-or-list)
+	      (if (listp key-or-list)
+		  (let ((key (second key-or-list))
+			(fname (third key-or-list)))
+		    (cons (first key-or-list)
+			  (alist :stage fname
+				 :entities fname
+				 :attributes
+				 (string-capitalize (symbol-name key))
+				 :spritesheet key)))
+		  (let ((key key-or-list))
+		    (cons key
+			  (let ((name (string-capitalize (symbol-name key))))
+			    (alist :stage name
+				   :entities name
+				   :attributes name
+				   :spritesheet key))))))
+	    '(:weed
+	      :cent
+	      :santa
+	      :eggs
+	      (:sand-e :sand "SandE")
+	      (:pens-1 :pens "Pens1")
+	      (:hell-1 :hell "Hell1")
+	      (:jail-1 :jail "Jail1")
+	      (:maze-i :maze "MazeI")))
   "Alist of (keyword . (alist stage attributes entities spritesheet)).")
 
 (defmacro def-resource-type
