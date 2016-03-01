@@ -15,25 +15,25 @@
   "Number of frames per update. 1 for real-time.")
 
 (defvar! *debug-input-keybindings*
-  `((((:key :escape)) .
-     ,(lambda () (quit)))
-    (((:key :p)
-      (:joy :start)) .
-     ,(lambda () (setq *global-paused?* (not *global-paused?*))))
-    (((:key :r)
-      (:joy :select)) .
-     ,(lambda () (setq *global-game* (reset!))))
-    (((:joy :r)) .
-     ,(lambda ()
-	      (case *input-playback*
-		(:recording (begin-input-playback))
-		(:playback (setq *input-playback* nil))
-		(t (begin-input-recording)))))
-    (((:key :n)) .
-     ,(lambda ()
-	      (when *global-paused?*
-		(setq *global-game*
-		      (update! *global-game*)))))))
+    `((((:key :escape)) .
+       ,(lambda () (quit)))
+      (((:key :p)
+	(:joy :start)) .
+       ,(lambda () (setq *global-paused?* (not *global-paused?*))))
+      (((:key :r)
+	(:joy :select)) .
+       ,(lambda () (setq *global-game* (reset!))))
+      (((:joy :r)) .
+       ,(lambda ()
+		(case *input-playback*
+		  (:recording (begin-input-playback))
+		  (:playback (setq *input-playback* nil))
+		  (t (begin-input-recording)))))
+      (((:key :n)) .
+       ,(lambda ()
+		(when *global-paused?*
+		  (setq *global-game*
+			(update! *global-game*)))))))
 
 (defun make-game
     (&key player camera stage projectile-groups hud gun-exps
@@ -234,7 +234,7 @@ This can be abused with the machine gun in TAS."
 
 
 (defvar! *pickup-subsystems*
-  '(:timers :drawable :pickup))
+    '(:timers :drawable :pickup))
 
 (defun make-dorito (pos size)
   (let ((vel (polar-vec->v (rand-angle) 0.07)))
@@ -367,7 +367,7 @@ This can be abused with the machine gun in TAS."
   (alist :ai-fn #'single-loop-sprite-ai))
 
 (defvar! *single-loop-sprite-subsystems*
-  '(:timers))
+    '(:timers))
 
 (defun make-single-loop-sprite (fps seq sheet-key tile-y layer)
   (amerge
@@ -413,6 +413,7 @@ This can be abused with the machine gun in TAS."
    (alist :subsystems *particle-subsystems*)
    (let ((sprite (make-single-loop-sprite fps seq sheet-key tile-y :particle)))
      (alist :single-loop-sprite (aval sprite :id)
+	    :id (gen-entity-id)
 	    :new-states (list sprite)
 	    :pos pos))))
 
@@ -488,7 +489,7 @@ This can be abused with the machine gun in TAS."
 	 :ai-fn #'floating-number-ai))
 
 (defvar! *floating-number-subsystems*
-  '(:timers :drawable :physics))
+    '(:timers :drawable :physics))
 (defun make-floating-number (entity amt)
   (amerge
    (floating-number-fns-alist)
@@ -549,47 +550,6 @@ This can be abused with the machine gun in TAS."
 	   2
 	   lvl)))
 
-#+nil
-(progn
-  ("If there are no more red flowers we can, hopefully, avoid the war."
-   :wait
-   :clear-text
-   "Well, that's a pretty heavy responsibility, you think?"
-   :wait
-   :close)
-  ("Do you want to save?"
-   (:yes-or-no
-    yes-fn
-    no-fn))
-  ("Aaaaahhh!"
-   :wait
-   :close
-   :empty-text
-   (:open :curly)
-   "Hey!!"
-   :wait
-   :close
-   (:pause 50)
-   :open
-   "Look, a visitor after such a long time!!"
-   :wait
-   "I know what you want to do!"
-   :wait
-   "But you better wake up!" ;; Appends text.
-   :wait
-   "The Mimiga aren't the enemy!"
-   :wait
-   "They're totally harmless!"
-   :wait
-   :clear-text
-   "I feel sorry for you..."
-   :wait
-   :close
-   ;; Other stuff...
-   :open
-   "I'm on the Mimiga side and not gonna lose to you!!"
-   :wait))
-
 (defvar! *text-speed* 100)
 (defun slow-text-speed! ()
   (setq *text-speed* 100))
@@ -599,7 +559,7 @@ This can be abused with the machine gun in TAS."
 
 #+nil
 (defvar! *text-display-subsystems*
-  '(:timers :drawable))
+    '(:timers :drawable))
 
 #+nil
 (defun text-display-fns-alist ()
@@ -1054,13 +1014,13 @@ This can be abused with the machine gun in TAS."
    nil))
 
 (defun create-game! ()
-  (let* ((stage-key :maze-i)
+  (let* ((stage-key :stage-eggs)
 	 (damage-numbers (make-damage-numbers))
 	 (projectile-groups (make-projectile-groups))
 	 (stage (load-stage-from-stage-key stage-key))
 	 (entities (entities-from-stage-key stage-key))
 	 (hud (make-hud))
-	 (player (make-player :pos (tile-v 17 63)))
+	 (player (make-player :pos (tile-v 8 5)))
 	 (gun-exps (make-gun-exps))
 	 (active-systems (make-active-systems)))
     
@@ -1077,11 +1037,7 @@ This can be abused with the machine gun in TAS."
 	     active-systems
 	     camera
 
-	     entities
-	     ;; (make-critter (tile-v (+ 14 1/4) 6))
-	     ;; (make-elephant (tile-v 7 6))
-	     ;; (make-dorito (tile-v (+ 14 1/4) 6) :medium))
-	     ))
+	     entities))
 
       (make-game :player (aval player :id)
 		 :camera (aval camera :id)
@@ -1163,7 +1119,7 @@ This can be abused with the machine gun in TAS."
 	 :damageable-rect-fn #'physics-tile-rect))
 
 (defvar! *bat-subsystems*
-  '(:timers :damage-collision :damageable :drawable :physics))
+    '(:timers :damage-collision :damageable :drawable :physics))
 
 (defun make-bat (tile-pos)
   (amerge
@@ -1212,7 +1168,7 @@ This can be abused with the machine gun in TAS."
 			      :dead?)))))
 
 (defvar! *death-cloud-particle-subsystems*
-  '(:drawable :physics :stage-collision :timers :ai))
+    '(:drawable :physics :stage-collision :timers :ai))
 
 (defun make-death-cloud-particle (pos)
   (amerge
@@ -1260,7 +1216,7 @@ This can be abused with the machine gun in TAS."
   (collect #_(make-death-cloud-particle pos) num))
 
 (defvar! *critter-dynamic-collision-rect*
-  (make-rect :pos (tile-v 0 1/4) :size (tile-v 1 3/4)))
+    (make-rect :pos (tile-v 0 1/4) :size (tile-v 1 3/4)))
 
 (defun gravity-kin-2d (&key (pos (zero-v)) (vel (zero-v)))
   (make-kin-2d :pos pos
@@ -1296,8 +1252,8 @@ This can be abused with the machine gun in TAS."
       :id id))))
 
 (defvar! *critter-subsystems*
-  '(:timers :drawable :physics :damageable
-    :damage-collision :dynamic-collision :stage-collision))
+    '(:timers :drawable :physics :damageable
+      :damage-collision :dynamic-collision :stage-collision))
 
 (defun origin-dist (a b)
   (dist (origin a) (origin b)))
@@ -1389,24 +1345,24 @@ This can be abused with the machine gun in TAS."
 	  :ground-inertia-entity ground-inertia-entity)))
 
 (defvar! *critter-stage-collisions*
-  (alist
-   :bottom
-   (collision-lambda (data)
-     (aset data
-	   :timers (if (aval data :last-ground-tile)
-		       (aval data :timers)
-		       (adjoin :sleep-timer (aval data :timers)))
-	   :sleep-timer (if (aval data :last-ground-tile)
-			    (aval data :sleep-timer)
-			    (make-expiring-timer (s->ms 1/3) t))
-	   :ground-tile (aval data :tile-type)
-	   :stage-physics
-	   (aset (aval data :stage-physics) :vel (zero-v))))
-   :top
-   (collision-lambda (data)
-     (aset data :stage-physics
-	   (aset (aval data :stage-physics)
-		 :vel (max-y-v (stage-vel data) 0))))))
+    (alist
+     :bottom
+     (collision-lambda (data)
+       (aset data
+	     :timers (if (aval data :last-ground-tile)
+			 (aval data :timers)
+			 (adjoin :sleep-timer (aval data :timers)))
+	     :sleep-timer (if (aval data :last-ground-tile)
+			      (aval data :sleep-timer)
+			      (make-expiring-timer (s->ms 1/3) t))
+	     :ground-tile (aval data :tile-type)
+	     :stage-physics
+	     (aset (aval data :stage-physics) :vel (zero-v))))
+     :top
+     (collision-lambda (data)
+       (aset data :stage-physics
+	     (aset (aval data :stage-physics)
+		   :vel (max-y-v (stage-vel data) 0))))))
 
 (let ((collision-rects (rect->collision-rects
 			(centered-rect (tile-dims/2) (both-v (tiles 3/4))) 6)))
@@ -1454,8 +1410,8 @@ This can be abused with the machine gun in TAS."
 	 :stage-collision-fn #'elephant-stage-collision))
 
 (defvar! *elephant-subsystems*
-  '(:timers :drawable :physics :stage-collision
-    :damageable :damage-collision :dynamic-collision))
+    '(:timers :drawable :physics :stage-collision
+      :damageable :damage-collision :dynamic-collision))
 
 (defun make-elephant (pos)
   (amerge
@@ -1556,26 +1512,26 @@ This can be abused with the machine gun in TAS."
   "Makes the equivalent number of pickups to amt from origin."
   ;; 3/5 of the time choose doritos, otherwise missile or heart.
   (let ((bundle? (> amt 6)))
-   (case (random 4)
-     (0 ;;Missile
-      (list (make-missile-pickup origin bundle?)))
-     (1 ;;Heart
-      (list (make-heart-pickup origin bundle?)))
-     (t
-      (let* ((large (dorito-size->exp-amt :large))
-	     (medium (dorito-size->exp-amt :medium))
-	     (small (dorito-size->exp-amt :small))
-	     (num-large (floor amt large))
-	     (num-medium (floor (- amt (* large num-large)) medium))
-	     (num-small (floor (- amt (* large num-large) (* medium num-medium))
-			     small)))
-	(nconc
-	 (collect #_(make-dorito origin :large)
-		  num-large)
-	 (collect #_(make-dorito origin :medium)
-		  num-medium)
-	 (collect #_(make-dorito origin :small)
-		  num-small)))))))
+    (case (random 4)
+      (0 ;;Missile
+       (list (make-missile-pickup origin bundle?)))
+      (1 ;;Heart
+       (list (make-heart-pickup origin bundle?)))
+      (t
+       (let* ((large (dorito-size->exp-amt :large))
+	      (medium (dorito-size->exp-amt :medium))
+	      (small (dorito-size->exp-amt :small))
+	      (num-large (floor amt large))
+	      (num-medium (floor (- amt (* large num-large)) medium))
+	      (num-small (floor (- amt (* large num-large) (* medium num-medium))
+				small)))
+	 (nconc
+	  (collect #_(make-dorito origin :large)
+		   num-large)
+	  (collect #_(make-dorito origin :medium)
+		   num-medium)
+	  (collect #_(make-dorito origin :small)
+		   num-small)))))))
 
 (defun damage-reaction (obj)
   (let ((amt (aval obj :damage-amt)))
@@ -1793,7 +1749,7 @@ This can be abused with the machine gun in TAS."
   (apply #'arem
 	 e
 	 (remove-if-not (lambda (k) (zerop (aval e k)))
-			    '(:flag-id :tsc-id))))
+			'(:flag-id :tsc-id))))
 
 (defun pxe-flags->entity-flags (flags)
   "Takes an integer flags and parses it into a set of entity-flags."
@@ -1810,9 +1766,9 @@ This can be abused with the machine gun in TAS."
 	(let ((slope-idx (cond ((>= num 112)
 				(- num 112))
 			       (t (- num #x50)))))
-	 (cons (elt '(:ltt :lts :rts :rtt :lbt :lbs :rbs :rbt)
-		    slope-idx)
-	       attrs))
+	  (cons (elt '(:ltt :lts :rts :rtt :lbt :lbs :rbs :rbt)
+		     slope-idx)
+		attrs))
 	attrs)))
 
 (defun pxm-tile-offset-idx->tile-v (idx)
@@ -1832,8 +1788,8 @@ tile attribute lists."
 		      (list (elt attrs (car tile-offset-idxs))
 			    (pxm-tile-offset-idx->tile-v
 			     (car tile-offset-idxs))))
-	       (setq tile-offset-idxs
-		     (cdr tile-offset-idxs))))
+		(setq tile-offset-idxs
+		      (cdr tile-offset-idxs))))
       stage)))
 
 (defun stage-from-file-data (pxm pxa)
@@ -1942,34 +1898,34 @@ the entity type."
        :damage (collect #_ (read-uint32 stream) count)))))
 
 (defvar! *entity-flags*
-  '((:solid-mushy 		#x0001 "Pushes player out, but is not solid. Normal State for enemies.")
-    (:ignore-tile		#x0002)
-    (:invulnerable		#x0004 "Invulnerable. Plays clinking sound when shot.")
-    (:ignore-solid		#x0008)
-    (:bouncy			#x0010 "When :solid-brick is set, acts like a mini-trampoline")
-    (:shootable			#x0020)
-    (:solid-brick		#x0040 "Bounding box is solid, just like a solid tile.")
-    (:no-rear-top-attack	#x0080 "When attacked from the rear or top, damage is 0.")
-    (:script-on-touch		#x0100 "Activate tsc-id script when the player touches this entity.")
-    (:script-on-death		#x0200 "Activate tsc-id script when the entity dies.")
-    (:drop-powerups-dont-use	#x0400 "unused.")
-    (:appear-on-flag-id		#x0800 "This entity should spawn if the flag-id is set")
-    (:faces-right		#x1000 "Sets the initial direction the enemy is facing to be to the right.")
-    (:script-on-activate	#x2000 "Activate tsc-id script when the player interacts with this entity.")
-    (:disappear-on-flag-id	#x4000 "This entity should NOT spawn if the flag-id is set.")
-    (:show-float-text		#x8000 "This enemy should have a floating-text associated with it."))
+    '((:solid-mushy 		#x0001 "Pushes player out, but is not solid. Normal State for enemies.")
+      (:ignore-tile		#x0002)
+      (:invulnerable		#x0004 "Invulnerable. Plays clinking sound when shot.")
+      (:ignore-solid		#x0008)
+      (:bouncy			#x0010 "When :solid-brick is set, acts like a mini-trampoline")
+      (:shootable			#x0020)
+      (:solid-brick		#x0040 "Bounding box is solid, just like a solid tile.")
+      (:no-rear-top-attack	#x0080 "When attacked from the rear or top, damage is 0.")
+      (:script-on-touch		#x0100 "Activate tsc-id script when the player touches this entity.")
+      (:script-on-death		#x0200 "Activate tsc-id script when the entity dies.")
+      (:drop-powerups-dont-use	#x0400 "unused.")
+      (:appear-on-flag-id		#x0800 "This entity should spawn if the flag-id is set")
+      (:faces-right		#x1000 "Sets the initial direction the enemy is facing to be to the right.")
+      (:script-on-activate	#x2000 "Activate tsc-id script when the player interacts with this entity.")
+      (:disappear-on-flag-id	#x4000 "This entity should NOT spawn if the flag-id is set.")
+      (:show-float-text		#x8000 "This enemy should have a floating-text associated with it."))
   "Flags that represent the entity's attributes. Set by npc.tbl and .tsc files.")
 
 (defvar! *tile-attribute-flags*
-  '((:solid-player	#x001 "Solid to the player.")
-    (:solid-npc		#x002 "Solid to NPCs.")
-    (:solid-shot	#x004 "Solid to bullets.")
-    (:hurts-player	#x010 "Causes 10HP of damage to player.")
-    (:foreground	#x020 "Drawn on the foreground layer.")
-    (:destroyable	#x040 "Destroyable purple star block.")
-    (:water		#x080 "Tile is underwater.")
-    (:current		#x100 "Tile has a water/wind current.")
-    (:slope		#x200 "Tile is sloped."))
+    '((:solid-player	#x001 "Solid to the player.")
+      (:solid-npc		#x002 "Solid to NPCs.")
+      (:solid-shot	#x004 "Solid to bullets.")
+      (:hurts-player	#x010 "Causes 10HP of damage to player.")
+      (:foreground	#x020 "Drawn on the foreground layer.")
+      (:destroyable	#x040 "Destroyable purple star block.")
+      (:water		#x080 "Tile is underwater.")
+      (:current		#x100 "Tile has a water/wind current.")
+      (:slope		#x200 "Tile is sloped."))
   "Tile attribute flags for pxa file. Numbers correspond to the tilekey.dat
 file from nx engine.")
 
@@ -1986,723 +1942,723 @@ file from nx engine.")
 	       collecting (read-uint32 stream)))))
 
 (defvar! *tile-attributes-table*
-  (map 'vector #'identity (read-tile-key-table))
+    (map 'vector #'identity (read-tile-key-table))
   "Table of tile-attribute-idx (from a .pxa file) to a list
 of *tile-attributes*.")
 
 (defvar! *entity-type-table*
-  #(nil
-    :xp
-    :behemoth
-    nil
-    :smoke-cloud
-    :critter-hopping-green
-    :beetle-green
-    :basil
-    :beetle-freefly
-    :balrog-drop-in
-    nil
-    :igor-shot
-    :balrog
-    :forcefield
-    :santas-key
-    :chest-closed
-    :save-point
-    :recharge
-    :door
-    :balrog-bust-in
-    :computer
-    :chest-open
-    :teleporter
-    :teleporter-lights
-    :power-critter
-    :egg-elevator
-    :bat-circle
-    :big-spike
-    :critter-flying
-    :chthulu
-    :hermit-gunsmith
-    :bat-hang
-    :life-capsule
-    :balrog-shot-bounce
-    :bed
-    :mannan
-    :balrog-boss-flying
-    :signpost
-    :fireplace
-    :save-sign
-    :santa
-    :door-busted
-    :sue
-    :chalkboard
-    :polish
-    :polishbaby
-    :hvtrigger
-    :sandcroc
-    nil
-    :skullhead
-    :skeleton-shot
-    :crowwithskull
-    :blue-robot-sitting
-    :skullstep-foot
-    :skullstep
-    :kazuma
-    :beetle-brown
-    :crow
-    :giant-beetle
-    :door-enemy
-    :toroko
-    :king
-    :kazuma-at-computer
-    :toroko-shack
-    :critter-hopping-blue
-    :bat-blue
-    :miserys-bubble
-    :misery-float
-    :balrog-boss-running
-    :mushroom-enemy
-    :hidden-sparkle
-    :chinfish
-    :sprinkler
-    :water-droplet
-    :jack
-    :kanpachi-fishing
-    :yamashita-flowers
-    :yamashita-pavilion
-    :pot
-    :mahin
-    :gravekeeper
-    :giant-mushroom-enemy
-    :misery-stand
-    :npc-igor
-    :giant-beetle-shot
-    :terminal
-    :missile
-    :heart
-    :boss-igor
-    :boss-igor-defeated
-    nil
-    :cage
-    :sue-at-computer
-    :chaco
-    :giant-jelly
-    :jelly
-    :fan-left
-    :fan-up
-    :fan-right
-    :fan-down
-    :grate
-    :powercomp
-    :powersine
-    :mannan-shot
-    :frog
-    :hey
-    :hey-spawner
-    :malco
-    :balfrog-shot
-    :malco-broken
-    :minifrog
-    :ptelout
-    :ptelin
-    :professor-booster
-    :press
-    :frenzied-mimiga
-    :red-petals
-    :curly
-    :curly-boss
-    :tablechairs
-    :mimigac1
-    :mimigac2
-    :mimigac-enemy
-    :curlyboss-shot
-    :sunstone
-    :hidden-powerup
-    :puppy-run
-    nil
-    nil
-    nil
-    :puppy-wag
-    :puppy-sleep
-    :puppy-bark
-    :jenka
-    :armadillo
-    :skeleton
-    :puppy-carry
-    :largedoor-frame
-    :largedoor
-    :doctor
-    :toroko-frenzied
-    :toroko-block
-    :toroko-flower
-    :jenka-collapsed
-    :toroko-teleport-in
-    :kings-sword
-    :lightning
-    :critter-shooting-purple
-    :critter-shot
-    :block-moveh
-    :npc-player
-    :blue-robot
-    :shutter-stuck
-    :gaudi
-    :gaudi-dying
-    :gaudi-flying
-    :gaudi-flying-shot
-    :block-movev
-    :x-fishy-missile
-    :x-defeated
-    :pooh-black
-    :pooh-black-bubble
-    :pooh-black-dying
-    :dr-gero
-    :nurse-hasumi
-    :curly-collapsed
-    :gaudi-shopkeep
-    :booster-falling
-    :boulder
-    :balrog-boss-missiles
-    :balrog-missile
-    :firewhirr
-    :firewhirr-shot
-    :gaudi-armored
-    :gaudi-armored-shot
-    :gaudi-egg
-    :buyobuyo-base
-    :buyobuyo
-    :minicore-shot
-    :core-ghostie
-    :curly-ai
-    :cai-gun
-    :cai-mgun
-    :cai-watershield
-    :shutter-big
-    :shutter
-    :almond-lift
-    :fuzz-core
-    :fuzz
-    nil
-    :almond-robot
-    :waterlevel
-    :motorbike
-    :motorbike-broken
-    :blue-robot-remains
-    :grating
-    :motion-wall
-    :ironh-fishy
-    :ironh-shot
-    :fan-droplet
-    :dragon-zombie
-    :dragon-zombie-dead
-    :dragon-zombie-shot
-    :critter-hopping-aqua
-    :falling-spike-small
-    :falling-spike-large
-    :counter-bomb
-    :counter-bomb-number
-    :giant-beetle-2
-    nil
-    :beetle-freefly-2
-    :spike-small
-    :sky-dragon
-    :night-spirit
-    :night-spirit-shot
-    :sandcroc-oside
-    :pixel-cat
-    :itoh
-    :core-blast
-    :bubble-spawner
-    :mimiga-farmer-standing
-    :mimiga-farmer-walking
-    :jail-grating
-    :momorin
-    :chie
-    :megane
-    :kanpachi-standing
-    :bucket
-    :droll-guard
-    :red-flowers-sprouts
-    :red-flowers-blooming
-    :rocket
-    :orangebell
-    :orangebell-baby
-    :flowers-pens1
-    :midorin
-    :gunfish
-    :gunfish-shot
-    :proximity-press-hoz
-    :mimiga-cage
-    :mimiga-jailed
-    :critter-hopping-red
-    :red-bat
-    :red-bat-spawner
-    :lava-drip
-    :lava-drip-spawner
-    :proximity-press-vert
-    :boss-misery
-    :misery-shot
-    :misery-phase
-    :misery-ball
-    :black-lightning
-    :misery-ring
-    :xp-capsule
-    :helicopter
-    :helicopter-blade
-    :doctor-crowned
-    :red-crystal
-    :mimiga-sleeping
-    :curly-carried
-    :mimiga-caged
-    :chie-caged
-    :chaco-caged
-    :boss-doctor
-    :doctor-shot
-    :doctor-shot-trail
-    :doctor-blast
-    :boss-doctor-frenzied
-    :igor-balcony
-    :doctor-bat
-    :red-energy
-    :ironh-brick
-    :brick-spawner
-    :droll-shot
-    :droll
-    :puppy-items
-    :red-demon
-    :red-demon-shot
-    :little-family
-    :falling-block
-    :sue-teleport-in
-    :doctor-ghost
-    :udmini-platform
-    :misery-frenzied
-    :sue-frenzied
-    :ud-spinner
-    :ud-spinner-trail
-    :ud-smoke
-    :ud-pellet
-    :misery-critter
-    :misery-bat
-    :ud-minicore-idle
-    :quake
-    :ud-blast
-    :falling-block-spawner
-    :cloud
-    :cloud-spawner
-    nil
-    :intro-doctor
-    :intro-kings
-    :intro-crown
-    :misery-missile
-    :scroll-controller
-    nil
-    :gaudi-patient
-    :baby-puppy
-    :balrog-medic
-    :santa-caged
-    :stumpy
-    :bute-flying
-    :bute-sword
-    :bute-archer
-    :bute-arrow
-    :ma-pignon
-    :ma-pignon-rock
-    :ma-pignon-clone
-    :bute-dying
-    :mesa
-    :mesa-dying
-    :mesa-block
-    :curly-carried-shooting
-    :ccs-gun
-    :deleet
-    :bute-falling
-    :bute-spawner
-    :hp-lightning
-    :turning-human
-    :ahchoo
-    :transmogrifier
-    :building-fan
-    :rolling
-    :ballos-bone
-    :ballos-bone-spawner
-    :ballos-target
-    :straining
-    :ikachan
-    :ikachan-spawner
-    :numahachi
-    :green-devil
-    :green-devil-spawner
-    :ballos-priest
-    :ballos-smile
-    :ballos-rotator
-    :ballos-body-2
-    :ballos-eye-2
-    :ballos-skull
-    :ballos-platform
-    :hoppy
-    :ballos-spikes
-    :statue-base
-    :bute-archer-red
-    :statue
-    :the-cast
-    :bute-sword-red
-    :wall-collapser
-    :balrog-passenger
-    :balrog-flying
-    :puppy-ghost
-    :misery-wind
-    :droplet-spawner
-    :thank-you
-    nil
-    nil
-    :balfrog
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    :player
-    :heart3
-    :missile3
-    :lava-droplet
-    :skullhead-carried
-    :bbox-puppet
-    :smoke-dropper
-    nil
-    nil
-    nil
-    :core-controller
-    :core-front
-    :core-back
-    :core-marker
-    :minicore
-    nil
-    nil
-    nil
-    nil
-    nil
-    :polar-shot
-    :mgun-spawner
-    :mgun-leader
-    :mgun-trail
-    :mgun-l1-shot
-    :missile-shot
-    :supermissile-shot
-    :missile-boom-spawner
-    :fireball1
-    :fireball23
-    :fireball-trail
-    :blade12-shot
-    :blade3-shot
-    :blade-slash
-    :snake1-shot
-    :snake23-shot
-    :snake-trail
-    :nemesis-shot
-    :nemesis-shot-curly
-    :bubbler12-shot
-    :bubbler3-shot
-    :bubbler-sharp
-    :spur-shot
-    :spur-trail
-    :whimsical-star
-    nil
-    nil
-    nil
-    nil
-    :shots-end
-    :omega-body
-    :omega-leg
-    :omega-strut
-    :omega-shot
-    nil
-    :ironh
-    nil
-    nil
-    nil
-    nil
-    :x-mainobject
-    :x-body
-    :x-tread
-    :x-internals
-    :x-door
-    :x-target
-    :x-fishy-spawner
-    nil
-    nil
-    nil
-    :sisters-head
-    :sisters-body
-    :sisters-main
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    :udcore-main
-    :udcore-front
-    :udcore-back
-    :udcore-face
-    :udmini-rotator
-    :udmini-bbox
-    nil
-    nil
-    nil
-    nil
-    :heavy-press
-    :heavy-press-shield
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    :ballos-main
-    :ballos-body
-    :ballos-eye
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil
-    nil)
+    #(nil
+      :xp
+      :behemoth
+      nil
+      :smoke-cloud
+      :critter-hopping-green
+      :beetle-green
+      :basil
+      :beetle-freefly
+      :balrog-drop-in
+      nil
+      :igor-shot
+      :balrog
+      :forcefield
+      :santas-key
+      :chest-closed
+      :save-point
+      :recharge
+      :door
+      :balrog-bust-in
+      :computer
+      :chest-open
+      :teleporter
+      :teleporter-lights
+      :power-critter
+      :egg-elevator
+      :bat-circle
+      :big-spike
+      :critter-flying
+      :chthulu
+      :hermit-gunsmith
+      :bat-hang
+      :life-capsule
+      :balrog-shot-bounce
+      :bed
+      :mannan
+      :balrog-boss-flying
+      :signpost
+      :fireplace
+      :save-sign
+      :santa
+      :door-busted
+      :sue
+      :chalkboard
+      :polish
+      :polishbaby
+      :hvtrigger
+      :sandcroc
+      nil
+      :skullhead
+      :skeleton-shot
+      :crowwithskull
+      :blue-robot-sitting
+      :skullstep-foot
+      :skullstep
+      :kazuma
+      :beetle-brown
+      :crow
+      :giant-beetle
+      :door-enemy
+      :toroko
+      :king
+      :kazuma-at-computer
+      :toroko-shack
+      :critter-hopping-blue
+      :bat-blue
+      :miserys-bubble
+      :misery-float
+      :balrog-boss-running
+      :mushroom-enemy
+      :hidden-sparkle
+      :chinfish
+      :sprinkler
+      :water-droplet
+      :jack
+      :kanpachi-fishing
+      :yamashita-flowers
+      :yamashita-pavilion
+      :pot
+      :mahin
+      :gravekeeper
+      :giant-mushroom-enemy
+      :misery-stand
+      :npc-igor
+      :giant-beetle-shot
+      :terminal
+      :missile
+      :heart
+      :boss-igor
+      :boss-igor-defeated
+      nil
+      :cage
+      :sue-at-computer
+      :chaco
+      :giant-jelly
+      :jelly
+      :fan-left
+      :fan-up
+      :fan-right
+      :fan-down
+      :grate
+      :powercomp
+      :powersine
+      :mannan-shot
+      :frog
+      :hey
+      :hey-spawner
+      :malco
+      :balfrog-shot
+      :malco-broken
+      :minifrog
+      :ptelout
+      :ptelin
+      :professor-booster
+      :press
+      :frenzied-mimiga
+      :red-petals
+      :curly
+      :curly-boss
+      :tablechairs
+      :mimigac1
+      :mimigac2
+      :mimigac-enemy
+      :curlyboss-shot
+      :sunstone
+      :hidden-powerup
+      :puppy-run
+      nil
+      nil
+      nil
+      :puppy-wag
+      :puppy-sleep
+      :puppy-bark
+      :jenka
+      :armadillo
+      :skeleton
+      :puppy-carry
+      :largedoor-frame
+      :largedoor
+      :doctor
+      :toroko-frenzied
+      :toroko-block
+      :toroko-flower
+      :jenka-collapsed
+      :toroko-teleport-in
+      :kings-sword
+      :lightning
+      :critter-shooting-purple
+      :critter-shot
+      :block-moveh
+      :npc-player
+      :blue-robot
+      :shutter-stuck
+      :gaudi
+      :gaudi-dying
+      :gaudi-flying
+      :gaudi-flying-shot
+      :block-movev
+      :x-fishy-missile
+      :x-defeated
+      :pooh-black
+      :pooh-black-bubble
+      :pooh-black-dying
+      :dr-gero
+      :nurse-hasumi
+      :curly-collapsed
+      :gaudi-shopkeep
+      :booster-falling
+      :boulder
+      :balrog-boss-missiles
+      :balrog-missile
+      :firewhirr
+      :firewhirr-shot
+      :gaudi-armored
+      :gaudi-armored-shot
+      :gaudi-egg
+      :buyobuyo-base
+      :buyobuyo
+      :minicore-shot
+      :core-ghostie
+      :curly-ai
+      :cai-gun
+      :cai-mgun
+      :cai-watershield
+      :shutter-big
+      :shutter
+      :almond-lift
+      :fuzz-core
+      :fuzz
+      nil
+      :almond-robot
+      :waterlevel
+      :motorbike
+      :motorbike-broken
+      :blue-robot-remains
+      :grating
+      :motion-wall
+      :ironh-fishy
+      :ironh-shot
+      :fan-droplet
+      :dragon-zombie
+      :dragon-zombie-dead
+      :dragon-zombie-shot
+      :critter-hopping-aqua
+      :falling-spike-small
+      :falling-spike-large
+      :counter-bomb
+      :counter-bomb-number
+      :giant-beetle-2
+      nil
+      :beetle-freefly-2
+      :spike-small
+      :sky-dragon
+      :night-spirit
+      :night-spirit-shot
+      :sandcroc-oside
+      :pixel-cat
+      :itoh
+      :core-blast
+      :bubble-spawner
+      :mimiga-farmer-standing
+      :mimiga-farmer-walking
+      :jail-grating
+      :momorin
+      :chie
+      :megane
+      :kanpachi-standing
+      :bucket
+      :droll-guard
+      :red-flowers-sprouts
+      :red-flowers-blooming
+      :rocket
+      :orangebell
+      :orangebell-baby
+      :flowers-pens1
+      :midorin
+      :gunfish
+      :gunfish-shot
+      :proximity-press-hoz
+      :mimiga-cage
+      :mimiga-jailed
+      :critter-hopping-red
+      :red-bat
+      :red-bat-spawner
+      :lava-drip
+      :lava-drip-spawner
+      :proximity-press-vert
+      :boss-misery
+      :misery-shot
+      :misery-phase
+      :misery-ball
+      :black-lightning
+      :misery-ring
+      :xp-capsule
+      :helicopter
+      :helicopter-blade
+      :doctor-crowned
+      :red-crystal
+      :mimiga-sleeping
+      :curly-carried
+      :mimiga-caged
+      :chie-caged
+      :chaco-caged
+      :boss-doctor
+      :doctor-shot
+      :doctor-shot-trail
+      :doctor-blast
+      :boss-doctor-frenzied
+      :igor-balcony
+      :doctor-bat
+      :red-energy
+      :ironh-brick
+      :brick-spawner
+      :droll-shot
+      :droll
+      :puppy-items
+      :red-demon
+      :red-demon-shot
+      :little-family
+      :falling-block
+      :sue-teleport-in
+      :doctor-ghost
+      :udmini-platform
+      :misery-frenzied
+      :sue-frenzied
+      :ud-spinner
+      :ud-spinner-trail
+      :ud-smoke
+      :ud-pellet
+      :misery-critter
+      :misery-bat
+      :ud-minicore-idle
+      :quake
+      :ud-blast
+      :falling-block-spawner
+      :cloud
+      :cloud-spawner
+      nil
+      :intro-doctor
+      :intro-kings
+      :intro-crown
+      :misery-missile
+      :scroll-controller
+      nil
+      :gaudi-patient
+      :baby-puppy
+      :balrog-medic
+      :santa-caged
+      :stumpy
+      :bute-flying
+      :bute-sword
+      :bute-archer
+      :bute-arrow
+      :ma-pignon
+      :ma-pignon-rock
+      :ma-pignon-clone
+      :bute-dying
+      :mesa
+      :mesa-dying
+      :mesa-block
+      :curly-carried-shooting
+      :ccs-gun
+      :deleet
+      :bute-falling
+      :bute-spawner
+      :hp-lightning
+      :turning-human
+      :ahchoo
+      :transmogrifier
+      :building-fan
+      :rolling
+      :ballos-bone
+      :ballos-bone-spawner
+      :ballos-target
+      :straining
+      :ikachan
+      :ikachan-spawner
+      :numahachi
+      :green-devil
+      :green-devil-spawner
+      :ballos-priest
+      :ballos-smile
+      :ballos-rotator
+      :ballos-body-2
+      :ballos-eye-2
+      :ballos-skull
+      :ballos-platform
+      :hoppy
+      :ballos-spikes
+      :statue-base
+      :bute-archer-red
+      :statue
+      :the-cast
+      :bute-sword-red
+      :wall-collapser
+      :balrog-passenger
+      :balrog-flying
+      :puppy-ghost
+      :misery-wind
+      :droplet-spawner
+      :thank-you
+      nil
+      nil
+      :balfrog
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      :player
+      :heart3
+      :missile3
+      :lava-droplet
+      :skullhead-carried
+      :bbox-puppet
+      :smoke-dropper
+      nil
+      nil
+      nil
+      :core-controller
+      :core-front
+      :core-back
+      :core-marker
+      :minicore
+      nil
+      nil
+      nil
+      nil
+      nil
+      :polar-shot
+      :mgun-spawner
+      :mgun-leader
+      :mgun-trail
+      :mgun-l1-shot
+      :missile-shot
+      :supermissile-shot
+      :missile-boom-spawner
+      :fireball1
+      :fireball23
+      :fireball-trail
+      :blade12-shot
+      :blade3-shot
+      :blade-slash
+      :snake1-shot
+      :snake23-shot
+      :snake-trail
+      :nemesis-shot
+      :nemesis-shot-curly
+      :bubbler12-shot
+      :bubbler3-shot
+      :bubbler-sharp
+      :spur-shot
+      :spur-trail
+      :whimsical-star
+      nil
+      nil
+      nil
+      nil
+      :shots-end
+      :omega-body
+      :omega-leg
+      :omega-strut
+      :omega-shot
+      nil
+      :ironh
+      nil
+      nil
+      nil
+      nil
+      :x-mainobject
+      :x-body
+      :x-tread
+      :x-internals
+      :x-door
+      :x-target
+      :x-fishy-spawner
+      nil
+      nil
+      nil
+      :sisters-head
+      :sisters-body
+      :sisters-main
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      :udcore-main
+      :udcore-front
+      :udcore-back
+      :udcore-face
+      :udmini-rotator
+      :udmini-bbox
+      nil
+      nil
+      nil
+      nil
+      :heavy-press
+      :heavy-press-shield
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      :ballos-main
+      :ballos-body
+      :ballos-eye
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil
+      nil)
   "A table of TSC type index to entity type.")
 ;; Following is heavily sourced from
 ;; http://www.cavestory.org/guides/tsc_r2.txt
 (defvar! *tsc-command-table*
-  '((:AE+ "Refill ammo")
-    (:AM+ "Get weapon X, add Y to max ammo (just adds ammo if you have the weapon)")
-    (:AM- "Lose weapon X")
-    (:AMJ "Jump to event Y if you have weapon X")
-    (:ANP "Animate entity X with method Y in direction Z [entity type determines Y values?]")
-    (:BOA "Animate boss entity. Give map-boss scriptstate X.")
-    (:BSL "Start boss fight with entity W. Use 0000 to end the boss fight. (NPC flag 0200 must be set; should work with anything that has HP)")
-    (:CAT "Instantly display text. Use before a <MSG/2/3; works until <END. Same command as <SAT.")
-    (:CIL "Credits: Clear the illustration.")
-    (:CLO "Close the text box (used after MSG/MS2/MS3)")
-    (:CLR "Clear the text box (used after MSG/MS2/MS3)")
-    (:CMP "Change map coords X:Y to tile Z. Produces Smoke.")
-    (:CMU "Change music to song X")
-    (:CNP "Change all entities X to entity type Y with direction Z")
-    (:CPS "Stop propeller sound (used after SPS) (from helicopter cutscene after final battles)")
-    (:CRE "Roll credits")
-    (:CSS "Stop stream sound (used after SSS) (from River area)")
-    (:DNA "Remove all entities of type X.")
-    (:DNP "Entity X is removed completely")
-    (:ECJ "Jump to event Y if any entity with ID X is present")
-    (:END "End scripted event")
-    (:EQ+ "Add X to equip flag bytes")
-    (:EQ- "Subtract X from equip flag bytes")
-    (:ESC "Quit to title screen")
-    (:EVE "Jump to event X (non-conditional)")
-    (:FAC "Show face X in text box")
-    (:FAI "Fade in with direction X")
-    (:FAO "Fade out with direction X")
-    (:FL+ "Set flag X")
-    (:FL- "Clear flag X")
-    (:FLA "Flash the screen white")
-    (:FLJ "Jump to event Y if flag X is set")
-    (:FMU "Fade the music to a low volume (good to use before CMU)")
-    (:FOB "Focus on boss X in Y ticks. Use Y > 0.")
-    (:FOM "Focus view on you (normal view), view movement takes X ticks (WARNING: speed 0000 crashes)")
-    (:FON "Focus view on entity X, view movement takes Y ticks")
-    (:FRE "Frees menu cursor [also used after ZAM for some reason?]")
-    (:GIT "Show weapon/item X icon above text box - add 1000 to X for items - GIT0000 to hide")
-    (:HMC "Removes main character entity (use SMC after)")
-    (:INI "Resets memory and starts game from the beginning")
-    (:INP "Change entity X to type Y with direction Z and set entity flag 100 (0x8000).")
-    (:IT+ "Get item X")
-    (:IT- "Lose item X")
-    (:ITJ "Jump to event Y if you have item X")
-    (:KEY "Hides status bars and locks out input to your character until END (used with MSG/MS2/MS3 and PRI)")
-    (:LDP "Loads profile.dat into memory and starts game from save")
-    (:LI+ "Restore X amount of health")
-    (:ML+ "Max health increased X amount")
-    (:MLP "Display map [how is this used without blanking screen while map is displayed?]")
-    (:MM0 "Instantly halts your horizontal motion")
-    (:MNA "Displays name of current map")
-    (:MNP "Move entity X to coords Y:Z facing direction W")
-    (:MOV "Move you to coords X:Y")
-    (:MP+ "Set a map flag.")
-    (:MPJ "Jump to event X if map flag is set for the current area.")
-    (:MS2 "Open invisible text box at top of screen (text follows)")
-    (:MS3 "Open normal text box at top of screen (text follows)")
-    (:MSG "Open normal text box (text follows)")
-    (:MYB "Knocks you back from direction X (0000 knocked right, 0002 knocked left, any other just hops in place)")
-    (:MYD "Make you face direction X")
-    (:NCJ "Jump to event Y if any entity of type X is present")
-    (:NOD "Text box wait for button press (used after MSG/MS2/MS3)")
-    (:NUM "Prints the value [4a5b34+W*4] to the message box. Use 0000 to print the last used X from compatible commands (eg AM+).")
-    (:PRI "Hides status bars and freezes game action until KEY or END (used with MSG/MS2/MS3)")
-    (:PS+ "Set teleporter slot X to location Y")
-    (:QUA "Shake the screen for X ticks")
-    (:RMU "Restore music playback")
-    (:SAT "Instant text display on all messages until END (glitches scrolling text)")
-    (:SIL "Show illustration during credits (use CIL after)")
-    (:SK+ "Set skipflag X (remains set until program exits, to avoid repeating cutscenes/dialogue after retrying)")
-    (:SK- "Clear skipflag X")
-    (:SKJ "Jump to event Y if skipflag X is set")
-    (:SLP "Teleporter location menu")
-    (:SMC "Restores main character entity (used after HMC)")
-    (:SMP "Jump to event X if skipflag W is set. Does not create smoke.")
-    (:SNP "Create an entity of type X at coordinates Y:Z with direction W.")
-    (:SOU "Play sound effect X")
-    (:SPS "Start propeller sound (use CPS after) (from helicopter cutscene after final battles)")
-    (:SSS "Start stream sound at pitch X (use CSS after) (from River area - normal pitch is 0400)")
-    (:STC "Saves the current time to 290.rec")
-    (:SVP "Save game")
-    (:TAM "Trade weapon X for weapon Y, set max ammo to Z (max ammo 0000 = no change) (GLITCH: first weapon 0000)")
-    (:TRA "Load map X, run event Y, transport you to coords Z:W")
-    (:TUR "Instantly display text. Use after a <MSG/2/3; works until another <MSG/2/3 or an <END.")
-    (:UNI "0000 normal / 0001 zero-g movement, facing direction is locked (disables focus commands) (from Stream boss) / 0002 movement is locked, can still fire")
-    (:WAI "Pause script for X ticks")
-    (:WAS "Pause script until your character touches the ground")
-    (:XX1 "Show the island falling in manner W. Use 0000 to have it crash and 0001 to have it stop midway.")
-    (:YNJ "Ask yes or no, jump to event X if No")
-    (:ZAM "All weapons drop to level 1"))
+    '((:AE+ "Refill ammo")
+      (:AM+ "Get weapon X, add Y to max ammo (just adds ammo if you have the weapon)")
+      (:AM- "Lose weapon X")
+      (:AMJ "Jump to event Y if you have weapon X")
+      (:ANP "Animate entity X with method Y in direction Z [entity type determines Y values?]")
+      (:BOA "Animate boss entity. Give map-boss scriptstate X.")
+      (:BSL "Start boss fight with entity W. Use 0000 to end the boss fight. (NPC flag 0200 must be set; should work with anything that has HP)")
+      (:CAT "Instantly display text. Use before a <MSG/2/3; works until <END. Same command as <SAT.")
+      (:CIL "Credits: Clear the illustration.")
+      (:CLO "Close the text box (used after MSG/MS2/MS3)")
+      (:CLR "Clear the text box (used after MSG/MS2/MS3)")
+      (:CMP "Change map coords X:Y to tile Z. Produces Smoke.")
+      (:CMU "Change music to song X")
+      (:CNP "Change all entities X to entity type Y with direction Z")
+      (:CPS "Stop propeller sound (used after SPS) (from helicopter cutscene after final battles)")
+      (:CRE "Roll credits")
+      (:CSS "Stop stream sound (used after SSS) (from River area)")
+      (:DNA "Remove all entities of type X.")
+      (:DNP "Entity X is removed completely")
+      (:ECJ "Jump to event Y if any entity with ID X is present")
+      (:END "End scripted event")
+      (:EQ+ "Add X to equip flag bytes")
+      (:EQ- "Subtract X from equip flag bytes")
+      (:ESC "Quit to title screen")
+      (:EVE "Jump to event X (non-conditional)")
+      (:FAC "Show face X in text box")
+      (:FAI "Fade in with direction X")
+      (:FAO "Fade out with direction X")
+      (:FL+ "Set flag X")
+      (:FL- "Clear flag X")
+      (:FLA "Flash the screen white")
+      (:FLJ "Jump to event Y if flag X is set")
+      (:FMU "Fade the music to a low volume (good to use before CMU)")
+      (:FOB "Focus on boss X in Y ticks. Use Y > 0.")
+      (:FOM "Focus view on you (normal view), view movement takes X ticks (WARNING: speed 0000 crashes)")
+      (:FON "Focus view on entity X, view movement takes Y ticks")
+      (:FRE "Frees menu cursor [also used after ZAM for some reason?]")
+      (:GIT "Show weapon/item X icon above text box - add 1000 to X for items - GIT0000 to hide")
+      (:HMC "Removes main character entity (use SMC after)")
+      (:INI "Resets memory and starts game from the beginning")
+      (:INP "Change entity X to type Y with direction Z and set entity flag 100 (0x8000).")
+      (:IT+ "Get item X")
+      (:IT- "Lose item X")
+      (:ITJ "Jump to event Y if you have item X")
+      (:KEY "Hides status bars and locks out input to your character until END (used with MSG/MS2/MS3 and PRI)")
+      (:LDP "Loads profile.dat into memory and starts game from save")
+      (:LI+ "Restore X amount of health")
+      (:ML+ "Max health increased X amount")
+      (:MLP "Display map [how is this used without blanking screen while map is displayed?]")
+      (:MM0 "Instantly halts your horizontal motion")
+      (:MNA "Displays name of current map")
+      (:MNP "Move entity X to coords Y:Z facing direction W")
+      (:MOV "Move you to coords X:Y")
+      (:MP+ "Set a map flag.")
+      (:MPJ "Jump to event X if map flag is set for the current area.")
+      (:MS2 "Open invisible text box at top of screen (text follows)")
+      (:MS3 "Open normal text box at top of screen (text follows)")
+      (:MSG "Open normal text box (text follows)")
+      (:MYB "Knocks you back from direction X (0000 knocked right, 0002 knocked left, any other just hops in place)")
+      (:MYD "Make you face direction X")
+      (:NCJ "Jump to event Y if any entity of type X is present")
+      (:NOD "Text box wait for button press (used after MSG/MS2/MS3)")
+      (:NUM "Prints the value [4a5b34+W*4] to the message box. Use 0000 to print the last used X from compatible commands (eg AM+).")
+      (:PRI "Hides status bars and freezes game action until KEY or END (used with MSG/MS2/MS3)")
+      (:PS+ "Set teleporter slot X to location Y")
+      (:QUA "Shake the screen for X ticks")
+      (:RMU "Restore music playback")
+      (:SAT "Instant text display on all messages until END (glitches scrolling text)")
+      (:SIL "Show illustration during credits (use CIL after)")
+      (:SK+ "Set skipflag X (remains set until program exits, to avoid repeating cutscenes/dialogue after retrying)")
+      (:SK- "Clear skipflag X")
+      (:SKJ "Jump to event Y if skipflag X is set")
+      (:SLP "Teleporter location menu")
+      (:SMC "Restores main character entity (used after HMC)")
+      (:SMP "Jump to event X if skipflag W is set. Does not create smoke.")
+      (:SNP "Create an entity of type X at coordinates Y:Z with direction W.")
+      (:SOU "Play sound effect X")
+      (:SPS "Start propeller sound (use CPS after) (from helicopter cutscene after final battles)")
+      (:SSS "Start stream sound at pitch X (use CSS after) (from River area - normal pitch is 0400)")
+      (:STC "Saves the current time to 290.rec")
+      (:SVP "Save game")
+      (:TAM "Trade weapon X for weapon Y, set max ammo to Z (max ammo 0000 = no change) (GLITCH: first weapon 0000)")
+      (:TRA "Load map X, run event Y, transport you to coords Z:W")
+      (:TUR "Instantly display text. Use after a <MSG/2/3; works until another <MSG/2/3 or an <END.")
+      (:UNI "0000 normal / 0001 zero-g movement, facing direction is locked (disables focus commands) (from Stream boss) / 0002 movement is locked, can still fire")
+      (:WAI "Pause script for X ticks")
+      (:WAS "Pause script until your character touches the ground")
+      (:XX1 "Show the island falling in manner W. Use 0000 to have it crash and 0001 to have it stop midway.")
+      (:YNJ "Ask yes or no, jump to event X if No")
+      (:ZAM "All weapons drop to level 1"))
   "List of (COMMAND-KEY DESCRIPTION) pairs for tsc script <XYZ commands.")
 
 
 
 
 (defvar! *directions-table*
-  #(:left :up :right :down :center)
+    #(:left :up :right :down :center)
   "For TSC directions.
 NOTE: For MYB it is 0000 Right, 0002 Left (reversed).")
 
 (defvar! *maps-table*
-  #((:0 "Credits")
-    (:Pens1 "Arthur's House - normal")
-    (:Eggs "Egg Corridor")
-    (:EggX "Egg No. 00 - normal")
-    (:Egg6 "Egg No. 06")
-    (:EggR "Egg Observation Room")
-    (:Weed "Grasstown")
-    (:Santa "Santa's House")
-    (:Chako "Chaco's House")
-    (:MazeI "Labyrinth I (vertical starting room)")
-    (:Sand "Sand Zone - normal")
-    (:Mimi "Mimiga Village")
-    (:Cave "First Cave")
-    (:Start "Start Point")
-    (:Barr "Shack (Mimiga Village)")
-    (:Pool "Reservoir")
-    (:Cemet "Graveyard")
-    (:Plant "Yamashita Farm")
-    (:Shelt "Shelter (Grasstown)")
-    (:Comu "Assembly Hall (Mimiga Village)")
-    (:MiBox "Save Point (Mimiga Village)")
-    (:EgEnd1 "Side Room (Egg Corridor)")
-    (:Cthu "Cthulhu's Abode (Egg Corridor)")
-    (:Egg1 "Egg No. 01")
-    (:Pens2 "Arthur's House - Sue on computer")
-    (:Malco "Power Room (Grasstown)")
-    (:WeedS "Save Point (Grasstown)")
-    (:WeedD "Execution Chamber (Grasstown)")
-    (:Frog "Gum (Grasstown)")
-    (:Curly "Sand Zone Residence")
-    (:WeedB "Grasstown Hut")
-    (:Stream "Main Artery (Waterway)")
-    (:CurlyS "Small Room (Sand Zone)")
-    (:Jenka1 "Jenka's House - normal")
-    (:Dark "Deserted House (Sand Zone)")
-    (:Gard "Sand Zone Storehouse")
-    (:Jenka2 "Jenka's House - after Balrog attacks")
-    (:SandE "Sand Zone - after boss fight")
-    (:MazeH "Labyrinth H (sliding block room)")
-    (:MazeW "Labyrinth W (main area w/shop, camp)")
-    (:MazeO "Camp (Labyrinth)")
-    (:MazeD "Clinic Ruins (Labyrinth)")
-    (:MazeA "Labyrinth Shop")
-    (:MazeB "Labyrinth B (booster)")
-    (:MazeS "Boulder Chamber (Labyrinth)")
-    (:MazeM "Labyrinth M (gaudi eggs)")
-    (:Drain "Dark Place (Labyrinth)")
-    (:Almond "Core (Labyrinth)")
-    (:River "Waterway")
-    (:Eggs2 "Egg Corridor?")
-    (:Cthu2 "Cthulhu's Abode? (Egg Corridor?)")
-    (:EggR2 "Egg Observation Room?")
-    (:EggX2 "Egg No. 00 - hatched")
-    (:Oside "Outer Wall")
-    (:EgEnd2 "Side Room (Egg Corridor?)")
-    (:Itoh "Storehouse (Outer Wall)")
-    (:Cent "Plantation")
-    (:Jail1 "Jail No. 1 (Plantation)")
-    (:Momo "Hideout (Plantation)")
-    (:Lounge "Rest Area (Plantation)")
-    (:CentW "Teleporter (Plantation)")
-    (:Jail2 "Jail No. 2 (Plantation)")
-    (:Blcny1 "Balcony - normal")
-    (:Priso1 "Last Cave")
-    (:Ring1 "Throne Room (Balcony)")
-    (:Ring2 "The King's Table (Balcony)")
-    (:Prefa1 "Prefab House (Balcony) - normal")
-    (:Priso2 "Last Cave Hidden")
-    (:Ring3 "Black Space (Balcony)")
-    (:Little "Little House (Outer Wall)")
-    (:Blcny2 "Balcony - after boss fights")
-    (:Fall "Ending")
-    (:Kings "Intro")
-    (:Pixel "Waterway Cabin")
-    (:e_Maze "Credits - Labyrinth")
-    (:e_Jenk "Credits - Jenka's House")
-    (:e_Malc "Credits - Power Room")
-    (:e_Ceme "Credits - Graveyard")
-    (:e_Sky "Credits - Sky")
-    (:Prefa2 "Prefab House (Balcony) - entrance to hell")
-    (:Hell1 "Sacred Ground B1")
-    (:Hell2 "Sacred Ground B2")
-    (:Hell3 "Sacred Ground B3")
-    (:Mapi "Storage (Graveyard)")
-    (:Hell4 "Passage? - normal")
-    (:Hell42 "Passage? - from Sacred Ground B3")
-    (:Statue "Statue Chamber (Plantation/Sacred Grounds)")
-    (:Ballo1 "Seal Chamber (Sacred Grounds) - normal")
-    (:Ostep "Corridor (Sacred Grounds)")
-    (:e_Labo "Credits - Laboratory")
-    (:Pole "Hermit Gunsmith")
-    (:Island "[map is totally blank - TSC is called right before good/best endings]")
-    (:Ballo2 "Seal Chamber (Sacred Grounds) - after boss fight")
-    (:e_Blcn "Credits - Balcony")
-    (:Clock "Clock Room (Outer Wall)"))
+    #((:0 "Credits")
+      (:Pens1 "Arthur's House - normal")
+      (:Eggs "Egg Corridor")
+      (:EggX "Egg No. 00 - normal")
+      (:Egg6 "Egg No. 06")
+      (:EggR "Egg Observation Room")
+      (:Weed "Grasstown")
+      (:Santa "Santa's House")
+      (:Chako "Chaco's House")
+      (:MazeI "Labyrinth I (vertical starting room)")
+      (:Sand "Sand Zone - normal")
+      (:Mimi "Mimiga Village")
+      (:Cave "First Cave")
+      (:Start "Start Point")
+      (:Barr "Shack (Mimiga Village)")
+      (:Pool "Reservoir")
+      (:Cemet "Graveyard")
+      (:Plant "Yamashita Farm")
+      (:Shelt "Shelter (Grasstown)")
+      (:Comu "Assembly Hall (Mimiga Village)")
+      (:MiBox "Save Point (Mimiga Village)")
+      (:EgEnd1 "Side Room (Egg Corridor)")
+      (:Cthu "Cthulhu's Abode (Egg Corridor)")
+      (:Egg1 "Egg No. 01")
+      (:Pens2 "Arthur's House - Sue on computer")
+      (:Malco "Power Room (Grasstown)")
+      (:WeedS "Save Point (Grasstown)")
+      (:WeedD "Execution Chamber (Grasstown)")
+      (:Frog "Gum (Grasstown)")
+      (:Curly "Sand Zone Residence")
+      (:WeedB "Grasstown Hut")
+      (:Stream "Main Artery (Waterway)")
+      (:CurlyS "Small Room (Sand Zone)")
+      (:Jenka1 "Jenka's House - normal")
+      (:Dark "Deserted House (Sand Zone)")
+      (:Gard "Sand Zone Storehouse")
+      (:Jenka2 "Jenka's House - after Balrog attacks")
+      (:SandE "Sand Zone - after boss fight")
+      (:MazeH "Labyrinth H (sliding block room)")
+      (:MazeW "Labyrinth W (main area w/shop, camp)")
+      (:MazeO "Camp (Labyrinth)")
+      (:MazeD "Clinic Ruins (Labyrinth)")
+      (:MazeA "Labyrinth Shop")
+      (:MazeB "Labyrinth B (booster)")
+      (:MazeS "Boulder Chamber (Labyrinth)")
+      (:MazeM "Labyrinth M (gaudi eggs)")
+      (:Drain "Dark Place (Labyrinth)")
+      (:Almond "Core (Labyrinth)")
+      (:River "Waterway")
+      (:Eggs2 "Egg Corridor?")
+      (:Cthu2 "Cthulhu's Abode? (Egg Corridor?)")
+      (:EggR2 "Egg Observation Room?")
+      (:EggX2 "Egg No. 00 - hatched")
+      (:Oside "Outer Wall")
+      (:EgEnd2 "Side Room (Egg Corridor?)")
+      (:Itoh "Storehouse (Outer Wall)")
+      (:Cent "Plantation")
+      (:Jail1 "Jail No. 1 (Plantation)")
+      (:Momo "Hideout (Plantation)")
+      (:Lounge "Rest Area (Plantation)")
+      (:CentW "Teleporter (Plantation)")
+      (:Jail2 "Jail No. 2 (Plantation)")
+      (:Blcny1 "Balcony - normal")
+      (:Priso1 "Last Cave")
+      (:Ring1 "Throne Room (Balcony)")
+      (:Ring2 "The King's Table (Balcony)")
+      (:Prefa1 "Prefab House (Balcony) - normal")
+      (:Priso2 "Last Cave Hidden")
+      (:Ring3 "Black Space (Balcony)")
+      (:Little "Little House (Outer Wall)")
+      (:Blcny2 "Balcony - after boss fights")
+      (:Fall "Ending")
+      (:Kings "Intro")
+      (:Pixel "Waterway Cabin")
+      (:e_Maze "Credits - Labyrinth")
+      (:e_Jenk "Credits - Jenka's House")
+      (:e_Malc "Credits - Power Room")
+      (:e_Ceme "Credits - Graveyard")
+      (:e_Sky "Credits - Sky")
+      (:Prefa2 "Prefab House (Balcony) - entrance to hell")
+      (:Hell1 "Sacred Ground B1")
+      (:Hell2 "Sacred Ground B2")
+      (:Hell3 "Sacred Ground B3")
+      (:Mapi "Storage (Graveyard)")
+      (:Hell4 "Passage? - normal")
+      (:Hell42 "Passage? - from Sacred Ground B3")
+      (:Statue "Statue Chamber (Plantation/Sacred Grounds)")
+      (:Ballo1 "Seal Chamber (Sacred Grounds) - normal")
+      (:Ostep "Corridor (Sacred Grounds)")
+      (:e_Labo "Credits - Laboratory")
+      (:Pole "Hermit Gunsmith")
+      (:Island "[map is totally blank - TSC is called right before good/best endings]")
+      (:Ballo2 "Seal Chamber (Sacred Grounds) - after boss fight")
+      (:e_Blcn "Credits - Balcony")
+      (:Clock "Clock Room (Outer Wall)"))
   "Ordered list of (map-key description) for TSC map ids.")
 
 (defun map-idx->map-keyword (idx)
@@ -2710,20 +2666,20 @@ NOTE: For MYB it is 0000 Right, 0002 Left (reversed).")
   (first (elt *maps-table* idx)))
 
 (defvar! *weapons-table*
- #(nil
-   :Snake
-   :Polar-Star
-   :Fireball
-   :Machine-Gun
-   :Missile-Launcher
-   :Missiles
-   :Bubbler
-   nil
-   :Blade
-   :Super-Missile-Launcher
-   :Super-Missiles
-   :Nemesis
-   :Spur)
+    #(nil
+      :Snake
+      :Polar-Star
+      :Fireball
+      :Machine-Gun
+      :Missile-Launcher
+      :Missiles
+      :Bubbler
+      nil
+      :Blade
+      :Super-Missile-Launcher
+      :Super-Missiles
+      :Nemesis
+      :Spur)
   "Ordered list of weapon-keys for TSC weapon ids.")
 
 (defun weapon-idx->weapon-keyword (idx)
@@ -2731,46 +2687,46 @@ NOTE: For MYB it is 0000 Right, 0002 Left (reversed).")
   (elt *weapons-table* idx))
 
 (defvar! *item-table*
-  #(:blank
-    :arthurs-key
-    :Map-System
-    :Santas-Key
-    :Silver-Locket
-    :Beast-Fang
-    :Life-Capsule
-    :ID-Card
-    :Jellyfish-Juice
-    :Rusty-Key
-    :Gum-Key
-    :Gum-Base
-    :Charcoal
-    :Explosive
-    :Puppy
-    :Life-Pot
-    :Cure-All
-    :Clinic-Key
-    :Booster-0.8
-    :Arms-Barrier
-    :Turbocharge
-    :Curlys-Air-Tank
-    :Nikumaru-Counter
-    :Booster-v2.0
-    :Mimiga-Mask
-    :Teleporter-Room-Key
-    :Sues-Letter
-    :Controller
-    :Broken-Sprinkler
-    :Sprinkler
-    :Tow-Rope
-    :Clay-Figure-Medal
-    :Little-Man
-    :Mushroom-Badge
-    :Ma-Pignon
-    :Curlys-Underwear
-    :Alien-Medal
-    :Chacos-Lipstick
-    :Whimsical-Star
-    :Iron-Bond)
+    #(:blank
+      :arthurs-key
+      :Map-System
+      :Santas-Key
+      :Silver-Locket
+      :Beast-Fang
+      :Life-Capsule
+      :ID-Card
+      :Jellyfish-Juice
+      :Rusty-Key
+      :Gum-Key
+      :Gum-Base
+      :Charcoal
+      :Explosive
+      :Puppy
+      :Life-Pot
+      :Cure-All
+      :Clinic-Key
+      :Booster-0.8
+      :Arms-Barrier
+      :Turbocharge
+      :Curlys-Air-Tank
+      :Nikumaru-Counter
+      :Booster-v2.0
+      :Mimiga-Mask
+      :Teleporter-Room-Key
+      :Sues-Letter
+      :Controller
+      :Broken-Sprinkler
+      :Sprinkler
+      :Tow-Rope
+      :Clay-Figure-Medal
+      :Little-Man
+      :Mushroom-Badge
+      :Ma-Pignon
+      :Curlys-Underwear
+      :Alien-Medal
+      :Chacos-Lipstick
+      :Whimsical-Star
+      :Iron-Bond)
   "Ordered list of items indexed by TSC item id.")
 
 (defun item-idx->keyword (idx)
@@ -2778,15 +2734,15 @@ NOTE: For MYB it is 0000 Right, 0002 Left (reversed).")
   (elt *item-table* idx))
 
 (defvar! *equip-flags*
-  '((:Booster-v0.8 0001)
-    (:Map-System 0002)
-    (:Arms-Barrier 0004)
-    (:Turbocharge 0008)
-    (:Air-Tank 0016)
-    (:Booster-v2.0 0032)
-    (:Mimiga-Mask 0064)
-    (:Whimsical-Star 0128)
-    (:Nikumaru-Counter 0256))
+    '((:Booster-v0.8 0001)
+      (:Map-System 0002)
+      (:Arms-Barrier 0004)
+      (:Turbocharge 0008)
+      (:Air-Tank 0016)
+      (:Booster-v2.0 0032)
+      (:Mimiga-Mask 0064)
+      (:Whimsical-Star 0128)
+      (:Nikumaru-Counter 0256))
   "Flags TSC uses to set equipped items.")
 
 (defun equip-flags-num->equip-flags (num)
@@ -2796,36 +2752,36 @@ NOTE: For MYB it is 0000 Right, 0002 Left (reversed).")
 		     *equip-flags*)))
 
 (defvar! *face-table*
-  #(:blank
-    :Sue-smile
-    :Sue-frown
-    :Sue-angry
-    :Sue-hurt
-    :Balrog-normal
-    :Toroko-normal
-    :King
-    :Toroko-angry
-    :Jack
-    :Kazuma
-    :Toroko-rage
-    :Igor
-    :Jenka
-    :Balrog-smile
-    :Misery-normal
-    :Misery-smile
-    :Booster-hurt
-    :Booster-normal
-    :Curly-smile
-    :Curly-frown
-    :Doctor
-    :Momorin
-    :Balrog-hurt
-    :Broken-robot
-    :Curly
-    :Misery-angry
-    :Human-Sue
-    :Itoh
-    :Ballos)
+    #(:blank
+      :Sue-smile
+      :Sue-frown
+      :Sue-angry
+      :Sue-hurt
+      :Balrog-normal
+      :Toroko-normal
+      :King
+      :Toroko-angry
+      :Jack
+      :Kazuma
+      :Toroko-rage
+      :Igor
+      :Jenka
+      :Balrog-smile
+      :Misery-normal
+      :Misery-smile
+      :Booster-hurt
+      :Booster-normal
+      :Curly-smile
+      :Curly-frown
+      :Doctor
+      :Momorin
+      :Balrog-hurt
+      :Broken-robot
+      :Curly
+      :Misery-angry
+      :Human-Sue
+      :Itoh
+      :Ballos)
   "Ordered list of TSC ids for showing character faces in dialogue.")
 
 (defun face-idx->keyword (idx)
@@ -2833,24 +2789,24 @@ NOTE: For MYB it is 0000 Right, 0002 Left (reversed).")
   (elt *face-table* idx))
 
 (defvar! *illustrations-table*
-  #(:riding-Sky-Dragon
-    :fighting-Core
-    :fighting-Misery
-    :Momorins-rocket
-    :Outer-Wall
-    :fighting-Ironhead
-    :fighting-Balrog
-    :Clinic
-    :King-fighting-the-Doctor
-    :Jenka-with-puppies
-    :Curly-with-Mimiga-children
-    :riding-Balrog
-    nil
-    :Hell
-    :floating-island-blue-sky
-    :floating-island-orange-sky
-    :King-Jack-Sue
-    :Ballos)
+    #(:riding-Sky-Dragon
+      :fighting-Core
+      :fighting-Misery
+      :Momorins-rocket
+      :Outer-Wall
+      :fighting-Ironhead
+      :fighting-Balrog
+      :Clinic
+      :King-fighting-the-Doctor
+      :Jenka-with-puppies
+      :Curly-with-Mimiga-children
+      :riding-Balrog
+      nil
+      :Hell
+      :floating-island-blue-sky
+      :floating-island-orange-sky
+      :King-Jack-Sue
+      :Ballos)
   "Ordered list of TSC ids for showing illustrations (in credits).
 NOTE: any other values (including 0013) show :riding-sky-dragon")
 
@@ -2939,7 +2895,7 @@ The number of smoke particles to create when destroyed.")
 	  :pos (- (aval a :pos) (tile-dims/2)))))))
 
 (defvar! *door-enemy-subsystems*
-  '(:physics :timers :drawable :damageable :damage-collision))
+    '(:physics :timers :drawable :damageable :damage-collision))
 
 (defun door-enemy-fns-alist ()
   (let ((rect-fn
@@ -3047,7 +3003,7 @@ The number of smoke particles to create when destroyed.")
 	     shake-hit-react))
 
 (defvar! *spike-subsystems*
-  '(:drawable :damage-collision))
+    '(:drawable :damage-collision))
 
 (defun spike-fns-alist ()
   (alist :draw-fn #'spike-drawings

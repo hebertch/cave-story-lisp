@@ -238,7 +238,7 @@ Returns the tile of the collision if one occurred."
 			   (offset-in-dir-pos (+ pos (tile-dims/2))
 					      (tiles/2 1)
 					      dir)))
-		  :sound-effects (pushfn :snd-tink))))
+		  :sound-effects (pushfn :snd-shot-hit))))
       (projectile-tile-collision p react stage tile))))
 
 (defun add-polar-star-projectile-group (obj lvl dir nozzle-pos)

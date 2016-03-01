@@ -1,6 +1,5 @@
-* set song from music index
-* get dorito bounce sfx
-* die from drowning
 * door/warp to stage
-* optimize update times.
+* set song from music index
+* die from drowning
 * use damage amounts from npc table?
+* optimize update times.

@@ -7,8 +7,8 @@
 
 (DEFPACKAGE #:CAVE-STORY
   (:USE #:COMMON-LISP #:ALEXANDRIA.0.DEV)
-  (:SHADOW CAVE-STORY::ABS
-           CAVE-STORY::/
-           CAVE-STORY::*
-           CAVE-STORY::-
-           CAVE-STORY::+))
+  (:SHADOW :ABS
+           :/
+           :*
+           :-
+           :+))

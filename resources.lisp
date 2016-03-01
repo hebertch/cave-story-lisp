@@ -2,52 +2,52 @@
 
 (defvar! *song-names-table*
     #(nil
-      (:egg "wanpaku")
-      (:safety "anzen")
-      (:game-over "gameover")
-      (:gravity "gravity")
-      (:grasstown "weed")
-      (:meltdown-2 "mdown2")
-      (:eyes-of-flame "fireeye")
-      (:gestation "vivi")
-      (:town "mura")
-      (:fanfare-1 "fanfale1")
-      (:balrog "ginsuke")
-      (:cemetary "cemetery")
-      (:plant "plant")
-      (:pulse "kodou")
-      (:fanfare-2 "fanfale2")
-      (:fanfare-3 "fanfale3")
-      (:tyrant "dr")
-      (:escape "escape")
-      (:jenka-1 "jenka")
-      (:labyrinth "maze")
-      (:access "access")
-      (:oppression "ironh")
+      (:song-egg "wanpaku")
+      (:song-safety "anzen")
+      (:song-game-over "gameover")
+      (:song-gravity "gravity")
+      (:song-grasstown "weed")
+      (:song-meltdown-2 "mdown2")
+      (:song-eyes-of-flame "fireeye")
+      (:song-gestation "vivi")
+      (:song-town "mura")
+      (:song-fanfare-1 "fanfale1")
+      (:song-balrog "ginsuke")
+      (:song-cemetary "cemetery")
+      (:song-plant "plant")
+      (:song-pulse "kodou")
+      (:song-fanfare-2 "fanfale2")
+      (:song-fanfare-3 "fanfale3")
+      (:song-tyrant "dr")
+      (:song-escape "escape")
+      (:song-jenka-1 "jenka")
+      (:song-labyrinth "maze")
+      (:song-access "access")
+      (:song-oppression "ironh")
       ;; NOTE: Still not sure about :geothermal, but
       ;; "grand" and "kaze" are the only two left, and "grand" seems closer.
-      (:geothermal "grand")
-      (:theme "curly")
-      (:oside "oside")
-      (:hero-end "requiem")
-      (:scorching-back "wanpak2")
-      (:quiet "quiet")
-      (:last-cave "lastcave")
-      (:balcony "balcony")
-      (:charge "lastbtl" :loop-only)
-      (:last-battle "lastbt3")
-      (:credits "credits")
-      (:zombie "zonbie")
-      (:breakdown "breakdown")
-      (:hell "hell")
-      (:jenka-2 "jenka2")
-      (:waterway "marine")
-      (:seal "ballos")
-      (:toroko "toroko")
-      (:white "white")
+      (:song-geothermal "grand")
+      (:song-theme "curly")
+      (:song-oside "oside")
+      (:song-hero-end "requiem")
+      (:song-scorching-back "wanpak2")
+      (:song-quiet "quiet")
+      (:song-last-cave "lastcave")
+      (:song-balcony "balcony")
+      (:song-charge "lastbtl" :loop-only)
+      (:song-last-battle "lastbt3")
+      (:song-credits "credits")
+      (:song-zombie "zonbie")
+      (:song-breakdown "breakdown")
+      (:song-hell "hell")
+      (:song-jenka-2 "jenka2")
+      (:song-waterway "marine")
+      (:song-seal "ballos")
+      (:song-toroko "toroko")
+      (:song-white "white")
       ;; NOTE: :AZARASHI doesn't seem to be a song in cave story.
       ;; Just guessing it is "kaze" because?
-      (:azarashi "kaze")
+      (:song-azarashi "kaze")
       nil)
   "Ordered vector of (song-key song-fname :loop-only?); accessed by tsc scripts.")
 
@@ -188,33 +188,33 @@
 		   (list (make-keyword (string-upcase name))
 			 (format nil "Prt~A" name))))))
 
+(defvar! *stage-fields*
+    '((:stage-weed :weed "Weed")
+      (:stage-cent :cent "Weed")
+      (:stage-santa :santa "Santa")
+      (:stage-eggs :eggs "Eggs")
+      (:stage-sand-e :sand "Sand" "SandE")
+      (:stage-pens-1 :pens "Pens" "Pens1")
+      (:stage-hell-1 :hell "Hell" "Hell1")
+      (:stage-jail-1 :jail "Jail" "Jail1")
+      (:stage-maze-i :maze "Maze" "MazeI"))
+  "Fields used to generate the *stage-fnames-table*.
+List of (keyword sprite-key attributes-fname entities/stage-fname).")
+
 (defvar! *stage-fnames-table*
-    (mapcar (lambda (key-or-list)
-	      (if (listp key-or-list)
-		  (let ((key (second key-or-list))
-			(fname (third key-or-list)))
-		    (cons (first key-or-list)
-			  (alist :stage fname
-				 :entities fname
-				 :attributes
-				 (string-capitalize (symbol-name key))
-				 :spritesheet key)))
-		  (let ((key key-or-list))
-		    (cons key
-			  (let ((name (string-capitalize (symbol-name key))))
-			    (alist :stage name
-				   :entities name
-				   :attributes name
-				   :spritesheet key))))))
-	    '(:weed
-	      :cent
-	      :santa
-	      :eggs
-	      (:sand-e :sand "SandE")
-	      (:pens-1 :pens "Pens1")
-	      (:hell-1 :hell "Hell1")
-	      (:jail-1 :jail "Jail1")
-	      (:maze-i :maze "MazeI")))
+    (mapcar (lambda (fields)
+	      (let ((key (first fields))
+		    (spritesheet-key (second fields))
+		    (attributes-fname (third fields))
+		    (fname (if (fourth fields)
+			       (fourth fields)
+			       (third fields))))
+		(cons key
+		      (alist :stage fname
+			     :entities fname
+			     :attributes attributes-fname
+			     :spritesheet spritesheet-key))))
+	    *stage-fields*)
   "Alist of (keyword . (alist stage attributes entities spritesheet)).")
 
 (defmacro def-resource-type

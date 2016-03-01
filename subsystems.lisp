@@ -246,10 +246,7 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 	  (:pickup (register-pickup! system-type id)))))))
 
 (defun create-entity! (initial-state)
-  (let ((id (aval initial-state :id)))
-    (unless id
-      (setq initial-state (aset initial-state :id (gen-entity-id)))))
-
+  (assert (aval initial-state :id))
   (let ((id (aval initial-state :id))
 	(entity (apply-effects! initial-state)))
     (register-entity-subsystems! id entity)
