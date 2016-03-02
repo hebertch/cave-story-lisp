@@ -1,3 +1,7 @@
+* entity registry should be functional
+* free pre-compiled textures
+* fix laptop only stages not drawing
+
 * door/warp to stage
 * set song from music index
 * die from drowning
