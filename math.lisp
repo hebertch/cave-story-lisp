@@ -1,8 +1,9 @@
 (in-package :cave-story)
 
-(defmacro setfn (function-name fn)
-  "Sets the function-value of function name to be fn."
-  `(setf (fdefinition ',function-name) ,fn))
+(defmacro setfn (function-name fn &rest fns)
+  "Sets the function-value of function name to be the COMP
+of fn and fns."
+  `(setf (fdefinition ',function-name) (comp ,fn ,@fns)))
 
 (defun expand-partial-application (lst)
   "Expand the body forms in lst into a partial application. _'s in the
@@ -61,7 +62,7 @@ Args cannot be referenced."
 Use COMPOSE when a function is stored in the value slot."
   (expand-composition forms))
 
-(defmacro defvar! (var &optional (val nil val-provided?) doc)
+(defmacro defvar* (var &optional (val nil val-provided?) doc)
   "If no val is provided, make var unbound, and then defvar it.
 If val is provided, expand to a defparameter."
   (if val-provided?
@@ -329,7 +330,8 @@ If fn is null and default is provided, return (funcall default val)."
 (defun timed-cycle-resume (tc)
   (aset tc :paused? nil))
 
-(setfn timed-cycle-restart (comp cycle-reset reset-timer))
+(setfn timed-cycle-restart
+       cycle-reset reset-timer)
 
 ;; Clamps
 

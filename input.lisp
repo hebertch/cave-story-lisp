@@ -26,7 +26,7 @@
 
 (defvar *event*)
 (defvar *joystick*)
-(defvar! *show-joy-buttons?* nil)
+(defvar* *show-joy-buttons?* nil)
 
 (defun reset-transient-input (input)
   "Return a copy of input with the transient-input cleared."
@@ -34,7 +34,7 @@
     (setf (input-transient-input input) (make-transient-input))
     input))
 
-(defun open-joystick! ()
+(defun open-joystick ()
   "Tries to open a joystick for reading input."
   (when (plusp (sdl:num-joysticks))
     (let ((idx 0))
@@ -48,7 +48,7 @@
 
 (defun init-input! ()
   (setq *event* (sdl:create-event)
-	*joystick* (open-joystick!)))
+	*joystick* (open-joystick)))
 
 (defun cleanup-input! ()
   (sdl:destroy-event *event*)
@@ -58,7 +58,7 @@
       (sdl:joystick-close *joystick*))
     (setq *joystick* nil)))
 
-(defun gather-transient-input! ()
+(defun gather-transient-input ()
   "Gather all input for a frame into a transient-input object."
   (let ((ti (make-transient-input)))
     ;; Gather all input for this frame into the transient input object.

@@ -1,8 +1,8 @@
 (in-package :cave-story)
 
-(defvar! *camera-speed-scale-factor* 1/20)
-(defvar! *camera-acc* 2e-4)
-(defvar! *camera-max-speed* 0.15859374)
+(defvar* *camera-speed-scale-factor* 1/20)
+(defvar* *camera-acc* 2e-4)
+(defvar* *camera-max-speed* 0.15859374)
 
 (defun camera-target-from-player (player)
   (let ((h-facing (aval player :h-facing))
@@ -19,7 +19,7 @@
 (defun camera-fns-alist ()
   (alist :ai-fn #'camera-ai))
 
-(defvar! *camera-subsystems* '(:timers :physics))
+(defvar* *camera-subsystems* '(:timers :physics))
 
 (defun make-camera (focus vel player)
   (amerge
@@ -40,13 +40,12 @@
 		    :speed (rand-val-between 0.017 0.022)))
 
 (setfn add-camera-shake
-       (comp
-	(aupdatefn
-	 :physics
-	 (adjoinfn :shake-v :shake-h))
-	(asetfn
-	 :shake-v (make-shake)
-	 :shake-h (make-shake))))
+       (aupdatefn
+	:physics
+	(adjoinfn :shake-v :shake-h))
+       (asetfn
+	:shake-v (make-shake)
+	:shake-h (make-shake)))
 
 (defun camera-ai (c)
   (let ((shake-tick? (ticked? c :shake-timer)))

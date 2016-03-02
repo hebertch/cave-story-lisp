@@ -1,6 +1,6 @@
 (in-package :cave-story)
 
-(defvar! *song-names-table*
+(defvar* *song-names-table*
     #(nil
       (:song-egg "wanpaku")
       (:song-safety "anzen")
@@ -51,7 +51,7 @@
       nil)
   "Ordered vector of (song-key song-fname :loop-only?); accessed by tsc scripts.")
 
-(defvar! *sound-effects-table*
+(defvar* *sound-effects-table*
     '((:snd-menu-move 1)
       (:snd-msg 2)
       (:snd-bonk-head 3)
@@ -148,16 +148,16 @@
   cleanup-fn
   load-fn)
 
-(defvar! *resource-types* nil)
+(defvar* *resource-types* nil)
 
-(defvar! *sfx-fnames*
+(defvar* *sfx-fnames*
     (mapcan (lambda (a)
 	      (let ((key (first a))
 		    (num (second a)))
 		(list key (format nil "~(fx~2,'0X~)" num))))
 	    *sound-effects-table*))
 
-(defvar! *song-names*
+(defvar* *song-names*
     '(:ACCESS "access" :ANZEN "anzen" :BALCONY "balcony" :BALLOS "ballos" :BDOWN
       "bdown" :BREAKDOWN "breakdown" :CEMETERY "cemetery" :CREDITS "credits" :CURLY
       "curly" :DR "dr" :ENDING "ending" :ESCAPE "escape" :FANFALE1 "fanfale1"
@@ -170,7 +170,7 @@
       :VIVI "vivi" :WANPAK2 "wanpak2" :WANPAKU_ENDING "wanpaku_ending" :WANPAKU
       "wanpaku" :WEED "weed" :WHITE "white" :ZONBIE "zonbie"))
 
-(defvar! *spritesheet-fnames*
+(defvar* *spritesheet-fnames*
     (append '(:my-char "MyChar"
 	      :npc-sym "NpcSym"
 	      :arms "Arms"
@@ -188,7 +188,7 @@
 		   (list (make-keyword (string-upcase name))
 			 (format nil "Prt~A" name))))))
 
-(defvar! *stage-fields*
+(defvar* *stage-fields*
     '((:stage-weed :weed "Weed")
       (:stage-cent :cent "Weed")
       (:stage-santa :santa "Santa")
@@ -201,7 +201,7 @@
   "Fields used to generate the *stage-fnames-table*.
 List of (keyword sprite-key attributes-fname entities/stage-fname).")
 
-(defvar! *stage-fnames-table*
+(defvar* *stage-fnames-table*
     (mapcar (lambda (fields)
 	      (let ((key (first fields))
 		    (spritesheet-key (second fields))
@@ -288,7 +288,7 @@ the get- function that is produced."
 (defstruct song intro loop name)
 (defvar *current-song*)
 
-(defun load-song! (name)
+(defun load-song (name)
   (make-song
    :name name
    :loop  (sdl.mixer:load-mus (format nil "./content/remastered-music/~A_loop.ogg" name))
@@ -296,29 +296,34 @@ the get- function that is produced."
 
 (defun destroy-song! (s)
   (sdl.mixer:free-music (song-intro s))
-  (sdl.mixer:free-music (song-loop s)))
+  (sdl.mixer:free-music (song-loop s))
+  :done)
 
 (defun music-update! ()
   "Call as often as possible."
   (when (and *current-song* (= 0 (sdl.mixer:playing-music)))
     ;; When the song intro has finished, switch to the loop portion.
-    (sdl.mixer:play-music (song-loop *current-song*) -1)))
+    (sdl.mixer:play-music (song-loop *current-song*) -1))
+  :done)
 
 (defun stop-music! ()
   (sdl.mixer:halt-music)
-  (setq *current-song* nil))
+  (setq *current-song* nil)
+  :done)
 
 (defun switch-to-new-song! (song-key)
   (sdl.mixer:halt-music)
   (setq *current-song* (get-song song-key))
-  (sdl.mixer:play-music (song-intro *current-song*) 0))
+  (sdl.mixer:play-music (song-intro *current-song*) 0)
+  :done)
 
 (defun percent->volume (fixnum-percent)
   (floor (* 128 fixnum-percent) 100))
 
 (defun set-music-volume! (fixnum-percent)
   "Given an integer from 1-100 sets the volume of the music."
-  (sdl.mixer:volume-music (percent->volume fixnum-percent)))
+  (sdl.mixer:volume-music (percent->volume fixnum-percent))
+  :done)
 
 #+nil
 (progn
@@ -331,7 +336,7 @@ the get- function that is produced."
 
 (def-resource-type song
     (()
-     (load-song! fname))
+     (load-song fname))
   *song-names*
   #'destroy-song!)
 
@@ -344,12 +349,14 @@ the get- function that is produced."
 (defun play-sounds! (sfx-play-list)
   ;; This works like the renderer. Merge?
   (dolist (s sfx-play-list)
-    (sdl.mixer:play-channel -1 (get-sound s) 0)))
+    (sdl.mixer:play-channel -1 (get-sound s) 0))
+  :done)
 
 (defvar *sfx-play-list* nil)
 
 (defun push-sound! (key-sym)
-  (push key-sym *sfx-play-list*))
+  (push key-sym *sfx-play-list*)
+  :done)
 
 (def-resource-type sound
     (()

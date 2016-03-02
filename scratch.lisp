@@ -18,7 +18,7 @@
 ;; average sum = the times in buffer / number of items in buffer
 ;; percentage of frame-time = frame-time / avg * 100
 
-(defvar! *rolling-avg* (alist :num-entries 360))
+(defvar* *rolling-avg* (alist :num-entries 360))
 
 (rolling-average-time *rolling-avg* (sleep 1))
 
@@ -40,5 +40,5 @@
   :DOOR
   :SAVE-SIGN)
 
-(defvar! *tsc* (decrypt-tsc-file "./content/stages/Cave.tsc"))
+(defvar* *tsc* (decrypt-tsc-file "./content/stages/Cave.tsc"))
 (parse-decrypted-tsc-script *tsc*)

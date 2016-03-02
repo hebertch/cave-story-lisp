@@ -6,7 +6,7 @@
 ;; because it is kind of neat.
 
 
-(defvar! *pxt-wave-models*
+(defvar* *pxt-wave-models*
   '((0 :sine)
     (1 :triangle)
     (2 :saw-up)
@@ -15,7 +15,7 @@
     (5 :random))
   "List of (index . wave-model).")
 
-(defvar! *pxt-channel-fields* 
+(defvar* *pxt-channel-fields* 
   '((:use :bool "Whether the channel/track should be used.")
     (:size :int "Size in bytes of the sound sample. All frequencies are
 relative to the size (not 1 second!), where 1 second of sound is 22050 bytes.

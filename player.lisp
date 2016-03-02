@@ -1,6 +1,6 @@
 (in-package :cave-story)
 
-(defvar! *player-invincible* nil)
+(defvar* *player-invincible* nil)
 
 (defun player-fns-alist ()
   (alist :stage-collision-fn #'player-stage-collision
@@ -9,8 +9,8 @@
 	 :input-fn #'player-input
 	 :draw-fn #'player-and-gun-drawing))
 
-(defvar! *player-subsystems*
-  '(:timers :input :physics :stage-collision :drawable))
+(defvar* *player-subsystems*
+    '(:timers :input :physics :stage-collision :drawable))
 
 (defun make-player (&key pos)
   (amerge
@@ -36,37 +36,37 @@
 	   :clamper-vy
 	   (clamper+- *terminal-speed*)))))
 
-(defvar! *player-walk-acc* 0.00083007812)
-(defvar! *player-max-speed-x* 0.15859375)
-(defvar! *player-max-speed-x-water* (/ *player-max-speed-x* 2))
-(defvar! *player-friction-acc* 0.00049804687)
-(defvar! *terminal-speed* 0.2998046875)
-(defvar! *gravity-acc* 0.00078125)
-(defvar! *player-jump-gravity-acc* 0.0003125)
-(defvar! *player-air-acc* 0.0003125)
-(defvar! *player-jump-speed* 0.25)
-(defvar! *player-jump-speed-water* (* *player-jump-speed* 3/4))
-(defvar! *player-hop-speed* (* *player-jump-speed* 2/3))
+(defvar* *player-walk-acc* 0.00083007812)
+(defvar* *player-max-speed-x* 0.15859375)
+(defvar* *player-max-speed-x-water* (/ *player-max-speed-x* 2))
+(defvar* *player-friction-acc* 0.00049804687)
+(defvar* *terminal-speed* 0.2998046875)
+(defvar* *gravity-acc* 0.00078125)
+(defvar* *player-jump-gravity-acc* 0.0003125)
+(defvar* *player-air-acc* 0.0003125)
+(defvar* *player-jump-speed* 0.25)
+(defvar* *player-jump-speed-water* (* *player-jump-speed* 3/4))
+(defvar* *player-hop-speed* (* *player-jump-speed* 2/3))
 
-(defvar! *player-collision-rectangles-alist*
-  (loop for (key x y w h) in
-       '((:bottom 11 16 10 15)
-	 (:top 7 2 18 15)
-	 (:left 6 10 10 14)
-	 (:right 16 10 10 15))
-     collect (cons key (make-rect :pos (make-v x y) :size (make-v w h)))))
+(defvar* *player-collision-rectangles-alist*
+    (loop for (key x y w h) in
+	 '((:bottom 11 16 10 15)
+	   (:top 7 2 18 15)
+	   (:left 6 10 10 14)
+	   (:right 16 10 10 15))
+       collect (cons key (make-rect :pos (make-v x y) :size (make-v w h)))))
 
 (defun player-collision-rect (side)
   (aval *player-collision-rectangles-alist* side))
 
-(defvar! *player-damage-rect*
-  (let ((left (left (player-collision-rect :left)))
-	(right (right (player-collision-rect :right)))
-	(top (top (player-collision-rect :top)))
-	(bottom (bottom (player-collision-rect :bottom))))
-    (make-rect :pos (make-v left top)
-	       :size (make-v (- right left)
-			     (- bottom top)))))
+(defvar* *player-damage-rect*
+    (let ((left (left (player-collision-rect :left)))
+	  (right (right (player-collision-rect :right)))
+	  (top (top (player-collision-rect :top)))
+	  (bottom (bottom (player-collision-rect :bottom))))
+      (make-rect :pos (make-v left top)
+		 :size (make-v (- right left)
+			       (- bottom top)))))
 
 (defun player-pickup (p pickup)
   (ecase (aval pickup :type)
@@ -140,13 +140,12 @@
 	   #_(player-kin-2d-physics p _)))
 
 (setfn player-ai
-       (comp
-	(lambda (p)
-	  (if (and (ticked? p :walk-cycle)
-		   (/= 0 (cycle-current (aval p :walk-cycle))))
-	      (aupdate p :sound-effects (pushfn :snd-player-walk))
-	      p))
-	apply-player-physics))
+       (lambda (p)
+	 (if (and (ticked? p :walk-cycle)
+		  (/= 0 (cycle-current (aval p :walk-cycle))))
+	     (aupdate p :sound-effects (pushfn :snd-player-walk))
+	     p))
+       apply-player-physics)
 
 (defun player-fire-gun (p)
   (let ((gun-name (player-current-gun-name p)))
@@ -359,7 +358,7 @@
       (setq p (aset p :gun-name-cycle (cycle-next (aval p :gun-name-cycle)))))
     p))
 
-(defvar! *player-stage-collisions*
+(defvar* *player-stage-collisions*
     (let ((stop-x
 	   (collision-lambda (data)
 	     (aset data

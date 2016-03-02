@@ -1,6 +1,6 @@
 (in-package :cave-story)
 
-(defvar! *gun-names*
+(defvar* *gun-names*
   #(:polar-star :missile-launcher :machine-gun :fireball :nemesis
     :super-missile-launcher :bubbler :spur :snake))
 
@@ -18,11 +18,11 @@
 			   0)))
     (+ pos (make-v gun-x-off (+ gun-y-off gun-bob-y-off)))))
 
-(defvar! *gun-x-idxs*
+(defvar* *gun-x-idxs*
   '(:spur :snake :polar-star :fireball :machine-gun :missile-launcher
     nil :nemesis nil nil :super-missile-launcher nil :bubbler))
 
-(defvar! *nozzle-pixel-positions*
+(defvar* *nozzle-pixel-positions*
   '((:polar-star . (106 21
 		    134 53
 		    128 68
@@ -79,7 +79,7 @@
 	      19 382)))
   "Positions of the nozzle relative to Arms.BMP 0x0")
 
-(defvar! *gun-width* (tiles 3/2))
+(defvar* *gun-width* (tiles 3/2))
 
 (defun gun-sprite-rect (gun-name h-facing v-facing)
   (let ((gun-y-idx (+ (if (eq gun-name :spur) 6 0)
@@ -118,7 +118,7 @@
 		       :src-rect (gun-sprite-rect gun-name h-facing actual-v-facing)
 		       :pos (gun-pos pos h-facing actual-v-facing walking? walk-idx)))
 
-(defvar! *gun-nozzle-offsets*
+(defvar* *gun-nozzle-offsets*
   (loop for gun-name across *gun-names*
      collecting
        (cons gun-name (nozzle-pixel-positions->nozzle-offsets gun-name))))
@@ -157,22 +157,22 @@
 	lvl
 	2)))
 
-(defvar! *max-projectile-groups*
+(defvar* *max-projectile-groups*
   ;; TODO: This is based on level.
   '((:polar-star . 2)
     (:missile-launcher . 2)))
 
 ;; Polar Star
-(defvar! *polar-star-exp* 40)
-(defvar! *polar-star-projectile-max-offsets*
+(defvar* *polar-star-exp* 40)
+(defvar* *polar-star-projectile-max-offsets*
   (mapcar #'tiles '(7/2 5 7)))
 
 
 ;; Missile Launcher
-(defvar! *missile-projectile-amplitude* 4)
-(defvar! *missile-radial-speed* 0.010800001)
+(defvar* *missile-projectile-amplitude* 4)
+(defvar* *missile-radial-speed* 0.010800001)
 
-(defvar! *gun-level-exps*
+(defvar* *gun-level-exps*
   (append '((:polar-star . (10 30 40)))
 	  (loop for g across *gun-names*
 	     collecting (cons g (list 10 30 40)))))
