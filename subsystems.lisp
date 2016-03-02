@@ -198,6 +198,9 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 		  :layer :debug-damage-collision
 		  :filled? t))))
 
+;; TODO: Make this functional...
+;; Pass/return the entity-registry/id pair as an entity-registry-system.
+;; Register-entity! should be register-entity and return a new entity-registry-system
 (let (entity-registry id)
   (defun current-entity-states ()
     (list id entity-registry))
@@ -224,26 +227,28 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 
   (defun register-entity! (id entity)
     (push (cons id entity) entity-registry)
-    id)
+    :done)
 
   (defun estate-set! (id obj)
     (setq entity-registry (copy-alist entity-registry))
-    (setf (cdr (assoc id entity-registry)) obj))
+    (setf (cdr (assoc id entity-registry)) obj)
+    :done))
 
-  (defun register-entity-subsystems! (id entity)
-    (let ((system-type :game))
-      (dolist (s (aval entity :subsystems))
-	(ecase s
-	  ((:ai :timers) (register-timers! system-type id))
-	  (:bullet (register-bullet! system-type id))
-	  (:damageable (register-damageable! system-type id))
-	  (:damage-collision (register-damage-collision! system-type id))
-	  (:input (register-input! system-type id))
-	  (:physics (register-physics! system-type id))
-	  (:stage-collision (register-stage-collision! system-type id))
-	  (:dynamic-collision (register-dynamic-collision! system-type id))
-	  (:drawable (register-drawable! system-type id))
-	  (:pickup (register-pickup! system-type id)))))))
+(defun register-entity-subsystems! (id entity)
+  (let ((system-type :game))
+    (dolist (s (aval entity :subsystems))
+      (ecase s
+	((:ai :timers) (register-timers! system-type id))
+	(:bullet (register-bullet! system-type id))
+	(:damageable (register-damageable! system-type id))
+	(:damage-collision (register-damage-collision! system-type id))
+	(:input (register-input! system-type id))
+	(:physics (register-physics! system-type id))
+	(:stage-collision (register-stage-collision! system-type id))
+	(:dynamic-collision (register-dynamic-collision! system-type id))
+	(:drawable (register-drawable! system-type id))
+	(:pickup (register-pickup! system-type id)))))
+  :done)
 
 (defun create-entity! (initial-state)
   (assert (aval initial-state :id))
@@ -251,14 +256,10 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 	(entity (apply-effects! initial-state)))
     (register-entity-subsystems! id entity)
     (register-entity! id entity)
-    id))
+    :done))
 
-(defun physics (o)
-  (motion-set-update o))
-
-(defun physics-pos (o)
-  (motion-set-pos o))
-
-(defun timers (o)
-  "Return o with its :timers updated :ticks set, and ai applied."
-  (ai (timer-set-update (aset o :ticks nil))))
+(setfn physics motion-set-update)
+(setfn physics-pos motion-set-pos)
+(setfn timers
+       "Return o with its :timers updated :ticks set, and ai applied."
+       ai timer-set-update (asetfn :ticks nil))

@@ -1,9 +1,14 @@
 (in-package :cave-story)
 
-(defmacro setfn (function-name fn &rest fns)
+(defmacro setfn (function-name fn-or-doc &rest fns)
   "Sets the function-value of function name to be the COMP
 of fn and fns."
-  `(setf (fdefinition ',function-name) (comp ,fn ,@fns)))
+  (if (stringp fn-or-doc)
+      (progn
+	(assert (first fns))
+	`(setf (documentation ',function-name 'function) ,fn-or-doc
+	       (fdefinition ',function-name) (comp ,@fns)))
+      `(setf (fdefinition ',function-name) (comp ,fn-or-doc ,@fns))))
 
 (defun expand-partial-application (lst)
   "Expand the body forms in lst into a partial application. _'s in the
@@ -48,7 +53,8 @@ Replace symbols with their function slots."
   `(part ,(read stream t nil t)))
 
 (defun install-function-syntax! ()
-  (set-dispatch-macro-character #\# #\_ #'hash-underscore-reader))
+  (set-dispatch-macro-character #\# #\_ #'hash-underscore-reader)
+  :done)
 (install-function-syntax!)
 
 (defmacro part (&body forms)
@@ -340,14 +346,14 @@ If fn is null and default is provided, return (funcall default val)."
   (clamp val (- amt) amt))
 
 (defun clamper+- (amt)
-  (rcurry #'clamp+- amt))
+  #_(clamp+- _ amt))
 
 (defun clamp-zero (val amt)
   "Clamps between zero and amt."
   (clamp val (min amt 0) (max amt 0)))
 
 (defun clamper-zero (amt)
-  (rcurry #'clamp-zero amt))
+  #_(clamp-zero _ amt))
 
 (defun clamp-pos (pos rect)
   (make-v (clamp (x pos) (left rect) (right rect))

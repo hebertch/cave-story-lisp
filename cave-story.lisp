@@ -183,6 +183,7 @@ This can be abused with the machine gun in TAS."
 	 ;; Fire Gun
 	 (update-world! (aval game :player) #'player-fire-gun)))
 
+      #+nil
       (:dialog
        (cond
 	 ((or (joy-pressed? input :b) (key-pressed? input :x))
