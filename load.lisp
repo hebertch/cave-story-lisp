@@ -44,6 +44,12 @@
 
 (load-cave-story-system!)
 
+(defmacro reload-cave-story ()
+  '(progn
+    (in-package :cl-user)
+    (load-cave-story-system!)
+    (in-package :cave-story)))
+
 (defun group-by (key list)
   "Group list into lists sharing the same key.
 Key is a function. 
