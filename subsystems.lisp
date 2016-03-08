@@ -94,10 +94,6 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 	(key (make-keyword name))
 	(update-name (symbolicate 'update- name '-subsystem!)))
     `(progn
-       (defun ,register-name (system-type id)
-	 (declare (ignore system-type))
-	 (registry-insert-id! ,key id))
-
        (defun ,update-name ,update-args
 	 (registry-remove-dead! ,key)
 	 (dolist (entity-id (registry-ids ,key))
@@ -239,19 +235,8 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
     :done))
 
 (defun register-entity-subsystems! (id entity)
-  (let ((system-type :game))
-    (dolist (s (aval entity :subsystems))
-      (ecase s
-	((:ai :timers) (register-timers! system-type id))
-	(:bullet (register-bullet! system-type id))
-	(:damageable (register-damageable! system-type id))
-	(:damage-collision (register-damage-collision! system-type id))
-	(:input (register-input! system-type id))
-	(:physics (register-physics! system-type id))
-	(:stage-collision (register-stage-collision! system-type id))
-	(:dynamic-collision (register-dynamic-collision! system-type id))
-	(:drawable (register-drawable! system-type id))
-	(:pickup (register-pickup! system-type id)))))
+  (dolist (sys (aval entity :subsystems))
+    (registry-insert-id! sys id))
   :done)
 
 (defun create-entity! (entity-registry id initial-state)
