@@ -84,23 +84,6 @@ Binds :damage-amt (in obj) to the bullet hit amount."
   "Clear the registry."
   (setq *registry* nil))
 
-(defmacro def-subsystem (name update-args &body update-forms)
-  "Creates a subsytem of NAME.
-REGISTER-name is the interface to add to name-REGISTRY.
-DEF-ENTITY-name is the interface to be used with DEF-ENTITY.
-UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
-
-  (let ((register-name (symbolicate 'register- name '!))
-	(key (make-keyword name))
-	(update-name (symbolicate 'update- name '-subsystem!)))
-    `(progn
-       (defun ,update-name ,update-args
-	 (registry-remove-dead! ,key)
-	 (dolist (entity-id (registry-ids ,key))
-	   ,@update-forms))
-
-       (values ',register-name ',update-name))))
-
 (defun apply-effects! (entity-registry obj)
   (appendf *sfx-play-list* (aval obj :sound-effects))
   
@@ -119,86 +102,109 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
     (setq *current-entity-registry* (apply-effects! *current-entity-registry* obj))
     (estate-set! entity-id (estate entity-id))))
 
-(def-subsystem physics ()
-  (update-world! entity-id #'physics))
+(defun update-physics-subsystem! ()
+  (registry-remove-dead! :physics)
+  (dolist (entity-id (registry-ids :physics))
+    (update-world! entity-id #'physics)))
 
-(def-subsystem timers ()
-  (update-world! entity-id #'timers))
+(defun update-timers-subsystem! ()
+  (registry-remove-dead! :timers)
+  (dolist (entity-id (registry-ids :timers))
+    (update-world! entity-id #'timers)))
 
 (defun ticked? (obj timer-key)
   (member timer-key (aval obj :ticks)))
 
-(def-subsystem drawable ()
-  (let ((drawings
-	 (alexandria:ensure-list (draw (estate entity-id)))))
-    (appendf *render-list* drawings)))
-(def-subsystem stage-collision (stage)
-  (update-world! entity-id #_(stage-collision _ stage)))
-(def-subsystem input (input)
-  (update-world! entity-id #_(input _ input)))
+(defun update-drawable-subsystem! ()
+  (registry-remove-dead! :drawable)
+  (dolist (entity-id (registry-ids :drawable))
+    (let ((drawings (ensure-list (draw (estate entity-id)))))
+      (appendf *render-list* drawings))))
 
-(def-subsystem dynamic-collision (player)
-  (dolist (side *collision-order*)
-    (let* ((state (estate entity-id))
-	   (rect (dynamic-collision-rect state))
-	   (player-collision-rect
-	    (cdr (assoc side *player-collision-rectangles-alist*)))
-	   (player-rect
-	    (rect-offset player-collision-rect (physics-pos (estate player)))))
-      (draw-rect! rect *blue* :layer :debug-dynamic-collision)
-      (draw-rect! player-rect *green* :layer :debug-dynamic-collision)
+(defun update-stage-collision-subsystem! (stage)
+  (registry-remove-dead! :stage-collision)
+  (dolist (entity-id (registry-ids :stage-collision))
+    (update-world! entity-id
+                   #_(stage-collision _ stage))))
+
+(defun update-input-subsystem! (input)
+  (registry-remove-dead! :input)
+  (dolist (entity-id (registry-ids :input))
+    (update-world! entity-id
+                   #_(input _ input))))
+
+(defun update-dynamic-collision-subsystem! (player)
+  (registry-remove-dead! :dynamic-collision)
+  (dolist (entity-id (registry-ids :dynamic-collision))
+    (dolist (side *collision-order*)
+      (let* ((state (estate entity-id))
+             (rect (dynamic-collision-rect state))
+             (player-collision-rect
+              (cdr (assoc side *player-collision-rectangles-alist*)))
+             (player-rect
+              (rect-offset player-collision-rect
+                           (physics-pos (estate player)))))
+        (draw-rect! rect *blue* :layer :debug-dynamic-collision)
+        (draw-rect! player-rect *green* :layer :debug-dynamic-collision)
+        (when (rects-collide? rect player-rect)
+          (draw-rect! player-rect *green* :layer :debug-dynamic-collision
+                      :filled? t)
+          (draw-rect! rect *yellow* :layer :debug-dynamic-collision :filled? t)
+          (estate-set! player
+                       (dynamic-collision-react state side
+                                                player-collision-rect
+                                                player)))))))
+
+(defun update-damageable-subsystem! (bullet-id)
+  (registry-remove-dead! :damageable)
+  (dolist (entity-id (registry-ids :damageable))
+    (unless (dead? (estate bullet-id))
+      (let ((bullet-rect (bullet-rect (estate bullet-id)))
+            (bullet-hit-amt (bullet-damage-amt (estate bullet-id)))
+            (rect (damageable-rect (estate entity-id))))
+        (draw-rect! bullet-rect *green* :layer :debug-damageable)
+        (draw-rect! rect *blue* :layer :debug-damageable)
+        (when (rects-collide? rect bullet-rect)
+          (draw-rect! bullet-rect *yellow* :layer :debug-damageable :filled? t)
+          (draw-rect! rect *yellow* :layer :debug-damageable :filled? t)
+          (update-world! entity-id
+                         #_(damageable-hit-react _ bullet-hit-amt))
+          (update-world! bullet-id #'bullet-hit-react))))))
+
+(defun update-bullet-subsystem! ()
+  (registry-remove-dead! :bullet)
+  (dolist (entity-id (registry-ids :bullet))
+    (update-damageable-subsystem! entity-id)))
+
+(defun update-pickup-subsystem! (player)
+  (registry-remove-dead! :pickup)
+  (dolist (entity-id (registry-ids :pickup))
+    (let ((rect (pickup-rect (estate entity-id)))
+          (player-rect (player-damage-collision-rect (estate player))))
+      (draw-rect! rect *green* :layer :debug-pickup)
+      (draw-rect! player-rect *blue* :layer :debug-pickup)
       (when (rects-collide? rect player-rect)
-	(draw-rect! player-rect *green* :layer :debug-dynamic-collision :filled? t)
-	(draw-rect! rect *yellow* :layer :debug-dynamic-collision :filled? t)
-	(estate-set! player (dynamic-collision-react state
-						     side
-						     player-collision-rect
-						     player))))))
+        (draw-rect! rect *yellow* :layer :debug-pickup :filled? t)
+        (draw-rect! player-rect *yellow* :layer :debug-pickup :filled? t)
+        (update-world! player
+                       #_(player-pickup _ (estate entity-id)))
+        (update-world! entity-id #'pickup-kill)))))
 
-(def-subsystem damageable (bullet-id)
-  ;; NOTE: UPDATE-DAMAGEABLE-SUBSYSTEM is designed to be called
-  ;; by UPDATE-BULLET-SUBSYSTEM
-  (unless (dead? (estate bullet-id))
-    (let ((bullet-rect (bullet-rect (estate bullet-id)))
-	  (bullet-hit-amt (bullet-damage-amt (estate bullet-id)))
-	  (rect (damageable-rect (estate entity-id))))
-      (draw-rect! bullet-rect *green* :layer :debug-damageable)
-      (draw-rect! rect *blue* :layer :debug-damageable)
-      (when (rects-collide? rect bullet-rect)
-	(draw-rect! bullet-rect *yellow* :layer :debug-damageable :filled? t)
-	(draw-rect! rect *yellow* :layer :debug-damageable :filled? t)
-	(update-world! entity-id
-		       #_(damageable-hit-react _ bullet-hit-amt))
-	(update-world! bullet-id #'bullet-hit-react)))))
-
-(def-subsystem bullet ()
-  (update-damageable-subsystem! entity-id))
-
-(def-subsystem pickup (player)
-  (let ((rect (pickup-rect (estate entity-id)))
-	(player-rect  (player-damage-collision-rect (estate player))))
-    (draw-rect! rect *green* :layer :debug-pickup)
-    (draw-rect! player-rect *blue* :layer :debug-pickup)
-    (when (rects-collide? rect player-rect)
-      (draw-rect! rect *yellow* :layer :debug-pickup :filled? t)
-      (draw-rect! player-rect *yellow* :layer :debug-pickup :filled? t)
-      (update-world! player #_(player-pickup _ (estate entity-id)))
-      (update-world! entity-id #'pickup-kill))))
-
-(def-subsystem damage-collision (player)
-  (let ((rect (damage-collision-rect (estate entity-id)))
-	(player-rect (player-damage-collision-rect (estate player))))
-    (draw-rect! rect *red* :layer :debug-damage-collision)
-    (draw-rect! player-rect *blue* :layer :debug-damage-collision)
-    (when (rects-collide? rect player-rect)
-      (update-world!
-       player
-       #_(player-take-damage _ (damage-collision-amt (estate entity-id))))
-      (draw-rect! rect *magenta* :layer :debug-damage-collision :filled? t)
-      (draw-rect! player-rect
-		  *magenta*
-		  :layer :debug-damage-collision
-		  :filled? t))))
+(defun update-damage-collision-subsystem! (player)
+  (registry-remove-dead! :damage-collision)
+  (dolist (entity-id (registry-ids :damage-collision))
+    (let ((rect (damage-collision-rect (estate entity-id)))
+          (player-rect (player-damage-collision-rect (estate player))))
+      (draw-rect! rect *red* :layer :debug-damage-collision)
+      (draw-rect! player-rect *blue* :layer :debug-damage-collision)
+      (when (rects-collide? rect player-rect)
+        (update-world! player
+                       #_ (player-take-damage _
+					      (damage-collision-amt
+					       (estate entity-id))))
+        (draw-rect! rect *magenta* :layer :debug-damage-collision :filled? t)
+        (draw-rect! player-rect *magenta* :layer :debug-damage-collision
+                    :filled? t)))))
 
 ;; TODO: Make this functional...
 ;; Pass/return the entity-registry/id pair as an entity-registry-system.
@@ -216,23 +222,22 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
        do
 	 (register-entity-subsystems! id e)))
   
-  (defun init-id-system ()
+  (defun init-id-system! ()
     (setq id 0))
   (defun gen-entity-id ()
-    (setq id (1+ id)))
+    (setq id (1+ id))))
 
-  (defun estate (id &optional (er *current-entity-registry*))
-    (let ((lookup (cdr (assoc id er))))
-      lookup))
+(defun init-entity-registry! ()
+  (init-id-system!)
+  (setq *current-entity-registry* (make-entity-registry)))
 
-  (defun init-entity-registry! ()
-    (setq id 0
-	  *current-entity-registry* (make-entity-registry)))
-
-  (defun estate-set! (id obj)
-    (setq *current-entity-registry*
-	  (estate-set *current-entity-registry* id obj))
-    :done))
+(defun estate (id &optional (er *current-entity-registry*))
+  (let ((lookup (cdr (assoc id er))))
+    lookup))
+(defun estate-set! (id obj)
+  (setq *current-entity-registry*
+	(estate-set *current-entity-registry* id obj))
+  :done)
 
 (defun register-entity-subsystems! (id entity)
   (dolist (sys (aval entity :subsystems))
