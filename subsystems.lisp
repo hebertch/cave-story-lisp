@@ -65,19 +65,23 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 
 (defvar *registry* nil
   "A registry table is a table of registry-name keyword to entity-ids.")
+(defun registry-insert-id (table registry-key id)
+  "Insert entity-id ID into the registry table."
+  (aupdate table registry-key (pushfn id)))
+
 (defun registry-insert-id! (registry-key id)
   "Insert entity-id ID into the registry table."
-  (setq *registry*
-	(aupdate *registry* registry-key (pushfn id))))
+  (setq *registry* (registry-insert-id *registry* registry-key id)))
 
-(defun registry-update! (registry-key fn)
-  (setq *registry*
-	(aupdate *registry* registry-key fn)))
-(defun registry-remove-dead! (registry-key)
-  "Remove the dead entities associated with registry-key."
-  (registry-update! registry-key
-		    (lambda (ids)
-		      (remove-if (lambda (id) (dead? (estate id))) ids))))
+(defun registry-remove-dead (registry)
+  "Remove the dead entities associated with all registry-keys."
+  (mapcar (lambda (key-and-ids)
+	    (cons (car key-and-ids)
+		  (remove-if (lambda (id) (dead? (estate id))) (cdr key-and-ids))))
+	  registry))
+(defun registry-remove-dead! ()
+  "Remove the dead entities associated with all registry-keys."
+  (setq *registry* (registry-remove-dead *registry*)))
 
 (defun registry-ids (registry-key)
   "Return a list of the ids in registry-key."
@@ -105,12 +109,10 @@ Binds :damage-amt (in obj) to the bullet hit amount."
     (estate-set! entity-id (estate entity-id))))
 
 (defun update-physics-subsystem! ()
-  (registry-remove-dead! :physics)
   (dolist (entity-id (registry-ids :physics))
     (update-world! entity-id #'physics)))
 
 (defun update-timers-subsystem! ()
-  (registry-remove-dead! :timers)
   (dolist (entity-id (registry-ids :timers))
     (update-world! entity-id #'timers)))
 
@@ -118,25 +120,21 @@ Binds :damage-amt (in obj) to the bullet hit amount."
   (member timer-key (aval obj :ticks)))
 
 (defun update-drawable-subsystem! ()
-  (registry-remove-dead! :drawable)
   (dolist (entity-id (registry-ids :drawable))
     (let ((drawings (ensure-list (draw (estate entity-id)))))
       (appendf *render-list* drawings))))
 
 (defun update-stage-collision-subsystem! (stage)
-  (registry-remove-dead! :stage-collision)
   (dolist (entity-id (registry-ids :stage-collision))
     (update-world! entity-id
                    #_(stage-collision _ stage))))
 
 (defun update-input-subsystem! (input)
-  (registry-remove-dead! :input)
   (dolist (entity-id (registry-ids :input))
     (update-world! entity-id
                    #_(input _ input))))
 
 (defun update-dynamic-collision-subsystem! (player)
-  (registry-remove-dead! :dynamic-collision)
   (dolist (entity-id (registry-ids :dynamic-collision))
     (dolist (side *collision-order*)
       (let* ((state (estate entity-id))
@@ -158,7 +156,6 @@ Binds :damage-amt (in obj) to the bullet hit amount."
                                                 player)))))))
 
 (defun update-damageable-subsystem! (bullet-id)
-  (registry-remove-dead! :damageable)
   (dolist (entity-id (registry-ids :damageable))
     (unless (dead? (estate bullet-id))
       (let ((bullet-rect (bullet-rect (estate bullet-id)))
@@ -174,12 +171,10 @@ Binds :damage-amt (in obj) to the bullet hit amount."
           (update-world! bullet-id #'bullet-hit-react))))))
 
 (defun update-bullet-subsystem! ()
-  (registry-remove-dead! :bullet)
   (dolist (entity-id (registry-ids :bullet))
     (update-damageable-subsystem! entity-id)))
 
 (defun update-pickup-subsystem! (player)
-  (registry-remove-dead! :pickup)
   (dolist (entity-id (registry-ids :pickup))
     (let ((rect (pickup-rect (estate entity-id)))
           (player-rect (player-damage-collision-rect (estate player))))
@@ -193,7 +188,6 @@ Binds :damage-amt (in obj) to the bullet hit amount."
         (update-world! entity-id #'pickup-kill)))))
 
 (defun update-damage-collision-subsystem! (player)
-  (registry-remove-dead! :damage-collision)
   (dolist (entity-id (registry-ids :damage-collision))
     (let ((rect (damage-collision-rect (estate entity-id)))
           (player-rect (player-damage-collision-rect (estate player))))
@@ -208,10 +202,8 @@ Binds :damage-amt (in obj) to the bullet hit amount."
         (draw-rect! player-rect *magenta* :layer :debug-damage-collision
                     :filled? t)))))
 
-;; TODO: Make this functional...
-;; Pass/return the entity-registry/id pair as an entity-registry-system.
-;; Register-entity! should be register-entity and return a new entity-registry-system
-(defvar *current-entity-registry*)
+(defvar *current-entity-registry* nil
+  "A mapping of entity-id -> current state.")
 
 (let (id)
   (defun current-entity-states ()
@@ -241,9 +233,13 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 	(estate-set *current-entity-registry* id obj))
   :done)
 
-(defun register-entity-subsystems! (id entity)
+(defun register-entity-subsystems (registry id entity)
   (dolist (sys (aval entity :subsystems))
-    (registry-insert-id! sys id))
+    (setq registry (registry-insert-id registry sys id)))
+  registry)
+
+(defun register-entity-subsystems! (id entity)
+  (setq *registry* (register-entity-subsystems *registry* id entity))
   :done)
 
 (defun create-entity! (entity-registry id initial-state)

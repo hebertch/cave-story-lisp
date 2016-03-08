@@ -518,6 +518,7 @@ This can be abused with the machine gun in TAS."
   ;; 	(remove-if #_(aval _ :dead?)
   ;; 		   *current-entity-registry*
   ;; 		   :key #'cdr))
+  (registry-remove-dead!)
   (estate-set! (aval game :projectile-groups)
 	       (projectile-groups-remove-dead
 		(estate (aval game :projectile-groups))))
@@ -951,8 +952,7 @@ This can be abused with the machine gun in TAS."
   (list (current-entity-states) *global-game*))
 
 (defun restore-state (state)
-  (dolist (s *registry-syms*)
-    (set s nil))
+  (clear-registry!)
   (restore-entity-states! (first state))
   (setq *global-game* (second state)))
 
