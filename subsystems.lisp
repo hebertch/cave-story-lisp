@@ -108,99 +108,105 @@ Binds :damage-amt (in obj) to the bullet hit amount."
     (setq *current-entity-registry* (apply-effects! *current-entity-registry* obj))
     (estate-set! entity-id (estate entity-id))))
 
-(defun update-physics-subsystem! ()
-  (dolist (entity-id (registry-ids :physics))
-    (update-world! entity-id #'physics)))
+(defun update-subsystem (key update-fn)
+  (dolist (entity-id (registry-ids key))
+    (funcall update-fn entity-id)))
 
-(defun update-timers-subsystem! ()
-  (dolist (entity-id (registry-ids :timers))
-    (update-world! entity-id #'timers)))
-
-(defun ticked? (obj timer-key)
-  (member timer-key (aval obj :ticks)))
-
-(defun update-drawable-subsystem! ()
-  (dolist (entity-id (registry-ids :drawable))
-    (let ((drawings (ensure-list (draw (estate entity-id)))))
-      (appendf *render-list* drawings))))
-
-(defun update-stage-collision-subsystem! (stage)
-  (dolist (entity-id (registry-ids :stage-collision))
-    (update-world! entity-id
-                   #_(stage-collision _ stage))))
-
-(defun update-input-subsystem! (input)
-  (dolist (entity-id (registry-ids :input))
-    (update-world! entity-id
-                   #_(input _ input))))
-
-(defun update-dynamic-collision-subsystem! (player)
-  (dolist (entity-id (registry-ids :dynamic-collision))
+(setfn update-physics-entity! #_(update-world! _ #'physics))
+(setfn update-timers-entity! #_(update-world! _ #'timers))
+(defun update-drawable-entity! (entity-id)
+  (let ((drawings (ensure-list (draw (estate entity-id)))))
+    (appendf *render-list* drawings)))
+(defun update-stage-collision-entity! (entity-id)
+  (update-world! entity-id
+		 #_(stage-collision _ (estate (aval *global-game* :stage)))))
+(defun update-input-entity! (entity-id)
+  (update-world! entity-id #_(input _ (aval *global-game* :input))))
+(defun update-dynamic-collision-entity! (entity-id)
+  (let ((player (aval *global-game* :player)))
     (dolist (side *collision-order*)
       (let* ((state (estate entity-id))
-             (rect (dynamic-collision-rect state))
-             (player-collision-rect
-              (cdr (assoc side *player-collision-rectangles-alist*)))
-             (player-rect
-              (rect-offset player-collision-rect
-                           (physics-pos (estate player)))))
-        (draw-rect! rect *blue* :layer :debug-dynamic-collision)
-        (draw-rect! player-rect *green* :layer :debug-dynamic-collision)
-        (when (rects-collide? rect player-rect)
-          (draw-rect! player-rect *green* :layer :debug-dynamic-collision
-                      :filled? t)
-          (draw-rect! rect *yellow* :layer :debug-dynamic-collision :filled? t)
-          (estate-set! player
-                       (dynamic-collision-react state side
-                                                player-collision-rect
-                                                player)))))))
-
-(defun update-damageable-subsystem! (bullet-id)
-  (dolist (entity-id (registry-ids :damageable))
-    (unless (dead? (estate bullet-id))
-      (let ((bullet-rect (bullet-rect (estate bullet-id)))
-            (bullet-hit-amt (bullet-damage-amt (estate bullet-id)))
-            (rect (damageable-rect (estate entity-id))))
-        (draw-rect! bullet-rect *green* :layer :debug-damageable)
-        (draw-rect! rect *blue* :layer :debug-damageable)
-        (when (rects-collide? rect bullet-rect)
-          (draw-rect! bullet-rect *yellow* :layer :debug-damageable :filled? t)
-          (draw-rect! rect *yellow* :layer :debug-damageable :filled? t)
-          (update-world! entity-id
-                         #_(damageable-hit-react _ bullet-hit-amt))
-          (update-world! bullet-id #'bullet-hit-react))))))
-
-(defun update-bullet-subsystem! ()
-  (dolist (entity-id (registry-ids :bullet))
-    (update-damageable-subsystem! entity-id)))
-
-(defun update-pickup-subsystem! (player)
-  (dolist (entity-id (registry-ids :pickup))
+	     (rect (dynamic-collision-rect state))
+	     (player-collision-rect
+	      (cdr (assoc side *player-collision-rectangles-alist*)))
+	     (player-rect
+	      (rect-offset player-collision-rect
+			   (physics-pos (estate player)))))
+	(draw-rect! rect *blue* :layer :debug-dynamic-collision)
+	(draw-rect! player-rect *green* :layer :debug-dynamic-collision)
+	(when (rects-collide? rect player-rect)
+	  (draw-rect! player-rect *green* :layer :debug-dynamic-collision
+		      :filled? t)
+	  (draw-rect! rect *yellow* :layer :debug-dynamic-collision :filled? t)
+	  (estate-set! player
+		       (dynamic-collision-react state side
+						player-collision-rect
+						player)))))))
+(defun update-pickup-entity! (entity-id)
+  (let ((player (aval *global-game* :player)))
     (let ((rect (pickup-rect (estate entity-id)))
-          (player-rect (player-damage-collision-rect (estate player))))
+	  (player-rect (player-damage-collision-rect (estate player))))
       (draw-rect! rect *green* :layer :debug-pickup)
       (draw-rect! player-rect *blue* :layer :debug-pickup)
       (when (rects-collide? rect player-rect)
-        (draw-rect! rect *yellow* :layer :debug-pickup :filled? t)
-        (draw-rect! player-rect *yellow* :layer :debug-pickup :filled? t)
-        (update-world! player
-                       #_(player-pickup _ (estate entity-id)))
-        (update-world! entity-id #'pickup-kill)))))
-
-(defun update-damage-collision-subsystem! (player)
-  (dolist (entity-id (registry-ids :damage-collision))
+	(draw-rect! rect *yellow* :layer :debug-pickup :filled? t)
+	(draw-rect! player-rect *yellow* :layer :debug-pickup :filled? t)
+	(update-world! player
+		       #_(player-pickup _ (estate entity-id)))
+	(update-world! entity-id #'pickup-kill)))))
+(defun update-damage-collision-entity! (entity-id)
+  (let ((player (aval *global-game* :player)))
     (let ((rect (damage-collision-rect (estate entity-id)))
-          (player-rect (player-damage-collision-rect (estate player))))
+	  (player-rect (player-damage-collision-rect (estate player))))
       (draw-rect! rect *red* :layer :debug-damage-collision)
       (draw-rect! player-rect *blue* :layer :debug-damage-collision)
       (when (rects-collide? rect player-rect)
-        (update-world! player
-                       #_ (player-take-damage _
+	(update-world! player
+		       #_ (player-take-damage _
 					      (damage-collision-amt
 					       (estate entity-id))))
-        (draw-rect! rect *magenta* :layer :debug-damage-collision :filled? t)
-        (draw-rect! player-rect *magenta* :layer :debug-damage-collision
-                    :filled? t)))))
+	(draw-rect! rect *magenta* :layer :debug-damage-collision :filled? t)
+	(draw-rect! player-rect *magenta* :layer :debug-damage-collision
+		    :filled? t)))))
+
+(defun update-physics-subsystem! ()
+  (update-subsystem :physics #'update-physics-entity!))
+(defun update-timers-subsystem! ()
+  (update-subsystem :timers #'update-timers-entity!))
+(defun update-drawable-subsystem! ()
+  (update-subsystem :drawable #'update-drawable-entity!))
+(defun update-stage-collision-subsystem! ()
+  (update-subsystem :stage-collision #'update-stage-collision-entity!))
+(defun update-input-subsystem! ()
+  (update-subsystem :input #'update-input-entity!))
+(defun update-dynamic-collision-subsystem! ()
+  (update-subsystem :dynamic-collision #'update-dynamic-collision-entity!))
+(defun update-bullet-subsystem! ()
+  (update-subsystem :bullet #'update-damageable-subsystem!))
+(defun update-pickup-subsystem! ()
+  (update-subsystem :pickup #'update-pickup-entity!))
+(defun update-damage-collision-subsystem! ()
+  (update-subsystem :damage-collision #'update-damage-collision-entity!))
+
+(defun update-damageable-subsystem! (bullet-id)
+  (update-subsystem
+   :damageable
+   (lambda (entity-id)
+     (unless (dead? (estate bullet-id))
+       (let ((bullet-rect (bullet-rect (estate bullet-id)))
+	     (bullet-hit-amt (bullet-damage-amt (estate bullet-id)))
+	     (rect (damageable-rect (estate entity-id))))
+	 (draw-rect! bullet-rect *green* :layer :debug-damageable)
+	 (draw-rect! rect *blue* :layer :debug-damageable)
+	 (when (rects-collide? rect bullet-rect)
+	   (draw-rect! bullet-rect *yellow* :layer :debug-damageable :filled? t)
+	   (draw-rect! rect *yellow* :layer :debug-damageable :filled? t)
+	   (update-world! entity-id
+			  #_(damageable-hit-react _ bullet-hit-amt))
+	   (update-world! bullet-id #'bullet-hit-react)))))))
+
+(defun ticked? (obj timer-key)
+  (member timer-key (aval obj :ticks)))
 
 (defvar *current-entity-registry* nil
   "A mapping of entity-id -> current state.")

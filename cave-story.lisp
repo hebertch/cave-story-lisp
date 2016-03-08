@@ -173,8 +173,8 @@
   "Handles input. Often called many times between updates.
 This can be abused with the machine gun in TAS."
 
+  (update-input-subsystem!)
   (let ((input (aval game :input)))
-    (update-input-subsystem! input)
     (when (or (joy-pressed? input :b) (key-pressed? input :x))
       ;; Fire Gun
       (update-world! (aval game :player) #'player-fire-gun))))
@@ -811,11 +811,10 @@ This can be abused with the machine gun in TAS."
     (update-timers-subsystem!)
     (update-physics-subsystem!)
     (update-bullet-subsystem!)
-    (update-stage-collision-subsystem! (estate (aval game :stage)))
-    (update-pickup-subsystem! (aval game :player))
-
-    (update-damage-collision-subsystem! (aval game :player))
-    (update-dynamic-collision-subsystem! (aval game :player)))
+    (update-stage-collision-subsystem!)
+    (update-pickup-subsystem!)
+    (update-damage-collision-subsystem!)
+    (update-dynamic-collision-subsystem!))
 
   (update-drawable-subsystem!)
 
