@@ -69,13 +69,15 @@ Binds :damage-amt (in obj) to the bullet hit amount."
   "Insert entity-id ID into the registry table."
   (setq *registry*
 	(aupdate *registry* registry-key (pushfn id))))
+
+(defun registry-update! (registry-key fn)
+  (setq *registry*
+	(aupdate *registry* registry-key fn)))
 (defun registry-remove-dead! (registry-key)
   "Remove the dead entities associated with registry-key."
-  (setq *registry*
-	(aupdate *registry*
-		 registry-key
-		 (lambda (ids)
-		   (remove-if (lambda (id) (dead? (estate id))) ids)))))
+  (registry-update! registry-key
+		    (lambda (ids)
+		      (remove-if (lambda (id) (dead? (estate id))) ids))))
 
 (defun registry-ids (registry-key)
   "Return a list of the ids in registry-key."
