@@ -93,12 +93,16 @@ If val is provided, expand to a defparameter."
 (defun amerge (&rest alists)
   (anorm (apply #'append alists)))
 
+
+(deftype keytype ()
+  '(or keyword integer))
+
 (defun aset (alist &rest keys-and-vals)
   (assert (listp alist))
   (amerge
    (loop for (k v) on keys-and-vals by #'cddr
       collecting (progn
-		   (assert (typep k 'keyword))
+		   (assert (typep k 'keytype))
 		   (cons k v)))
    alist))
 

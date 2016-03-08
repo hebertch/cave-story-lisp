@@ -103,19 +103,23 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 
 	 (values ',registry ',register-name ',update-name)))))
 
-(defun apply-effects! (obj)
+(defun apply-effects! (entity-registry obj)
   (appendf *sfx-play-list* (aval obj :sound-effects))
+  
   (loop for state in (aval obj :new-states) do
        (if (estate (aval state :id))
-	   (estate-set! (aval state :id) state)
-	   (create-entity! state)))
-  (arem obj
-	:sound-effects
-	:new-states))
+	   (setq entity-registry (estate-set entity-registry (aval state :id) state))
+	   (setq entity-registry (create-entity! entity-registry (aval state :id) state))))
+  (estate-set entity-registry
+	      (aval obj :id)
+	      (arem obj
+		    :sound-effects
+		    :new-states)))
 
 (defun update-world! (entity-id fn)
   (let ((obj (funcall fn (estate entity-id))))
-    (estate-set! entity-id (apply-effects! obj))))
+    (setq *current-entity-registry* (apply-effects! *current-entity-registry* obj))
+    (estate-set! entity-id (estate entity-id))))
 
 (def-subsystem physics ()
   (update-world! entity-id #'physics))
@@ -201,14 +205,16 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 ;; TODO: Make this functional...
 ;; Pass/return the entity-registry/id pair as an entity-registry-system.
 ;; Register-entity! should be register-entity and return a new entity-registry-system
-(let (entity-registry id)
+(defvar *current-entity-registry*)
+
+(let (id)
   (defun current-entity-states ()
-    (list id entity-registry))
+    (list id *current-entity-registry*))
 
   (defun restore-entity-states! (id-and-registry)
     (setq id (first id-and-registry))
-    (setq entity-registry (second id-and-registry))
-    (loop for (id . e) in entity-registry
+    (setq *current-entity-registry* (second id-and-registry))
+    (loop for (id . e) in *current-entity-registry*
        do
 	 (register-entity-subsystems! id e)))
   
@@ -217,21 +223,17 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
   (defun gen-entity-id ()
     (setq id (1+ id)))
 
-  (defun estate (id)
-    (let ((lookup (cdr (assoc id entity-registry))))
+  (defun estate (id &optional (er *current-entity-registry*))
+    (let ((lookup (cdr (assoc id er))))
       lookup))
 
   (defun init-entity-registry! ()
     (setq id 0
-	  entity-registry nil))
-
-  (defun register-entity! (id entity)
-    (push (cons id entity) entity-registry)
-    :done)
+	  *current-entity-registry* (make-entity-registry)))
 
   (defun estate-set! (id obj)
-    (setq entity-registry (copy-alist entity-registry))
-    (setf (cdr (assoc id entity-registry)) obj)
+    (setq *current-entity-registry*
+	  (estate-set *current-entity-registry* id obj))
     :done))
 
 (defun register-entity-subsystems! (id entity)
@@ -250,13 +252,17 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 	(:pickup (register-pickup! system-type id)))))
   :done)
 
-(defun create-entity! (initial-state)
-  (assert (aval initial-state :id))
-  (let ((id (aval initial-state :id))
-	(entity (apply-effects! initial-state)))
-    (register-entity-subsystems! id entity)
-    (register-entity! id entity)
-    :done))
+(defun create-entity! (entity-registry id initial-state)
+  (setq entity-registry (apply-effects! entity-registry initial-state))
+  (register-entity-subsystems! id (estate id entity-registry))
+  (estate-set entity-registry id (estate id entity-registry)))
+
+(defun make-entity-registry () nil)
+
+(defun estate-set (entity-registry id state)
+  "Return an entity-registry with the entity identified
+by id updated to have state."
+  (aset entity-registry id state))
 
 (setfn physics motion-set-update)
 (setfn physics-pos motion-set-pos)

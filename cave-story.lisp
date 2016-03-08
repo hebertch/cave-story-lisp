@@ -529,6 +529,10 @@ This can be abused with the machine gun in TAS."
 	   :amt #_(+ _ amount)))
 
 (defun remove-all-dead! (game)
+  ;; (setq *current-entity-registry*
+  ;; 	(remove-if #_(aval _ :dead?)
+  ;; 		   *current-entity-registry*
+  ;; 		   :key #'cdr))
   (estate-set! (aval game :projectile-groups)
 	       (projectile-groups-remove-dead
 		(estate (aval game :projectile-groups))))
@@ -1023,7 +1027,8 @@ This can be abused with the machine gun in TAS."
 	 (active-systems (make-active-systems)))
     
     (let ((camera (make-camera (physics-pos player) (zero-v) player)))
-      (mapc #'create-entity!
+      (mapc (lambda (entity)
+	      (setq *current-entity-registry* (create-entity! *current-entity-registry* (aval entity :id) entity)))
 	    (list*
 	     stage
 	     damage-numbers
