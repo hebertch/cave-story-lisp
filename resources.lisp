@@ -192,6 +192,7 @@
     '((:stage-weed :weed "Weed")
       (:stage-cent :cent "Weed")
       (:stage-santa :santa "Santa")
+      (:stage-cave :cave "Cave")
       (:stage-eggs :eggs "Eggs")
       (:stage-sand-e :sand "Sand" "SandE")
       (:stage-pens-1 :pens "Pens" "Pens1")

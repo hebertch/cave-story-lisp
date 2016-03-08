@@ -218,7 +218,6 @@ This can be abused with the machine gun in TAS."
 	 :stage-collision-fn #'dorito-stage-collision
 	 :pickup-rect-fn #'dorito-pickup-rect))
 
-
 (defvar* *pickup-subsystems*
     '(:timers :drawable :pickup))
 
@@ -230,6 +229,7 @@ This can be abused with the machine gun in TAS."
      (dorito-pickup-data size)
      (alist :timers
 	    '(:life-timer :anim-cycle)
+	    :id (gen-entity-id)
 	    :life-timer
 	    (make-expiring-timer (s->ms 8) t)
 	    :anim-cycle
@@ -808,15 +808,15 @@ This can be abused with the machine gun in TAS."
      (draw-text-line! (zero-v) "PLAYBACK")))
 
   (unless *stage-viewer*
-    (update-timers-subsystem!)
-    (update-physics-subsystem!)
-    (update-bullet-subsystem!)
-    (update-stage-collision-subsystem!)
-    (update-pickup-subsystem!)
-    (update-damage-collision-subsystem!)
-    (update-dynamic-collision-subsystem!))
+    (update-subsystem :timers #'update-timers-entity!)
+    (update-subsystem :physics #'update-physics-entity!)
+    (update-subsystem :bullet #'update-damageable-subsystem!)
+    (update-subsystem :stage-collision #'update-stage-collision-entity!)
+    (update-subsystem :pickup #'update-pickup-entity!)
+    (update-subsystem :damage-collision #'update-damage-collision-entity!)
+    (update-subsystem :dynamic-collision #'update-dynamic-collision-entity!))
 
-  (update-drawable-subsystem!)
+  (update-subsystem :drawable #'update-drawable-entity!)
 
   (remove-all-dead! game)
 
@@ -995,13 +995,13 @@ This can be abused with the machine gun in TAS."
    nil))
 
 (defun create-game! ()
-  (let* ((stage-key :stage-eggs)
+  (let* ((stage-key :stage-cave)
 	 (damage-numbers (make-damage-numbers))
 	 (projectile-groups (make-projectile-groups))
 	 (stage (load-stage-from-stage-key stage-key))
 	 (entities (entities-from-stage-key stage-key))
 	 (hud (make-hud))
-	 (player (make-player :pos (tile-v 8 5)))
+	 (player (make-player :pos (tile-v 37 10)))
 	 (gun-exps (make-gun-exps))
 	 (active-systems (make-active-systems)))
     
@@ -1107,6 +1107,7 @@ This can be abused with the machine gun in TAS."
    (bat-fns-alist)
    (alist :subsystems *bat-subsystems*)
    (alist
+    :id (gen-entity-id)
     :physics '(:wave)
     :wave (make-wave-motion
 	   :origin (tile-pos tile-pos)
@@ -1161,6 +1162,7 @@ This can be abused with the machine gun in TAS."
      (alist :single-loop-sprite (aval sprite :id)
 	    :new-states (list sprite)
 	    :physics '(:stage-physics)
+	    :id (gen-entity-id)
 	    :stage-physics
 	    (make-kin-2d
 	     :pos (- pos (tile-dims/2))
@@ -2831,6 +2833,7 @@ The number of smoke particles to create when destroyed.")
 				  (:missile (if bundle? 3 1))))
    (alist :timers
 	  '(:life-timer :anim-cycle)
+	  :id (gen-entity-id)
 	  :life-timer
 	  (make-expiring-timer (s->ms 8) t)
 	  :pos pos
