@@ -173,26 +173,11 @@
   "Handles input. Often called many times between updates.
 This can be abused with the machine gun in TAS."
 
-  (let ((input (aval game :input))
-	(input-systems
-	 (aval (estate (aval game :active-systems)) :input)))
-    (update-input-subsystem! input-systems input)
-    (ecase (first input-systems)
-      (:game
-       (when (or (joy-pressed? input :b) (key-pressed? input :x))
-	 ;; Fire Gun
-	 (update-world! (aval game :player) #'player-fire-gun)))
-
-      #+nil
-      (:dialog
-       (cond
-	 ((or (joy-pressed? input :b) (key-pressed? input :x))
-	  (dialog-ok-pressed!))
-	 ((or (joy-held? input :a) (key-pressed? input :z)
-	      (joy-held? input :b) (key-pressed? input :x))
-	  (dialog-button-held!))
-	 (t
-	  (dialog-buttons-released!)))))))
+  (let ((input (aval game :input)))
+    (update-input-subsystem! input)
+    (when (or (joy-pressed? input :b) (key-pressed? input :x))
+      ;; Fire Gun
+      (update-world! (aval game :player) #'player-fire-gun))))
 
 (defun dialog-ok-pressed! ()
   )
@@ -822,21 +807,16 @@ This can be abused with the machine gun in TAS."
      (draw-text-line! (zero-v) "PLAYBACK")))
 
   (unless *stage-viewer*
-    (let ((active-update-systems
-	   (aval (estate (aval game :active-systems)) :update))
-	  (stage (estate (aval game :stage)))
-	  (player (aval game :player)))
-      (update-timers-subsystem! active-update-systems)
-      (update-physics-subsystem! active-update-systems)
-      (update-bullet-subsystem! active-update-systems)
-      (update-stage-collision-subsystem! active-update-systems stage)
-      (update-pickup-subsystem! active-update-systems player)
+    (update-timers-subsystem!)
+    (update-physics-subsystem!)
+    (update-bullet-subsystem!)
+    (update-stage-collision-subsystem! (estate (aval game :stage)))
+    (update-pickup-subsystem! (aval game :player))
 
-      (update-damage-collision-subsystem! active-update-systems player)
-      (update-dynamic-collision-subsystem! active-update-systems player)))
+    (update-damage-collision-subsystem! (aval game :player))
+    (update-dynamic-collision-subsystem! (aval game :player)))
 
-  (let ((active-draw-systems (aval (estate (aval game :active-systems)) :draw)))
-    (update-drawable-subsystem! active-draw-systems))
+  (update-drawable-subsystem!)
 
   (remove-all-dead! game)
 
@@ -1055,8 +1035,7 @@ This can be abused with the machine gun in TAS."
   ;;(switch-to-new-song! :lastcave)
   (set-music-volume! 20)
 
-  (dolist (s *registry-syms*)
-    (set s nil))
+  (clear-registry!)
   (init-entity-registry!)
 
   (setq *global-paused?* nil)

@@ -63,15 +63,26 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 (defun update-timer (tr)
   (funcall (aval tr :update-fn) tr))
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  (defvar *registry-syms* nil)
+(defvar *registry* nil
+  "A registry table is a table of registry-name keyword to entity-ids.")
+(defun registry-insert-id! (registry-key id)
+  "Insert entity-id ID into the registry table."
+  (setq *registry*
+	(aupdate *registry* registry-key (pushfn id))))
+(defun registry-remove-dead! (registry-key)
+  "Remove the dead entities associated with registry-key."
+  (setq *registry*
+	(aupdate *registry*
+		 registry-key
+		 (lambda (ids)
+		   (remove-if (lambda (id) (dead? (estate id))) ids)))))
 
-  (defun interface-forms-name (interface)
-    (symbolicate interface '-forms))
-
-  (defun lambda-form (interface)
-    `(list* 'lambda (list ,@ (cdr interface))
-	    ,(interface-forms-name (car interface)))))
+(defun registry-ids (registry-key)
+  "Return a list of the ids in registry-key."
+  (aval *registry* registry-key))
+(defun clear-registry! ()
+  "Clear the registry."
+  (setq *registry* nil))
 
 (defmacro def-subsystem (name update-args &body update-forms)
   "Creates a subsytem of NAME.
@@ -79,29 +90,20 @@ REGISTER-name is the interface to add to name-REGISTRY.
 DEF-ENTITY-name is the interface to be used with DEF-ENTITY.
 UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 
-  (let ((registry (symbolicate '* name '-registry*))
-	(register-name (symbolicate 'register- name '!))
+  (let ((register-name (symbolicate 'register- name '!))
+	(key (make-keyword name))
 	(update-name (symbolicate 'update- name '-subsystem!)))
-    (with-gensyms (entry-name)
-      `(progn
-	 (defvar ,registry nil)
-	 (eval-when (:compile-toplevel :load-toplevel :execute)
-	   (pushnew ',registry *registry-syms*))
+    `(progn
+       (defun ,register-name (system-type id)
+	 (declare (ignore system-type))
+	 (registry-insert-id! ,key id))
 
-	 (defun ,register-name (system-type id)
-	   (push (cons system-type id) ,registry))
+       (defun ,update-name ,update-args
+	 (registry-remove-dead! ,key)
+	 (dolist (entity-id (registry-ids ,key))
+	   ,@update-forms))
 
-	 (defun ,update-name
-	     ,(cons 'active-entity-systems update-args)
-	   (setq ,registry (remove-if (lambda (p)
-					(dead? (estate (cdr p))))
-				      ,registry))
-	   (dolist (,entry-name ,registry)
-	     (when (member (car ,entry-name) active-entity-systems)
-	       (let ((entity-id (cdr ,entry-name)))
-		 ,@update-forms))))
-
-	 (values ',registry ',register-name ',update-name)))))
+       (values ',register-name ',update-name))))
 
 (defun apply-effects! (entity-registry obj)
   (appendf *sfx-play-list* (aval obj :sound-effects))
@@ -174,7 +176,7 @@ UPDATE-name-SUBSYSTEM evaluates UPDATE-FORMS given INTERFACE and UPDATE-ARGS."
 	(update-world! bullet-id #'bullet-hit-react)))))
 
 (def-subsystem bullet ()
-  (update-damageable-subsystem! active-entity-systems entity-id))
+  (update-damageable-subsystem! entity-id))
 
 (def-subsystem pickup (player)
   (let ((rect (pickup-rect (estate entity-id)))
