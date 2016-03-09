@@ -84,16 +84,23 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 	       (estate-set entity-registry id (estate id entity-registry))))))
 
 (defun update-world! (entity-id fn)
-  (let ((env (alist :entity-registry *current-entity-registry*
-		    :registry *registry*)))
+  (let ((env (make-env)))
     (let ((env2 (update-world env entity-id fn)))
-      (setq *current-entity-registry* (aval env2 :entity-registry)
-	    *registry* (aval env2 :registry)))))
+      (update-env! env2))))
+
+(defun make-env ()
+  (alist :entity-registry *current-entity-registry*
+	 :registry *registry*))
+(defun update-env! (env)
+  (setq *current-entity-registry* (aval env :entity-registry)
+	*registry* (aval env :registry)))
 
 (defun update-subsystem (key update-fn)
   (dolist (entity-id (aval *registry* key))
     (funcall update-fn entity-id)))
 
+(defun update-physics-entity (env id)
+  (update-world ))
 (setfn update-physics-entity! #_(update-world! _ #'physics))
 (setfn update-timers-entity! #_(update-world! _ #'timers))
 (defun update-drawable-entity! (entity-id)
