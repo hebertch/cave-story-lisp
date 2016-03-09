@@ -83,7 +83,7 @@
 	   :new-states
 	   (pushfn
 	    (hud-health-changed
-	     (estate (aval *global-game* :hud))))))
+	     (estate (entity-id :hud))))))
 
 
 (defun player-walk-acc (p)
@@ -151,14 +151,13 @@
   (let ((gun-name (player-current-gun-name p)))
     (let ((num-projectile-groups
 	   (projectile-groups-count (estate
-				     (aval *global-game* :projectile-groups))
+				     (entity-id :projectile-groups))
 				    gun-name))
 	  (nozzle-pos (player-nozzle-pos p))
 	  (dir (if (player-actual-v-facing p)
 		   (player-actual-v-facing p)
 		   (aval p :h-facing)))
-	  (lvl (gun-level (gun-exp-for (estate (aval *global-game*
-						     :gun-exps)) gun-name)
+	  (lvl (gun-level (gun-exp-for (estate (entity-id :gun-exps)) gun-name)
 			  (cdr (assoc gun-name *gun-level-exps*))))
 	  (max-projectiles (cdr (assoc gun-name *max-projectile-groups*))))
       (if (and (not (null max-projectiles))
@@ -187,7 +186,7 @@
 	 (aupdatefn
 	  :new-states
 	  (pushfn (active-systems-switch-to-dialog
-		   (estate (aval *global-game* :active-systems))))
+		   (estate (entity-id :active-systems))))
 	  :sound-effects (pushfn :snd-player-die))))
        (t
 	(comp
@@ -201,9 +200,9 @@
 	  :new-states
 	  (appendfn
 	   (list (hud-health-changed
-		  (estate (aval *global-game* :hud)))
+		  (estate (entity-id :hud)))
 		 (incr-gun-exp
-		  (estate (aval *global-game* :gun-exps))
+		  (estate (entity-id :gun-exps))
 		  (player-current-gun-name p)
 		  (- (* 2 dmg-amt))))))))))
    p))
@@ -212,9 +211,9 @@
   (aupdate p
 	   :new-states
 	   (appendfn
-	    (list (incr-gun-exp (estate (aval *global-game* :gun-exps))
+	    (list (incr-gun-exp (estate (entity-id :gun-exps))
 				(player-current-gun-name p) amt)
-		  (hud-exp-changed (estate (aval *global-game* :hud))))
+		  (hud-exp-changed (estate (entity-id :hud))))
 	    (experience-number-update :exp amt))))
 
 (defun char-sprite-pos (h-facing v-facing interacting? walk-idx)

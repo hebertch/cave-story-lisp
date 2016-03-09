@@ -160,8 +160,7 @@ Returns the tile of the collision if one occurred."
 	     :new-states
 	     (appendfn (list*
 			(projectile-groups-add
-			 (estate (aval *global-game*
-				       :projectile-groups))
+			 (estate (entity-id :projectile-groups))
 			 (cons :missile-launcher
 			       (mapcar (avalfn :id) pg)))
 			pg)))))
@@ -249,7 +248,7 @@ Returns the tile of the collision if one occurred."
 	     (appendfn
 	      (list (make-projectile-star-particle nozzle-pos)
 		    (projectile-groups-add
-		     (estate (aval *global-game* :projectile-groups))
+		     (estate (entity-id :projectile-groups))
 		     (cons :polar-star (mapcar (avalfn :id) pg))))
 	      pg))))
 

@@ -96,9 +96,9 @@
 (defun current-camera-pos ()
   (if *stage-viewer*
       *stage-viewer-camera-pos*
-      (camera-pos (estate (aval *global-game* :camera))
+      (camera-pos (estate (entity-id :camera))
 		  (stage-dims->camera-bounds
-		   (stage-dims (estate (aval *global-game* :stage)))))))
+		   (stage-dims (estate (entity-id :stage)))))))
 
 (defvar *update-rolling-average* (make-rolling-average (* *fps* 3)))
 (defvar *frame-rolling-average* (make-rolling-average (* *fps* 3)))
@@ -138,8 +138,7 @@
     (handle-debug-input! transient-input)
     (setq *global-game*
 	  (aset *global-game*
-		:input (gather-input (aval *global-game* :input)
-				     transient-input))))
+		:input (gather-input (entity-id :input) transient-input))))
   (when (>= *frame-timer* (* *update-period* *frame-time*))
     (rolling-average-time *frame-rolling-average* (update-and-render!)))
 
@@ -480,7 +479,7 @@ This can be abused with the machine gun in TAS."
    (floating-number-fns-alist)
    (alist :subsystems *floating-number-subsystems*)
    (alist :entity (if (eq :exp entity)
-		      (aval *global-game* :player)
+		      (entity-id :player)
 		      entity)
 	  :exp? (eq :exp entity)
 	  :amt amt
@@ -643,7 +642,7 @@ This can be abused with the machine gun in TAS."
 			  :pos (tile-v 1 2))
      drawings)
 
-    (let ((health (aval (estate (aval *global-game* :player)) :health-amt)))
+    (let ((health (aval (estate (entity-id :player)) :health-amt)))
       (when (timer-active? (aval hud :health-change-timer))
 	(push
 	 (make-sprite-drawing
@@ -653,8 +652,7 @@ This can be abused with the machine gun in TAS."
 	  (create-rect-cmpts 0 (tiles/2 4)
 			     (floor (* (tiles/2 bar-tile/2-w)
 				       (/ (aval hud :last-health-amt)
-					  (aval (estate
-						 (aval *global-game* :player))
+					  (aval (estate (entity-id :player))
 						:max-health-amt))))
 			     (tiles/2 1))
 	  :pos (tiles/2-v bar-tile/2-x 4))
@@ -667,8 +665,7 @@ This can be abused with the machine gun in TAS."
 	(create-rect-cmpts 0 (tiles/2 3)
 			   (floor (* (tiles/2 bar-tile/2-w)
 				     (/ health
-					(aval (estate
-					       (aval *global-game* :player))
+					(aval (estate (entity-id :player))
 					      :max-health-amt))))
 			   (tiles/2 1))
 	:pos (tiles/2-v bar-tile/2-x 4))
@@ -694,10 +691,8 @@ This can be abused with the machine gun in TAS."
 			      :pos exp-pos)
 	 drawings))
 
-      (multiple-value-bind (exp gun-name) (current-gun-exp (aval *global-game*
-								 :player)
-							   (aval *global-game*
-								 :gun-exps))
+      (multiple-value-bind (exp gun-name) (current-gun-exp (entity-id :player)
+							   (entity-id :gun-exps))
 	(let* ((current-level (gun-level exp (cdr (assoc gun-name *gun-level-exps*))))
 	       (next-lvl-exp (exp-for-gun-level gun-name current-level))
 	       (current-lvl-exp (if (zerop current-level)
@@ -746,7 +741,7 @@ This can be abused with the machine gun in TAS."
        (lambda (hud)
 	 (aset hud
 	       :last-health-amt
-	       (aval (estate (aval *global-game* :player)) :health-amt))))
+	       (aval (estate (entity-id :player)) :health-amt))))
 
 (defun textbox-tile-drawing (src-pos pos)
   (let ((size (both-v (tiles/2 1))))
@@ -1260,13 +1255,13 @@ This can be abused with the machine gun in TAS."
 
 (defun face-player-ai (obj)
   (aset obj :facing (face-player (physics-pos obj)
-				 (aval *global-game* :player))))
+				 (entity-id :player))))
 
 (defun critter-jump-ai (c)
   (let ((facing (aval c :facing)))
 
     (if (and (not (timer-active? (aval c :sleep-timer)))
-	     (< (origin-dist c (estate (aval *global-game* :player))) (tiles 4))
+	     (< (origin-dist c (estate (entity-id :player))) (tiles 4))
 	     (aval c :ground-tile))
 	(aupdate c
 		 :stage-physics
@@ -1280,7 +1275,7 @@ This can be abused with the machine gun in TAS."
 	 (sprite-tile-x (cond
 			  ((and sleep-timer (timer-active? sleep-timer))
 			   0)
-			  ((< (origin-dist c (estate (aval *global-game* :player)))
+			  ((< (origin-dist c (estate (entity-id :player)))
 			      (tiles 7))
 			   1)
 			  (t
@@ -1477,7 +1472,7 @@ This can be abused with the machine gun in TAS."
 
 (defun floating-number-update (id amt)
   "Returns a list of new states for entities."
-  (let* ((d (estate (aval *global-game* :damage-numbers)))
+  (let* ((d (estate (entity-id :damage-numbers)))
 	 (dns (aval d :pairs))
 	 (existing-dn-pair (assoc id dns)))
     (if existing-dn-pair
@@ -1621,7 +1616,7 @@ This can be abused with the machine gun in TAS."
 	       :new-states
 	       (appendfn
 		(list*
-		 (timed-camera-shake (estate (aval *global-game* :camera))
+		 (timed-camera-shake (estate (entity-id :camera))
 				     (s->ms 1/2))
 		 (make-num-death-cloud-particles
 		  3 (+ (physics-pos e)
@@ -2961,7 +2956,7 @@ The number of smoke particles to create when destroyed.")
   (eq :closing (aval d :eye-state)))
 
 (defun door-eye-ai (d)
-  (let* ((player-x (x (origin (estate (aval *global-game* :player)))))
+  (let* ((player-x (x (origin (estate (entity-id :player)))))
 	 (door-x (x (origin d)))
 	 (player-in-range?
 	  (< (abs (- player-x door-x)) (* 4 *tile-size*))))

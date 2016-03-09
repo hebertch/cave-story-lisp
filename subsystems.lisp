@@ -83,14 +83,19 @@ Binds :damage-amt (in obj) to the bullet hit amount."
   (let ((obj (funcall fn (estate id env))))
     (apply-effects env obj)))
 
+(defun entity-id (key &optional (env (make-env)))
+  (aval (aval env :game) key))
+
 (defun make-env ()
   (alist :entity-registry *current-entity-registry*
 	 :registry *registry*
-	 :sfx-play-list *sfx-play-list*))
+	 :sfx-play-list *sfx-play-list*
+	 :game *global-game*))
 (defun update-env! (env)
   (setq *current-entity-registry* (aval env :entity-registry)
 	*registry* (aval env :registry)
-	*sfx-play-list* (aval env :sfx-play-list)))
+	*sfx-play-list* (aval env :sfx-play-list)
+	*global-game* (aval env :game)))
 
 (defun update-subsystem (env key update-fn)
   (dolist (entity-id (aval *registry* key))
@@ -109,16 +114,16 @@ Binds :damage-amt (in obj) to the bullet hit amount."
   env)
 
 (defun update-stage-collision-entity (env id)
-  (let ((stage (estate (aval *global-game* :stage) env)))
+  (let ((stage (estate (entity-id :stage env) env)))
     (update-world env id
 		  #_(stage-collision _ stage))))
 
 (defun update-input-entity (env id)
-  (let ((input (aval *global-game* :input)))
+  (let ((input (entity-id :input env)))
     (update-world env id  #_(input _ input))))
 
 (defun update-dynamic-collision-entity (env id)
-  (let ((player (aval *global-game* :player)))
+  (let ((player (entity-id :player env)))
     (dolist (side *collision-order*)
       (let* ((state (estate id env))
 	     (player-state
@@ -145,7 +150,7 @@ Binds :damage-amt (in obj) to the bullet hit amount."
   env)
 
 (defun update-pickup-entity (env id)
-  (let ((player-id (aval *global-game* :player)))
+  (let ((player-id (entity-id :player)))
     (let* ((state (estate id env))
 	   (rect (pickup-rect state))
 	   (player-rect (player-damage-collision-rect
@@ -160,7 +165,7 @@ Binds :damage-amt (in obj) to the bullet hit amount."
   env)
 
 (defun update-damage-collision-entity (env id)
-  (let ((player-id (aval *global-game* :player)))
+  (let ((player-id (entity-id :player)))
     (let ((rect (damage-collision-rect
 		 (estate id env)))
 	  (player-rect (player-damage-collision-rect
@@ -237,7 +242,6 @@ Binds :damage-amt (in obj) to the bullet hit amount."
   (dolist (sys (aval entity :subsystems))
     (setq registry (registry-insert-id registry sys id)))
   registry)
-
 
 (defun make-entity-registry () nil)
 
