@@ -69,47 +69,21 @@ Binds :damage-amt (in obj) to the bullet hit amount."
   "Insert entity-id ID into the registry table."
   (aupdate table registry-key (pushfn id)))
 
-(defun registry-insert-id! (registry-key id)
-  "Insert entity-id ID into the registry table."
-  (setq *registry* (registry-insert-id *registry* registry-key id)))
-
 (defun registry-remove-dead (registry)
   "Remove the dead entities associated with all registry-keys."
   (mapcar (lambda (key-and-ids)
 	    (cons (car key-and-ids)
 		  (remove-if (lambda (id) (dead? (estate id))) (cdr key-and-ids))))
 	  registry))
-(defun registry-remove-dead! ()
-  "Remove the dead entities associated with all registry-keys."
-  (setq *registry* (registry-remove-dead *registry*)))
-
-(defun registry-ids (registry-key)
-  "Return a list of the ids in registry-key."
-  (aval *registry* registry-key))
-(defun clear-registry! ()
-  "Clear the registry."
-  (setq *registry* nil))
-
-(defun apply-effects! (entity-registry obj)
-  (appendf *sfx-play-list* (aval obj :sound-effects))
-  
-  (loop for state in (aval obj :new-states) do
-       (if (estate (aval state :id))
-	   (setq entity-registry (estate-set entity-registry (aval state :id) state))
-	   (setq entity-registry (create-entity! entity-registry (aval state :id) state))))
-  (estate-set entity-registry
-	      (aval obj :id)
-	      (arem obj
-		    :sound-effects
-		    :new-states)))
 
 (defun update-world! (entity-id fn)
   (let ((obj (funcall fn (estate entity-id))))
     (setq *current-entity-registry* (apply-effects! *current-entity-registry* obj))
-    (estate-set! entity-id (estate entity-id))))
+    (setq *current-entity-registry*
+	  (estate-set *current-entity-registry* entity-id (estate entity-id)))))
 
 (defun update-subsystem (key update-fn)
-  (dolist (entity-id (registry-ids key))
+  (dolist (entity-id (aval *registry* key))
     (funcall update-fn entity-id)))
 
 (setfn update-physics-entity! #_(update-world! _ #'physics))
@@ -138,10 +112,13 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 	  (draw-rect! player-rect *green* :layer :debug-dynamic-collision
 		      :filled? t)
 	  (draw-rect! rect *yellow* :layer :debug-dynamic-collision :filled? t)
-	  (estate-set! player
-		       (dynamic-collision-react state side
-						player-collision-rect
-						player)))))))
+	  (setq *current-entity-registry*
+		(estate-set
+		 *current-entity-registry*
+		 player
+		 (dynamic-collision-react state side
+					  player-collision-rect
+					  player))))))))
 (defun update-pickup-entity! (entity-id)
   (let ((player (aval *global-game* :player)))
     (let ((rect (pickup-rect (estate entity-id)))
@@ -220,7 +197,7 @@ Binds :damage-amt (in obj) to the bullet hit amount."
     (setq *current-entity-registry* (second id-and-registry))
     (loop for (id . e) in *current-entity-registry*
        do
-	 (register-entity-subsystems! id e)))
+	 (setq *registry* (register-entity-subsystems *registry* id e))))
   
   (defun init-id-system! ()
     (setq id 0))
@@ -234,24 +211,12 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 (defun estate (id &optional (er *current-entity-registry*))
   (let ((lookup (cdr (assoc id er))))
     lookup))
-(defun estate-set! (id obj)
-  (setq *current-entity-registry*
-	(estate-set *current-entity-registry* id obj))
-  :done)
 
 (defun register-entity-subsystems (registry id entity)
   (dolist (sys (aval entity :subsystems))
     (setq registry (registry-insert-id registry sys id)))
   registry)
 
-(defun register-entity-subsystems! (id entity)
-  (setq *registry* (register-entity-subsystems *registry* id entity))
-  :done)
-
-(defun create-entity! (entity-registry id initial-state)
-  (setq entity-registry (apply-effects! entity-registry initial-state))
-  (register-entity-subsystems! id (estate id entity-registry))
-  (estate-set entity-registry id (estate id entity-registry)))
 
 (defun make-entity-registry () nil)
 
@@ -265,3 +230,44 @@ by id updated to have state."
 (setfn timers
        "Return o with its :timers updated :ticks set, and ai applied."
        ai timer-set-update (asetfn :ticks nil))
+
+(defun apply-effects (env obj)
+  (appendf *sfx-play-list* (aval obj :sound-effects))
+  
+  (loop for state in (aval obj :new-states) do
+       (setq env
+	     (if (estate (aval state :id))
+		 (aupdate env :entity-registry
+			  #_(estate-set _ (aval state :id) state))
+		 (create-entity env (aval state :id) state))))
+  (aupdate env
+	   :entity-registry
+	   #_(estate-set _
+			 (aval obj :id)
+			 (arem obj
+			       :sound-effects
+			       :new-states))))
+
+(defun apply-effects! (entity-registry obj)
+  (let ((env (alist :entity-registry entity-registry
+		    :registry *registry*)))
+    (let ((env2 (apply-effects env obj)))
+      (setq *registry* (aval env2 :registry))
+      (aval env2 :entity-registry))))
+
+(defun create-entity (env id initial-state)
+  (funcall
+   (comp (lambda (env)
+	   (aupdate env
+		    :registry
+		    #_(register-entity-subsystems
+		       _ id (estate id (aval env :entity-registry)))))
+	 #_(apply-effects _ initial-state))
+   env))
+
+(defun create-entity! (entity-registry id initial-state)
+  (let ((env (alist :entity-registry entity-registry
+		    :registry *registry*)))
+    (let ((env2 (create-entity env id initial-state)))
+      (setq *registry* (aval env2 :registry))
+      (aval env2 :entity-registry))))

@@ -514,17 +514,19 @@ This can be abused with the machine gun in TAS."
 	   :amt #_(+ _ amount)))
 
 (defun remove-all-dead! (game)
-  ;; (setq *current-entity-registry*
-  ;; 	(remove-if #_(aval _ :dead?)
-  ;; 		   *current-entity-registry*
-  ;; 		   :key #'cdr))
-  (registry-remove-dead!)
-  (estate-set! (aval game :projectile-groups)
-	       (projectile-groups-remove-dead
-		(estate (aval game :projectile-groups))))
-  (estate-set! (aval game :damage-numbers)
-	       (damage-numbers-remove-dead
-		(estate (aval game :damage-numbers))))
+  (setq *registry* (registry-remove-dead *registry*))
+  (setq *current-entity-registry*
+	(estate-set
+	 *current-entity-registry*
+	 (aval game :projectile-groups)
+	 (projectile-groups-remove-dead
+	  (estate (aval game :projectile-groups)))))
+  (setq *current-entity-registry*
+	(estate-set
+	 *current-entity-registry*
+	 (aval game :damage-numbers)
+	 (damage-numbers-remove-dead
+	  (estate (aval game :damage-numbers)))))
   (values))
 
 (defun hud-number-drawing (tile/2-y number)
@@ -951,7 +953,7 @@ This can be abused with the machine gun in TAS."
   (list (current-entity-states) *global-game*))
 
 (defun restore-state (state)
-  (clear-registry!)
+  (setq *registry* nil)
   (restore-entity-states! (first state))
   (setq *global-game* (second state)))
 
@@ -1034,7 +1036,7 @@ This can be abused with the machine gun in TAS."
   ;;(switch-to-new-song! :lastcave)
   (set-music-volume! 20)
 
-  (clear-registry!)
+  (setq *registry* nil)
   (init-entity-registry!)
 
   (setq *global-paused?* nil)
