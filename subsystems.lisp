@@ -69,11 +69,12 @@ Binds :damage-amt (in obj) to the bullet hit amount."
   "Insert entity-id ID into the registry table."
   (aupdate table registry-key (pushfn id)))
 
-(defun registry-remove-dead (registry)
+(defun registry-remove-dead (registry entity-registry)
   "Remove the dead entities associated with all registry-keys."
   (mapcar (lambda (key-and-ids)
 	    (cons (car key-and-ids)
-		  (remove-if (lambda (id) (dead? (estate id))) (cdr key-and-ids))))
+		  (remove-if (lambda (id) (dead? (estate id entity-registry)))
+			     (cdr key-and-ids))))
 	  registry))
 
 (defun update-world (env id fn)
@@ -97,34 +98,24 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 
 (defun update-physics-entity (env id)
   (update-world env id #'physics))
-(defun update-physics-entity! (id)
-  (update-env! (update-physics-entity (make-env) id)))
 
 (defun update-timers-entity (env id)
   (update-world env id #'timers))
-(defun update-timers-entity! (id)
-  (update-env! (update-timers-entity (make-env) id)))
 
 (defun update-drawable-entity (env id)
   (let ((drawings (ensure-list (draw (estate id (aval env :entity-registry))))))
     (appendf *render-list* drawings))
   env)
-(defun update-drawable-entity! (entity-id)
-  (update-env! (update-drawable-entity (make-env) entity-id)))
 
 (defun update-stage-collision-entity (env id)
   (let ((stage (estate (aval *global-game* :stage)
 		       (aval env :entity-registry))))
     (update-world env id
 		  #_(stage-collision _ stage))))
-(defun update-stage-collision-entity! (entity-id)
-  (update-env! (update-stage-collision-entity (make-env) entity-id)))
 
 (defun update-input-entity (env id)
   (let ((input (aval *global-game* :input)))
     (update-world env id  #_(input _ input))))
-(defun update-input-entity! (entity-id)
-  (update-env! (update-input-entity (make-env) entity-id)))
 
 (defun update-dynamic-collision-entity (env id)
   (let ((player (aval *global-game* :player)))
@@ -155,8 +146,6 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 					     player-collision-rect
 					     player))))))))
   env)
-(defun update-dynamic-collision-entity! (entity-id)
-  (update-env! (update-dynamic-collision-entity (make-env) entity-id)))
 
 (defun update-pickup-entity (env id)
   (let ((player-id (aval *global-game* :player)))
@@ -172,8 +161,6 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 	(setq env (update-world env player-id #_(player-pickup _ state)))
 	(setq env (update-world env id #'pickup-kill)))))
   env)
-(defun update-pickup-entity! (entity-id)
-  (update-env! (update-pickup-entity (make-env) entity-id)))
 
 (defun update-damage-collision-entity (env id)
   (let ((player-id (aval *global-game* :player)))
@@ -194,9 +181,6 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 	(draw-rect! player-rect *magenta* :layer :debug-damage-collision
 		    :filled? t))))
   env)
-(defun update-damage-collision-entity! (entity-id)
-  (update-env! (update-damage-collision-entity (make-env) entity-id)))
-
 
 (defun update-damageable-subsystem (env bullet-id)
   (update-subsystem
@@ -221,8 +205,6 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 	   (setq env
 		 (update-world env bullet-id #'bullet-hit-react)))))
      env)))
-(defun update-damageable-subsystem! (bullet-id)
-  (update-env! (update-damageable-subsystem (make-env) bullet-id)))
 
 (defun ticked? (obj timer-key)
   (member timer-key (aval obj :ticks)))

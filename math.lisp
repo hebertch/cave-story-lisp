@@ -130,7 +130,7 @@ If fn is null and default is provided, return (funcall default val)."
   (amerge
    (loop for (k fn) on keys-and-fns by #'cddr
       collecting (progn
-		   (assert (typep k 'keyword))
+		   (assert (typep k 'keytype))
 		   (cons k (call-if fn (aval alist k)))))
    alist))
 

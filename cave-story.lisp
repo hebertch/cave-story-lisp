@@ -513,21 +513,23 @@ This can be abused with the machine gun in TAS."
 	   :life-timer #'reset-timer
 	   :amt #_(+ _ amount)))
 
-(defun remove-all-dead! (game)
-  (setq *registry* (registry-remove-dead *registry*))
-  (setq *current-entity-registry*
-	(estate-set
-	 *current-entity-registry*
-	 (aval game :projectile-groups)
-	 (projectile-groups-remove-dead
-	  (estate (aval game :projectile-groups)))))
-  (setq *current-entity-registry*
-	(estate-set
-	 *current-entity-registry*
-	 (aval game :damage-numbers)
-	 (damage-numbers-remove-dead
-	  (estate (aval game :damage-numbers)))))
-  (values))
+(defun remove-all-dead (env game)
+  (aupdate env
+	   :registry #_(registry-remove-dead _ (aval env :entity-registry))
+	   :entity-registry
+	   (comp
+	    (lambda (entity-registry)
+	      (estate-set
+	       entity-registry
+	       (aval game :projectile-groups)
+	       (projectile-groups-remove-dead
+		(estate (aval game :projectile-groups) entity-registry))))
+	    (lambda (entity-registry)
+	      (estate-set
+	       entity-registry
+	       (aval game :damage-numbers)
+	       (damage-numbers-remove-dead
+		(estate (aval game :damage-numbers) entity-registry)))))))
 
 (defun hud-number-drawing (tile/2-y number)
   (number-drawing (tiles/2-v (+ (if (< number 10) 1 0) 3)
@@ -820,9 +822,10 @@ This can be abused with the machine gun in TAS."
       (setq env (update-subsystem env :dynamic-collision #'update-dynamic-collision-entity)))
 
     (setq env (update-subsystem env :drawable #'update-drawable-entity))
+    (setq env (remove-all-dead env game))
     (update-env! env))
 
-  (remove-all-dead! game)
+  
 
   ;; Debug Drawings Below.
 
