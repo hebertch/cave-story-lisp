@@ -176,25 +176,30 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 	(setq env (update-world env player-id #_(player-pickup _ state)))
 	(setq env (update-world env id #'pickup-kill)))))
   env)
-
 (defun update-pickup-entity! (entity-id)
   (update-env! (update-pickup-entity (make-env) entity-id)))
 
-(defun update-damage-collision-entity! (entity-id)
-  (let ((player (aval *global-game* :player)))
-    (let ((rect (damage-collision-rect (estate entity-id)))
-	  (player-rect (player-damage-collision-rect (estate player))))
+(defun update-damage-collision-entity (env id)
+  (let ((player-id (aval *global-game* :player)))
+    (let ((rect (damage-collision-rect
+		 (estate id (aval env :entity-registry))))
+	  (player-rect (player-damage-collision-rect
+			(estate player-id (aval env :entity-registry)))))
       (draw-rect! rect *red* :layer :debug-damage-collision)
       (draw-rect! player-rect *blue* :layer :debug-damage-collision)
       (when (rects-collide? rect player-rect)
-	(update-world! player
-		       #_ (player-take-damage _
-					      (damage-collision-amt
-					       (estate entity-id))))
+	(setq env (update-world env
+				player-id
+				#_ (player-take-damage
+				    _
+				    (damage-collision-amt
+				     (estate id (aval env :entity-registry))))))
 	(draw-rect! rect *magenta* :layer :debug-damage-collision :filled? t)
 	(draw-rect! player-rect *magenta* :layer :debug-damage-collision
-		    :filled? t)))))
-
+		    :filled? t))))
+  env)
+(defun update-damage-collision-entity! (entity-id)
+  (update-env! (update-damage-collision-entity (make-env) entity-id)))
 
 (defun update-damageable-subsystem! (bullet-id)
   (update-subsystem
