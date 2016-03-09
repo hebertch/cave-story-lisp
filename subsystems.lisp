@@ -104,13 +104,26 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 (defun update-physics-entity! (id)
   (update-env! (update-physics-entity (make-env) id)))
 
-(setfn update-timers-entity! #_(update-world! _ #'timers))
+(defun update-timers-entity (env id)
+  (update-world env id #'timers))
+(defun update-timers-entity! (id)
+  (update-env! (update-timers-entity (make-env) id)))
+
+(defun update-drawable-entity (env id)
+  (let ((drawings (ensure-list (draw (estate id (aval env :entity-registry))))))
+    (appendf *render-list* drawings))
+  env)
 (defun update-drawable-entity! (entity-id)
-  (let ((drawings (ensure-list (draw (estate entity-id)))))
-    (appendf *render-list* drawings)))
+  (update-env! (update-drawable-entity (make-env) entity-id)))
+
+(defun update-stage-collision-entity (env id)
+  (let ((stage (estate (aval *global-game* :stage)
+		       (aval env :entity-registry))))
+    (update-world env id
+		  #_(stage-collision _ stage))))
 (defun update-stage-collision-entity! (entity-id)
-  (update-world! entity-id
-		 #_(stage-collision _ (estate (aval *global-game* :stage)))))
+  (update-env! (update-stage-collision-entity (make-env) entity-id)))
+
 (defun update-input-entity! (entity-id)
   (update-world! entity-id #_(input _ (aval *global-game* :input))))
 (defun update-dynamic-collision-entity! (entity-id)
