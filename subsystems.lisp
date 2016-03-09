@@ -124,31 +124,44 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 (defun update-stage-collision-entity! (entity-id)
   (update-env! (update-stage-collision-entity (make-env) entity-id)))
 
+(defun update-input-entity (env id)
+  (let ((input (aval *global-game* :input)))
+    (update-world env id  #_(input _ input))))
 (defun update-input-entity! (entity-id)
-  (update-world! entity-id #_(input _ (aval *global-game* :input))))
-(defun update-dynamic-collision-entity! (entity-id)
+  (update-env! (update-input-entity (make-env) entity-id)))
+
+(defun update-dynamic-collision-entity (env id)
   (let ((player (aval *global-game* :player)))
     (dolist (side *collision-order*)
-      (let* ((state (estate entity-id))
+      (let* ((state (estate id (aval env :entity-registry)))
+	     (player-state
+	      (estate player (aval env :entity-registry)))
 	     (rect (dynamic-collision-rect state))
 	     (player-collision-rect
 	      (cdr (assoc side *player-collision-rectangles-alist*)))
 	     (player-rect
 	      (rect-offset player-collision-rect
-			   (physics-pos (estate player)))))
+			   (physics-pos player-state))))
 	(draw-rect! rect *blue* :layer :debug-dynamic-collision)
 	(draw-rect! player-rect *green* :layer :debug-dynamic-collision)
 	(when (rects-collide? rect player-rect)
 	  (draw-rect! player-rect *green* :layer :debug-dynamic-collision
 		      :filled? t)
 	  (draw-rect! rect *yellow* :layer :debug-dynamic-collision :filled? t)
-	  (setq *current-entity-registry*
-		(estate-set
-		 *current-entity-registry*
-		 player
-		 (dynamic-collision-react state side
-					  player-collision-rect
-					  player))))))))
+	  (setq env
+		(aupdate
+		 env
+		 :entity-registry
+		 #_(estate-set
+		    _
+		    player
+		    (dynamic-collision-react state side
+					     player-collision-rect
+					     player))))))))
+  env)
+(defun update-dynamic-collision-entity! (entity-id)
+  (update-env! (update-dynamic-collision-entity (make-env) entity-id)))
+
 (defun update-pickup-entity! (entity-id)
   (let ((player (aval *global-game* :player)))
     (let ((rect (pickup-rect (estate entity-id)))
