@@ -1008,20 +1008,24 @@ This can be abused with the machine gun in TAS."
 	 (active-systems (make-active-systems)))
     
     (let ((camera (make-camera (physics-pos player) (zero-v) player)))
-      (mapc (lambda (entity)
-	      (setq *current-entity-registry* (create-entity! *current-entity-registry* (aval entity :id) entity)))
-	    (list*
-	     stage
-	     damage-numbers
-	     projectile-groups
-	     stage
-	     hud
-	     player
-	     gun-exps
-	     active-systems
-	     camera
+      (let ((env (alist :entity-registry *current-entity-registry*
+			:registry *registry*)))
+	(mapc (lambda (entity)
+		(setq env (create-entity env (aval entity :id) entity)))
+	      (list*
+	       stage
+	       damage-numbers
+	       projectile-groups
+	       stage
+	       hud
+	       player
+	       gun-exps
+	       active-systems
+	       camera
 
-	     entities))
+	       entities))
+	(setq *current-entity-registry* (aval env :entity-registry)
+	      *registry* (aval env :registry)))
 
       (make-game :player (aval player :id)
 		 :camera (aval camera :id)

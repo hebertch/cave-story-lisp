@@ -77,8 +77,12 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 	  registry))
 
 (defun update-world! (entity-id fn)
-  (let ((obj (funcall fn (estate entity-id))))
-    (setq *current-entity-registry* (apply-effects! *current-entity-registry* obj))
+  (let ((obj (funcall fn (estate entity-id)))
+	(env (alist :entity-registry *current-entity-registry*
+		    :registry *registry*)))
+    (let ((env2 (apply-effects env obj)))
+      (setq *current-entity-registry* (aval env2 :entity-registry)
+	    *registry* (aval env2 :registry)))
     (setq *current-entity-registry*
 	  (estate-set *current-entity-registry* entity-id (estate entity-id)))))
 
@@ -248,13 +252,6 @@ by id updated to have state."
 			       :sound-effects
 			       :new-states))))
 
-(defun apply-effects! (entity-registry obj)
-  (let ((env (alist :entity-registry entity-registry
-		    :registry *registry*)))
-    (let ((env2 (apply-effects env obj)))
-      (setq *registry* (aval env2 :registry))
-      (aval env2 :entity-registry))))
-
 (defun create-entity (env id initial-state)
   (funcall
    (comp (lambda (env)
@@ -264,10 +261,3 @@ by id updated to have state."
 		       _ id (estate id (aval env :entity-registry)))))
 	 #_(apply-effects _ initial-state))
    env))
-
-(defun create-entity! (entity-registry id initial-state)
-  (let ((env (alist :entity-registry entity-registry
-		    :registry *registry*)))
-    (let ((env2 (create-entity env id initial-state)))
-      (setq *registry* (aval env2 :registry))
-      (aval env2 :entity-registry))))
