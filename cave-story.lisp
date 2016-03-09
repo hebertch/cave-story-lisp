@@ -514,22 +514,21 @@ This can be abused with the machine gun in TAS."
 	   :amt #_(+ _ amount)))
 
 (defun remove-all-dead (env game)
-  (aupdate env
-	   :registry #_(registry-remove-dead _ (aval env :entity-registry))
-	   :entity-registry
-	   (comp
-	    (lambda (entity-registry)
+  (funcall (comp
+	    #'registry-remove-dead
+	    (lambda (env)
 	      (estate-set
-	       entity-registry
+	       env
 	       (aval game :projectile-groups)
 	       (projectile-groups-remove-dead
-		(estate (aval game :projectile-groups) entity-registry))))
-	    (lambda (entity-registry)
+		(estate (aval game :projectile-groups) env))))
+	    (lambda (env)
 	      (estate-set
-	       entity-registry
+	       env
 	       (aval game :damage-numbers)
 	       (damage-numbers-remove-dead
-		(estate (aval game :damage-numbers) entity-registry)))))))
+		(estate (aval game :damage-numbers) env)))))
+	   env))
 
 (defun hud-number-drawing (tile/2-y number)
   (number-drawing (tiles/2-v (+ (if (< number 10) 1 0) 3)
@@ -850,8 +849,8 @@ This can be abused with the machine gun in TAS."
 			       (x tp) (y tp)))))
 
   ;; End Debug Drawings.
-  (play-sounds! *sfx-play-list*)
-  (setq *sfx-play-list* nil)
+  (play-sounds! (aval (make-env) :sfx-play-list))
+  (update-env! (aset (make-env) :sfx-play-list nil))
 
   (when (eq *input-playback* :recording)
     (record-frame-input (aval game :input)))

@@ -355,8 +355,11 @@ the get- function that is produced."
 
 (defvar *sfx-play-list* nil)
 
-(defun push-sound! (key-sym)
-  (push key-sym *sfx-play-list*)
+(defun push-sound (env sound-key)
+  (aupdate env :sfx-play-list (pushfn sound-key)))
+
+(defun push-sound! (sound-key)
+  (update-env! (push-sound (make-env) sound-key))
   :done)
 
 (def-resource-type sound

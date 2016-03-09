@@ -69,27 +69,28 @@ Binds :damage-amt (in obj) to the bullet hit amount."
   "Insert entity-id ID into the registry table."
   (aupdate table registry-key (pushfn id)))
 
-(defun registry-remove-dead (registry entity-registry)
+(defun registry-remove-dead (env)
   "Remove the dead entities associated with all registry-keys."
-  (mapcar (lambda (key-and-ids)
-	    (cons (car key-and-ids)
-		  (remove-if (lambda (id) (dead? (estate id entity-registry)))
-			     (cdr key-and-ids))))
-	  registry))
+  (aset env
+	:registry
+	(mapcar (lambda (key-and-ids)
+		  (cons (car key-and-ids)
+			(remove-if (lambda (id) (dead? (estate id env)))
+				   (cdr key-and-ids))))
+		(aval env :registry))))
 
 (defun update-world (env id fn)
-  (let ((obj (funcall fn (estate id (aval env :entity-registry)))))
-    (aupdate (apply-effects env obj)
-	     :entity-registry
-	     (lambda (entity-registry)
-	       (estate-set entity-registry id (estate id entity-registry))))))
+  (let ((obj (funcall fn (estate id env))))
+    (apply-effects env obj)))
 
 (defun make-env ()
   (alist :entity-registry *current-entity-registry*
-	 :registry *registry*))
+	 :registry *registry*
+	 :sfx-play-list *sfx-play-list*))
 (defun update-env! (env)
   (setq *current-entity-registry* (aval env :entity-registry)
-	*registry* (aval env :registry)))
+	*registry* (aval env :registry)
+	*sfx-play-list* (aval env :sfx-play-list)))
 
 (defun update-subsystem (env key update-fn)
   (dolist (entity-id (aval *registry* key))
@@ -103,13 +104,12 @@ Binds :damage-amt (in obj) to the bullet hit amount."
   (update-world env id #'timers))
 
 (defun update-drawable-entity (env id)
-  (let ((drawings (ensure-list (draw (estate id (aval env :entity-registry))))))
+  (let ((drawings (ensure-list (draw (estate id env)))))
     (appendf *render-list* drawings))
   env)
 
 (defun update-stage-collision-entity (env id)
-  (let ((stage (estate (aval *global-game* :stage)
-		       (aval env :entity-registry))))
+  (let ((stage (estate (aval *global-game* :stage) env)))
     (update-world env id
 		  #_(stage-collision _ stage))))
 
@@ -120,9 +120,9 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 (defun update-dynamic-collision-entity (env id)
   (let ((player (aval *global-game* :player)))
     (dolist (side *collision-order*)
-      (let* ((state (estate id (aval env :entity-registry)))
+      (let* ((state (estate id env))
 	     (player-state
-	      (estate player (aval env :entity-registry)))
+	      (estate player env))
 	     (rect (dynamic-collision-rect state))
 	     (player-collision-rect
 	      (cdr (assoc side *player-collision-rectangles-alist*)))
@@ -136,23 +136,20 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 		      :filled? t)
 	  (draw-rect! rect *yellow* :layer :debug-dynamic-collision :filled? t)
 	  (setq env
-		(aupdate
+		(estate-set
 		 env
-		 :entity-registry
-		 #_(estate-set
-		    _
-		    player
-		    (dynamic-collision-react state side
-					     player-collision-rect
-					     player))))))))
+		 player
+		 (dynamic-collision-react state side
+					  player-collision-rect
+					  player)))))))
   env)
 
 (defun update-pickup-entity (env id)
   (let ((player-id (aval *global-game* :player)))
-    (let* ((state (estate id (aval env :entity-registry)))
+    (let* ((state (estate id env))
 	   (rect (pickup-rect state))
 	   (player-rect (player-damage-collision-rect
-			 (estate player-id (aval env :entity-registry)))))
+			 (estate player-id env))))
       (draw-rect! rect *green* :layer :debug-pickup)
       (draw-rect! player-rect *blue* :layer :debug-pickup)
       (when (rects-collide? rect player-rect)
@@ -165,9 +162,9 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 (defun update-damage-collision-entity (env id)
   (let ((player-id (aval *global-game* :player)))
     (let ((rect (damage-collision-rect
-		 (estate id (aval env :entity-registry))))
+		 (estate id env)))
 	  (player-rect (player-damage-collision-rect
-			(estate player-id (aval env :entity-registry)))))
+			(estate player-id env))))
       (draw-rect! rect *red* :layer :debug-damage-collision)
       (draw-rect! player-rect *blue* :layer :debug-damage-collision)
       (when (rects-collide? rect player-rect)
@@ -176,7 +173,7 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 				#_ (player-take-damage
 				    _
 				    (damage-collision-amt
-				     (estate id (aval env :entity-registry))))))
+				     (estate id env)))))
 	(draw-rect! rect *magenta* :layer :debug-damage-collision :filled? t)
 	(draw-rect! player-rect *magenta* :layer :debug-damage-collision
 		    :filled? t))))
@@ -187,13 +184,13 @@ Binds :damage-amt (in obj) to the bullet hit amount."
    env
    :damageable
    (lambda (env id)
-     (unless (dead? (estate bullet-id (aval env :entity-registry)))
+     (unless (dead? (estate bullet-id env))
        (let ((bullet-rect
-	      (bullet-rect (estate bullet-id (aval env :entity-registry))))
+	      (bullet-rect (estate bullet-id env)))
 	     (bullet-hit-amt
-	      (bullet-damage-amt (estate bullet-id (aval env :entity-registry))))
+	      (bullet-damage-amt (estate bullet-id env)))
 	     (rect
-	      (damageable-rect (estate id (aval env :entity-registry)))))
+	      (damageable-rect (estate id env))))
 	 (draw-rect! bullet-rect *green* :layer :debug-damageable)
 	 (draw-rect! rect *blue* :layer :debug-damageable)
 	 (when (rects-collide? rect bullet-rect)
@@ -232,8 +229,8 @@ Binds :damage-amt (in obj) to the bullet hit amount."
   (init-id-system!)
   (setq *current-entity-registry* (make-entity-registry)))
 
-(defun estate (id &optional (er *current-entity-registry*))
-  (let ((lookup (cdr (assoc id er))))
+(defun estate (id &optional (env (make-env)))
+  (let ((lookup (cdr (assoc id (aval env :entity-registry)))))
     lookup))
 
 (defun register-entity-subsystems (registry id entity)
@@ -244,10 +241,10 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 
 (defun make-entity-registry () nil)
 
-(defun estate-set (entity-registry id state)
-  "Return an entity-registry with the entity identified
+(defun estate-set (env id state)
+  "Return an updated environment with the entity identified
 by id updated to have state."
-  (aset entity-registry id state))
+  (aupdate env :entity-registry (asetfn id state)))
 
 (setfn physics motion-set-update)
 (setfn physics-pos motion-set-pos)
@@ -256,21 +253,18 @@ by id updated to have state."
        ai timer-set-update (asetfn :ticks nil))
 
 (defun apply-effects (env obj)
-  (appendf *sfx-play-list* (aval obj :sound-effects))
+  (setq env (aupdate env :sfx-play-list (appendfn (aval obj :sound-effects))))
   
   (loop for state in (aval obj :new-states) do
        (setq env
-	     (if (estate (aval state :id))
-		 (aupdate env :entity-registry
-			  #_(estate-set _ (aval state :id) state))
+	     (if (estate (aval state :id) env)
+		 (estate-set env (aval state :id) state)
 		 (create-entity env (aval state :id) state))))
-  (aupdate env
-	   :entity-registry
-	   #_(estate-set _
-			 (aval obj :id)
-			 (arem obj
-			       :sound-effects
-			       :new-states))))
+  (estate-set env
+	      (aval obj :id)
+	      (arem obj
+		    :sound-effects
+		    :new-states)))
 
 (defun create-entity (env id initial-state)
   (funcall
@@ -278,6 +272,6 @@ by id updated to have state."
 	   (aupdate env
 		    :registry
 		    #_(register-entity-subsystems
-		       _ id (estate id (aval env :entity-registry)))))
+		       _ id (estate id env))))
 	 #_(apply-effects _ initial-state))
    env))
