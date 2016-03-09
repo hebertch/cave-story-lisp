@@ -5,7 +5,7 @@
 (defvar *window*)
 (defvar *renderer*)
 (defvar *font*)
-(defvar *global-game*)
+(defvar *global-game* nil)
 
 (defvar* *stage-viewer* nil)
 (defvar *stage-viewer-camera-pos* (scale-v *window-dims* 1/2))
@@ -22,7 +22,7 @@
        ,(lambda () (setq *global-paused?* (not *global-paused?*))))
       (((:key :r)
 	(:joy :select)) .
-       ,(lambda () (setq *global-game* (reset!))))
+       ,(lambda () (update-env! (aset (make-env) :game (reset!)))))
       (((:joy :r)) .
        ,(lambda ()
 		(case *input-playback*
@@ -32,8 +32,7 @@
       (((:key :n)) .
        ,(lambda ()
 		(when *global-paused?*
-		  (setq *global-game*
-			(update! *global-game*)))))))
+		  (update-env! (aupdate (make-env) :game #'update!)))))))
 
 (defun make-game
     (&key player camera stage projectile-groups hud gun-exps
@@ -111,7 +110,7 @@
       (draw-text-line! (zero-v) "PAUSED")
       (progn
 	(rolling-average-time *update-rolling-average*
-	  (setq *global-game* (update! *global-game*)))
+	  (update!))
 
 	(draw-text-line!
 	 (make-v 0 (- (y *window-dims*) *tile-size*))
@@ -136,9 +135,10 @@
 (defun main-loop-iteration! ()
   (let ((transient-input (gather-transient-input)))
     (handle-debug-input! transient-input)
-    (setq *global-game*
-	  (aset *global-game*
-		:input (gather-input (entity-id :input) transient-input))))
+    (update-env! (aupdate (make-env)
+			  :game
+			  (asetfn
+			   :input (gather-input (entity-id :input) transient-input)))))
   (when (>= *frame-timer* (* *update-period* *frame-time*))
     (rolling-average-time *frame-rolling-average* (update-and-render!)))
 
@@ -157,7 +157,7 @@
     (unwind-protect
 	 (progn
 	   (setq *frame-timer* 0)
-	   (setq *global-game* (init!))
+	   (init!)
 	   (setq *update-rolling-average* (make-rolling-average (* *fps* 3)))
 	   (setq *render-rolling-average* (make-rolling-average (* *fps* 3)))
 	   (setq *frame-rolling-average* (make-rolling-average (* *fps* 3)))
@@ -168,15 +168,17 @@
 		  (main-loop-iteration!))))
       (cleanup!))))
 
-(defun handle-input! (game)
+(defun handle-input! ()
   "Handles input. Often called many times between updates.
 This can be abused with the machine gun in TAS."
 
   (update-env! (update-subsystem (make-env) :input #'update-input-entity))
-  (let ((input (aval game :input)))
-    (when (or (joy-pressed? input :b) (key-pressed? input :x))
-      ;; Fire Gun
-      (update-env! (update-world (make-env) (aval game :player) #'player-fire-gun)))))
+  (let ((env (make-env)))
+    (let ((input (entity-id :input env)))
+      (when (or (joy-pressed? input :b) (key-pressed? input :x))
+	;; Fire Gun
+	(update-env! (update-world env (entity-id :player env)
+				   #'player-fire-gun))))))
 
 (defun dialog-ok-pressed! ()
   )
@@ -512,21 +514,21 @@ This can be abused with the machine gun in TAS."
 	   :life-timer #'reset-timer
 	   :amt #_(+ _ amount)))
 
-(defun remove-all-dead (env game)
+(defun remove-all-dead (env)
   (funcall (comp
 	    #'registry-remove-dead
 	    (lambda (env)
 	      (estate-set
 	       env
-	       (aval game :projectile-groups)
+	       (entity-id :projectile-groups env)
 	       (projectile-groups-remove-dead
-		(estate (aval game :projectile-groups) env))))
+		(estate (entity-id :projectile-groups env) env))))
 	    (lambda (env)
 	      (estate-set
 	       env
-	       (aval game :damage-numbers)
+	       (entity-id :damage-numbers env)
 	       (damage-numbers-remove-dead
-		(estate (aval game :damage-numbers) env)))))
+		(estate (entity-id :damage-numbers env) env)))))
 	   env))
 
 (defun hud-number-drawing (tile/2-y number)
@@ -790,12 +792,12 @@ This can be abused with the machine gun in TAS."
 (defun mouse->tile-pos (mouse-pos camera-pos)
   (pos->tile-pos (+ mouse-pos camera-pos)))
 
-(defun update! (game)
+(defun update! ()
   "The Main Loop, called once per *FRAME-TIME*."
-  (when (eq *input-playback* :playback)
-    (setq game
-	  (aset game :input (next-playback-input))))
-  (handle-input! game)
+  (let ((env (make-env)))
+    (when (eq *input-playback* :playback)
+      (setq env (aupdate (make-env) :game (asetfn :input (next-playback-input))))))
+  (handle-input!)
 
   (setq *render-list* nil)
 
@@ -816,25 +818,23 @@ This can be abused with the machine gun in TAS."
       (setq env (update-subsystem env :dynamic-collision #'update-dynamic-collision-entity)))
 
     (setq env (update-subsystem env :drawable #'update-drawable-entity))
-    (setq env (remove-all-dead env game))
+    (setq env (remove-all-dead env))
     (update-env! env))
-
-  
 
   ;; Debug Drawings Below.
 
   ;; (draw-point! (player-nozzle-pos player) *red*)
-  (let ((focus (camera-focus (estate (aval game :camera))))
+  (let ((focus (camera-focus (estate (entity-id :camera))))
 	(camera-bounds (stage-dims->camera-bounds
-			(stage-dims (estate (aval game :stage))))))
+			(stage-dims (estate (entity-id :stage))))))
     (unless *stage-viewer*
       (draw-point! focus *cyan*)
       (draw-point! (clamp-pos focus camera-bounds) *red*))
     (draw-rect! camera-bounds *cyan* :layer :debug-camera))
   (unless *stage-viewer*
-    (draw-point! (camera-target-from-player (estate (aval game :player)))
+    (draw-point! (camera-target-from-player (estate (entity-id :player)))
 		 *white*))
-  (let ((mouse-pos (input-mouse-coords (aval game :input))))
+  (let ((mouse-pos (input-mouse-coords (entity-id :input))))
     (draw-point! mouse-pos
 		 *white*
 		 :layer :mouse)
@@ -848,9 +848,11 @@ This can be abused with the machine gun in TAS."
   (update-env! (aset (make-env) :sfx-play-list nil))
 
   (when (eq *input-playback* :recording)
-    (record-frame-input (aval game :input)))
+    (record-frame-input (entity-id :input)))
 
-  (aset game :input (reset-transient-input (aval game :input))))
+  (update-env! (aupdate (make-env)
+			:game
+			(asetfn :input (reset-transient-input (entity-id :input))))))
 
 (defvar* *input-playback* nil)
 
@@ -949,7 +951,7 @@ This can be abused with the machine gun in TAS."
      gun-name)))
 
 (defun save-current-state ()
-  (list (current-entity-states) *global-game*))
+  (list (current-entity-states) (aval (make-env) :game)))
 
 (defun restore-state (state)
   (setq *registry* nil)
@@ -1007,8 +1009,7 @@ This can be abused with the machine gun in TAS."
 	 (active-systems (make-active-systems)))
     
     (let ((camera (make-camera (physics-pos player) (zero-v) player)))
-      (let ((env (alist :entity-registry *current-entity-registry*
-			:registry *registry*)))
+      (let ((env (make-env)))
 	(mapc (lambda (entity)
 		(setq env (create-entity env (aval entity :id) entity)))
 	      (list*
@@ -1023,17 +1024,18 @@ This can be abused with the machine gun in TAS."
 	       camera
 
 	       entities))
-	(setq *current-entity-registry* (aval env :entity-registry)
-	      *registry* (aval env :registry)))
+	(update-env! env))
 
-      (make-game :player (aval player :id)
-		 :camera (aval camera :id)
-		 :stage (aval stage :id)
-		 :hud (aval hud :id)
-		 :projectile-groups (aval projectile-groups :id)
-		 :gun-exps (aval gun-exps :id)
-		 :active-systems (aval active-systems :id)
-		 :damage-numbers (aval damage-numbers :id)))))
+      (update-env! (aset (make-env)
+			 :game
+			 (make-game :player (aval player :id)
+				    :camera (aval camera :id)
+				    :stage (aval stage :id)
+				    :hud (aval hud :id)
+				    :projectile-groups (aval projectile-groups :id)
+				    :gun-exps (aval gun-exps :id)
+				    :active-systems (aval active-systems :id)
+				    :damage-numbers (aval damage-numbers :id)))))))
 
 (defun reset! ()
   ;;(switch-to-new-song! :lastcave)
