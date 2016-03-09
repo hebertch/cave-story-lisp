@@ -90,9 +90,10 @@ Binds :damage-amt (in obj) to the bullet hit amount."
   (setq *current-entity-registry* (aval env :entity-registry)
 	*registry* (aval env :registry)))
 
-(defun update-subsystem (key update-fn)
+(defun update-subsystem (env key update-fn)
   (dolist (entity-id (aval *registry* key))
-    (funcall update-fn entity-id)))
+    (setq env (funcall update-fn env entity-id)))
+  env)
 
 (defun update-physics-entity (env id)
   (update-world env id #'physics))
@@ -199,8 +200,9 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 
 (defun update-damageable-subsystem (env bullet-id)
   (update-subsystem
+   env
    :damageable
-   (lambda (id)
+   (lambda (env id)
      (unless (dead? (estate bullet-id (aval env :entity-registry)))
        (let ((bullet-rect
 	      (bullet-rect (estate bullet-id (aval env :entity-registry))))
@@ -217,8 +219,8 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 		 (update-world env id
 			       #_(damageable-hit-react _ bullet-hit-amt)))
 	   (setq env
-		 (update-world env bullet-id #'bullet-hit-react)))))))
-  env)
+		 (update-world env bullet-id #'bullet-hit-react)))))
+     env)))
 (defun update-damageable-subsystem! (bullet-id)
   (update-env! (update-damageable-subsystem (make-env) bullet-id)))
 

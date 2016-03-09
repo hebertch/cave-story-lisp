@@ -173,7 +173,7 @@
   "Handles input. Often called many times between updates.
 This can be abused with the machine gun in TAS."
 
-  (update-subsystem :input #'update-input-entity!)
+  (update-env! (update-subsystem (make-env) :input #'update-input-entity))
   (let ((input (aval game :input)))
     (when (or (joy-pressed? input :b) (key-pressed? input :x))
       ;; Fire Gun
@@ -809,16 +809,18 @@ This can be abused with the machine gun in TAS."
     (:playback
      (draw-text-line! (zero-v) "PLAYBACK")))
 
-  (unless *stage-viewer*
-    (update-subsystem :timers #'update-timers-entity!)
-    (update-subsystem :physics #'update-physics-entity!)
-    (update-subsystem :bullet #'update-damageable-subsystem!)
-    (update-subsystem :stage-collision #'update-stage-collision-entity!)
-    (update-subsystem :pickup #'update-pickup-entity!)
-    (update-subsystem :damage-collision #'update-damage-collision-entity!)
-    (update-subsystem :dynamic-collision #'update-dynamic-collision-entity!))
+  (let ((env (make-env)))
+    (unless *stage-viewer*
+      (setq env (update-subsystem env :timers #'update-timers-entity))
+      (setq env (update-subsystem env :physics #'update-physics-entity))
+      (setq env (update-subsystem env :bullet #'update-damageable-subsystem))
+      (setq env (update-subsystem env :stage-collision #'update-stage-collision-entity))
+      (setq env (update-subsystem env :pickup #'update-pickup-entity))
+      (setq env (update-subsystem env :damage-collision #'update-damage-collision-entity))
+      (setq env (update-subsystem env :dynamic-collision #'update-dynamic-collision-entity)))
 
-  (update-subsystem :drawable #'update-drawable-entity!)
+    (setq env (update-subsystem env :drawable #'update-drawable-entity))
+    (update-env! env))
 
   (remove-all-dead! game)
 
