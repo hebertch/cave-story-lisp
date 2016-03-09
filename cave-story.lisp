@@ -177,7 +177,7 @@ This can be abused with the machine gun in TAS."
   (let ((input (aval game :input)))
     (when (or (joy-pressed? input :b) (key-pressed? input :x))
       ;; Fire Gun
-      (update-world! (aval game :player) #'player-fire-gun))))
+      (update-env! (update-world (make-env) (aval game :player) #'player-fire-gun)))))
 
 (defun dialog-ok-pressed! ()
   )

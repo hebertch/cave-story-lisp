@@ -83,11 +83,6 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 	     (lambda (entity-registry)
 	       (estate-set entity-registry id (estate id entity-registry))))))
 
-(defun update-world! (entity-id fn)
-  (let ((env (make-env)))
-    (let ((env2 (update-world env entity-id fn)))
-      (update-env! env2))))
-
 (defun make-env ()
   (alist :entity-registry *current-entity-registry*
 	 :registry *registry*))
