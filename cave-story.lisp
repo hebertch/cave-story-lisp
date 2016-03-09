@@ -173,7 +173,7 @@
   "Handles input. Often called many times between updates.
 This can be abused with the machine gun in TAS."
 
-  (update-input-subsystem!)
+  (update-subsystem :input #'update-input-entity!)
   (let ((input (aval game :input)))
     (when (or (joy-pressed? input :b) (key-pressed? input :x))
       ;; Fire Gun

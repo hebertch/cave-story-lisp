@@ -150,24 +150,6 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 	(draw-rect! player-rect *magenta* :layer :debug-damage-collision
 		    :filled? t)))))
 
-(defun update-physics-subsystem! ()
-  (update-subsystem :physics #'update-physics-entity!))
-(defun update-timers-subsystem! ()
-  (update-subsystem :timers #'update-timers-entity!))
-(defun update-drawable-subsystem! ()
-  (update-subsystem :drawable #'update-drawable-entity!))
-(defun update-stage-collision-subsystem! ()
-  (update-subsystem :stage-collision #'update-stage-collision-entity!))
-(defun update-input-subsystem! ()
-  (update-subsystem :input #'update-input-entity!))
-(defun update-dynamic-collision-subsystem! ()
-  (update-subsystem :dynamic-collision #'update-dynamic-collision-entity!))
-(defun update-bullet-subsystem! ()
-  (update-subsystem :bullet #'update-damageable-subsystem!))
-(defun update-pickup-subsystem! ()
-  (update-subsystem :pickup #'update-pickup-entity!))
-(defun update-damage-collision-subsystem! ()
-  (update-subsystem :damage-collision #'update-damage-collision-entity!))
 
 (defun update-damageable-subsystem! (bullet-id)
   (update-subsystem
