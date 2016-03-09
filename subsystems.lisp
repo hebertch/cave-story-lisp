@@ -201,22 +201,31 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 (defun update-damage-collision-entity! (entity-id)
   (update-env! (update-damage-collision-entity (make-env) entity-id)))
 
-(defun update-damageable-subsystem! (bullet-id)
+
+(defun update-damageable-subsystem (env bullet-id)
   (update-subsystem
    :damageable
-   (lambda (entity-id)
-     (unless (dead? (estate bullet-id))
-       (let ((bullet-rect (bullet-rect (estate bullet-id)))
-	     (bullet-hit-amt (bullet-damage-amt (estate bullet-id)))
-	     (rect (damageable-rect (estate entity-id))))
+   (lambda (id)
+     (unless (dead? (estate bullet-id (aval env :entity-registry)))
+       (let ((bullet-rect
+	      (bullet-rect (estate bullet-id (aval env :entity-registry))))
+	     (bullet-hit-amt
+	      (bullet-damage-amt (estate bullet-id (aval env :entity-registry))))
+	     (rect
+	      (damageable-rect (estate id (aval env :entity-registry)))))
 	 (draw-rect! bullet-rect *green* :layer :debug-damageable)
 	 (draw-rect! rect *blue* :layer :debug-damageable)
 	 (when (rects-collide? rect bullet-rect)
 	   (draw-rect! bullet-rect *yellow* :layer :debug-damageable :filled? t)
 	   (draw-rect! rect *yellow* :layer :debug-damageable :filled? t)
-	   (update-world! entity-id
-			  #_(damageable-hit-react _ bullet-hit-amt))
-	   (update-world! bullet-id #'bullet-hit-react)))))))
+	   (setq env
+		 (update-world env id
+			       #_(damageable-hit-react _ bullet-hit-amt)))
+	   (setq env
+		 (update-world env bullet-id #'bullet-hit-react)))))))
+  env)
+(defun update-damageable-subsystem! (bullet-id)
+  (update-env! (update-damageable-subsystem (make-env) bullet-id)))
 
 (defun ticked? (obj timer-key)
   (member timer-key (aval obj :ticks)))
