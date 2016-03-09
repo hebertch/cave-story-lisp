@@ -100,8 +100,10 @@ Binds :damage-amt (in obj) to the bullet hit amount."
     (funcall update-fn entity-id)))
 
 (defun update-physics-entity (env id)
-  (update-world ))
-(setfn update-physics-entity! #_(update-world! _ #'physics))
+  (update-world env id #'physics))
+(defun update-physics-entity! (id)
+  (update-env! (update-physics-entity (make-env) id)))
+
 (setfn update-timers-entity! #_(update-world! _ #'timers))
 (defun update-drawable-entity! (entity-id)
   (let ((drawings (ensure-list (draw (estate entity-id)))))
