@@ -76,15 +76,19 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 		  (remove-if (lambda (id) (dead? (estate id))) (cdr key-and-ids))))
 	  registry))
 
+(defun update-world (env id fn)
+  (let ((obj (funcall fn (estate id (aval env :entity-registry)))))
+    (aupdate (apply-effects env obj)
+	     :entity-registry
+	     (lambda (entity-registry)
+	       (estate-set entity-registry id (estate id entity-registry))))))
+
 (defun update-world! (entity-id fn)
-  (let ((obj (funcall fn (estate entity-id)))
-	(env (alist :entity-registry *current-entity-registry*
+  (let ((env (alist :entity-registry *current-entity-registry*
 		    :registry *registry*)))
-    (let ((env2 (apply-effects env obj)))
+    (let ((env2 (update-world env entity-id fn)))
       (setq *current-entity-registry* (aval env2 :entity-registry)
-	    *registry* (aval env2 :registry)))
-    (setq *current-entity-registry*
-	  (estate-set *current-entity-registry* entity-id (estate entity-id)))))
+	    *registry* (aval env2 :registry)))))
 
 (defun update-subsystem (key update-fn)
   (dolist (entity-id (aval *registry* key))
