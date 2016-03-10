@@ -370,7 +370,7 @@ This can be abused with the machine gun in TAS."
 	  :tile-y tile-y)))
 
 (defun single-loop-sprite-drawing (s pos)
-  (unless (aval s :dead?)
+  (unless (dead? s)
     (list (make-sprite-drawing :layer (aval s :layer)
 			       :sheet-key (aval s :sheet-key)
 			       :src-rect
@@ -390,11 +390,11 @@ This can be abused with the machine gun in TAS."
 (defun particle-fns-alist ()
   (alist :draw-fn #'particle-drawing
 	 :ai-fn
+	 ;; NOTE: This (ai/timers) is a kludge to make it so particle can set its
+	 ;; dead? flag based on single-loop-sprite.
 	 (lambda (p)
-	   (aset p :dead? (aval (estate (aval p :single-loop-sprite)) :dead?)))))
+	   (aset p :dead? (dead? (estate (aval p :single-loop-sprite)))))))
 
-;; NOTE: This (ai/timers) is a kludge to make it so particle can set its
-;; dead? flag based on single-loop-sprite.
 (defvar* *particle-subsystems* '(:drawable :timers :ai))
 (defun make-particle (&key seq fps sheet-key tile-y pos)
   (amerge
@@ -910,7 +910,7 @@ This can be abused with the machine gun in TAS."
 (defun damage-numbers-remove-dead (d)
   (aset d
 	:pairs
-	(remove-if (lambda (pair) (aval (estate (cdr pair)) :dead?)) (aval d :pairs))))
+	(remove-if (lambda (pair) (dead? (estate (cdr pair)))) (aval d :pairs))))
 
 (defun make-damage-numbers ()
   (alist :id (gen-entity-id)))
@@ -1156,8 +1156,7 @@ This can be abused with the machine gun in TAS."
 	 :ai-fn (lambda (p)
 		  (aset p
 			:dead?
-			(aval (estate (aval p :single-loop-sprite))
-			      :dead?)))))
+			(dead? (estate (aval p :single-loop-sprite)))))))
 
 (defvar* *death-cloud-particle-subsystems*
     '(:drawable :physics :stage-collision :timers :ai))
@@ -1537,8 +1536,7 @@ This can be abused with the machine gun in TAS."
 	   :sound-effects (pushfn :snd-enemy-hurt)))
 	 (let ((origin (origin obj)))
 	   (comp
-	    (asetfn
-	     :dead? t)
+	    (asetfn :dead? t)
 	    (aupdatefn
 	     :new-states
 	     (appendfn
