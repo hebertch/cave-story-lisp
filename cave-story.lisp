@@ -20,7 +20,7 @@
        ,(lambda () (setq *global-paused?* (not *global-paused?*))))
       (((:key :r)
 	(:joy :select)) .
-       ,(lambda () (update-env! (aset (get-env) :game (reset!)))))
+       ,(lambda () (update-env! (aset *env* :game (reset!)))))
       (((:joy :r)) .
        ,(lambda ()
 		(case *input-playback*
@@ -30,7 +30,7 @@
       (((:key :n)) .
        ,(lambda ()
 		(when *global-paused?*
-		  (update-env! (aupdate (get-env) :game #'update!)))))))
+		  (update-env! (aupdate *env* :game #'update!)))))))
 
 (defun make-game
     (&key player camera stage projectile-groups hud gun-exps
@@ -133,7 +133,7 @@
 (defun main-loop-iteration! ()
   (let ((transient-input (gather-transient-input)))
     (handle-debug-input! transient-input)
-    (update-env! (aupdate (get-env)
+    (update-env! (aupdate *env*
 			  :game
 			  (asetfn
 			   :input (gather-input (entity-id :input) transient-input)))))
@@ -170,8 +170,8 @@
   "Handles input. Often called many times between updates.
 This can be abused with the machine gun in TAS."
 
-  (update-env! (update-subsystem (get-env) :input #'update-input-entity))
-  (let ((env (get-env)))
+  (update-env! (update-subsystem *env* :input #'update-input-entity))
+  (let ((env *env*))
     (let ((input (entity-id :input env)))
       (when (or (joy-pressed? input :b) (key-pressed? input :x))
 	;; Fire Gun
@@ -793,7 +793,7 @@ This can be abused with the machine gun in TAS."
 (defun update! ()
   "The Main Loop, called once per *FRAME-TIME*."
   (when (eq *input-playback* :playback)
-    (update-env! (aupdate (get-env) :game (asetfn :input (next-playback-input)))))
+    (update-env! (aupdate *env* :game (asetfn :input (next-playback-input)))))
   (handle-input!)
 
   (setq *render-list* nil)
@@ -804,7 +804,7 @@ This can be abused with the machine gun in TAS."
     (:playback
      (draw-text-line! (zero-v) "PLAYBACK")))
 
-  (let ((env (get-env)))
+  (let ((env *env*))
     (unless *stage-viewer*
       (setq env (update-subsystem env :timers #'update-timers-entity))
       (setq env (update-subsystem env :physics #'update-physics-entity))
@@ -842,13 +842,13 @@ This can be abused with the machine gun in TAS."
 			       (x tp) (y tp)))))
 
   ;; End Debug Drawings.
-  (play-sounds! (aval (get-env) :sfx-play-list))
-  (update-env! (aset (get-env) :sfx-play-list nil))
+  (play-sounds! (aval *env* :sfx-play-list))
+  (update-env! (aset *env* :sfx-play-list nil))
 
   (when (eq *input-playback* :recording)
     (record-frame-input (entity-id :input)))
 
-  (update-env! (aupdate (get-env)
+  (update-env! (aupdate *env*
 			:game
 			(asetfn :input (reset-transient-input (entity-id :input))))))
 
@@ -949,11 +949,11 @@ This can be abused with the machine gun in TAS."
      gun-name)))
 
 (defun save-current-state ()
-  (list (current-entity-states) (aval (get-env) :game)))
+  (list (current-entity-states) (aval *env* :game)))
 
 (defun restore-state (state)
   (restore-entity-states! (first state))
-  (update-env! (aset (get-env)
+  (update-env! (aset *env*
 		     :registry nil
 		     :game (second state))))
 
@@ -1042,7 +1042,7 @@ This can be abused with the machine gun in TAS."
 
   (setq *global-paused?* nil)
 
-  (update-env! (create-game (get-env))))
+  (update-env! (create-game *env*)))
 
 (defun init! ()
   "Called at application startup."
