@@ -208,29 +208,24 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 (defun ticked? (obj timer-key)
   (member timer-key (aval obj :ticks)))
 
-(let (id)
-  (defun current-entity-states ()
-    (list id (aval *env* :entity-registry)))
+(defun current-entity-states ()
+  *env*)
 
-  (defun restore-entity-states! (id-and-registry)
-    (setq id (first id-and-registry))
-    (update-env! (aset *env* :entity-registry (second id-and-registry)))
-    (loop for (id . e) in (aval *env* :entity-registry)
-       do
-	 (update-env! (aupdate
-		       *env*
-		       :registry #_(register-entity-subsystems _ id e)))))
-  
-  (defun init-id-system! ()
-    (setq id 0))
-  (defun gen-entity-id ()
-    (setq id (1+ id))))
+(defun restore-entity-states! (env)
+  (update-env! env)
+  (loop for (id . e) in (aval *env* :entity-registry)
+     do
+       (update-env! (aupdate
+		     *env*
+		     :registry #_(register-entity-subsystems _ id e)))))
 
-(defun init-entity-registry! ()
-  (init-id-system!)
-  (update-env! (aset *env*
-		     :registry nil
-		     :entity-registry (make-entity-registry))))
+(defun gen-entity-id ()
+  (gensym))
+
+(defun init-entity-registry (env)
+  (aset env
+	:registry nil
+	:entity-registry (make-entity-registry)))
 
 (defun estate (id &optional (env *env*))
   (let ((lookup (cdr (assoc id (aval env :entity-registry)))))

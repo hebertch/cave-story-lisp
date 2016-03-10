@@ -95,7 +95,7 @@ If val is provided, expand to a defparameter."
 
 
 (deftype keytype ()
-  '(or keyword integer))
+  '(or integer symbol))
 
 (defun aset (alist &rest keys-and-vals)
   (assert (listp alist))

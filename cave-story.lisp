@@ -1036,12 +1036,8 @@ This can be abused with the machine gun in TAS."
 (defun reset! ()
   ;;(switch-to-new-song! :lastcave)
   (set-music-volume! 20)
-
-  (init-entity-registry!)
-
   (setq *global-paused?* nil)
-
-  (update-env! (create-game *env*)))
+  (update-env! (funcall (comp create-game init-entity-registry) *env*)))
 
 (defun init! ()
   "Called at application startup."
