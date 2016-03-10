@@ -804,17 +804,20 @@ This can be abused with the machine gun in TAS."
     (:playback
      (draw-text-line! (zero-v) "PLAYBACK")))
 
-  (unless *stage-viewer*
-    (update-env! (update-subsystem (get-env) :timers #'update-timers-entity))
-    (update-env! (update-subsystem (get-env) :physics #'update-physics-entity))
-    (update-env! (update-subsystem (get-env) :bullet #'update-damageable-subsystem))
-    (update-env! (update-subsystem (get-env) :stage-collision #'update-stage-collision-entity))
-    (update-env! (update-subsystem (get-env) :pickup #'update-pickup-entity))
-    (update-env! (update-subsystem (get-env) :damage-collision #'update-damage-collision-entity))
-    (update-env! (update-subsystem (get-env) :dynamic-collision #'update-dynamic-collision-entity)))
+  (let ((env (get-env)))
+    (unless *stage-viewer*
+      (setq env (update-subsystem env :timers #'update-timers-entity))
+      (setq env (update-subsystem env :physics #'update-physics-entity))
+      (setq env (update-subsystem env :bullet #'update-damageable-subsystem))
+      (setq env (update-subsystem env :stage-collision #'update-stage-collision-entity))
+      (setq env (update-subsystem env :pickup #'update-pickup-entity))
+      (setq env (update-subsystem env :damage-collision #'update-damage-collision-entity))
+      (setq env (update-subsystem env :dynamic-collision #'update-dynamic-collision-entity)))
 
-  (update-env! (update-subsystem (get-env) :drawable #'update-drawable-entity))
-  (update-env! (remove-all-dead (get-env)))
+    (setq env (update-subsystem env :drawable #'update-drawable-entity))
+    (setq env (remove-all-dead env))
+
+    (update-env! env))
 
   ;; Debug Drawings Below.
 
