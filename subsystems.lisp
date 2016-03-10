@@ -98,7 +98,7 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 	*global-game* (aval env :game)))
 
 (defun update-subsystem (env key update-fn)
-  (dolist (entity-id (aval *registry* key))
+  (dolist (entity-id (aval (aval env :registry) key))
     (setq env (funcall update-fn env entity-id)))
   env)
 
@@ -223,7 +223,9 @@ Binds :damage-amt (in obj) to the bullet hit amount."
     (setq *current-entity-registry* (second id-and-registry))
     (loop for (id . e) in *current-entity-registry*
        do
-	 (setq *registry* (register-entity-subsystems *registry* id e))))
+	 (update-env! (aupdate
+		       (make-env)
+		       :registry #_(register-entity-subsystems _ id e)))))
   
   (defun init-id-system! ()
     (setq id 0))
@@ -232,7 +234,7 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 
 (defun init-entity-registry! ()
   (init-id-system!)
-  (setq *registry* nil)
+  (update-env! (aset (make-env) :registry nil))
   (setq *current-entity-registry* (make-entity-registry)))
 
 (defun estate (id &optional (env (make-env)))

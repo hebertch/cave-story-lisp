@@ -5,8 +5,6 @@
 (defvar *window*)
 (defvar *renderer*)
 (defvar *font*)
-(defvar *global-game* nil)
-
 (defvar* *stage-viewer* nil)
 (defvar *stage-viewer-camera-pos* (scale-v *window-dims* 1/2))
 
@@ -794,9 +792,8 @@ This can be abused with the machine gun in TAS."
 
 (defun update! ()
   "The Main Loop, called once per *FRAME-TIME*."
-  (let ((env (make-env)))
-    (when (eq *input-playback* :playback)
-      (setq env (aupdate (make-env) :game (asetfn :input (next-playback-input))))))
+  (when (eq *input-playback* :playback)
+    (update-env! (aupdate (make-env) :game (asetfn :input (next-playback-input)))))
   (handle-input!)
 
   (setq *render-list* nil)
@@ -807,19 +804,17 @@ This can be abused with the machine gun in TAS."
     (:playback
      (draw-text-line! (zero-v) "PLAYBACK")))
 
-  (let ((env (make-env)))
-    (unless *stage-viewer*
-      (setq env (update-subsystem env :timers #'update-timers-entity))
-      (setq env (update-subsystem env :physics #'update-physics-entity))
-      (setq env (update-subsystem env :bullet #'update-damageable-subsystem))
-      (setq env (update-subsystem env :stage-collision #'update-stage-collision-entity))
-      (setq env (update-subsystem env :pickup #'update-pickup-entity))
-      (setq env (update-subsystem env :damage-collision #'update-damage-collision-entity))
-      (setq env (update-subsystem env :dynamic-collision #'update-dynamic-collision-entity)))
+  (unless *stage-viewer*
+    (update-env! (update-subsystem (make-env) :timers #'update-timers-entity))
+    (update-env! (update-subsystem (make-env) :physics #'update-physics-entity))
+    (update-env! (update-subsystem (make-env) :bullet #'update-damageable-subsystem))
+    (update-env! (update-subsystem (make-env) :stage-collision #'update-stage-collision-entity))
+    (update-env! (update-subsystem (make-env) :pickup #'update-pickup-entity))
+    (update-env! (update-subsystem (make-env) :damage-collision #'update-damage-collision-entity))
+    (update-env! (update-subsystem (make-env) :dynamic-collision #'update-dynamic-collision-entity)))
 
-    (setq env (update-subsystem env :drawable #'update-drawable-entity))
-    (setq env (remove-all-dead env))
-    (update-env! env))
+  (update-env! (update-subsystem (make-env) :drawable #'update-drawable-entity))
+  (update-env! (remove-all-dead (make-env)))
 
   ;; Debug Drawings Below.
 
@@ -954,9 +949,10 @@ This can be abused with the machine gun in TAS."
   (list (current-entity-states) (aval (make-env) :game)))
 
 (defun restore-state (state)
-  (setq *registry* nil)
   (restore-entity-states! (first state))
-  (setq *global-game* (second state)))
+  (update-env! (aset (make-env)
+		     :registry nil
+		     :game (second state))))
 
 (defun stage-from-stage-name (stage-name)
   (stage-from-file-data
