@@ -212,12 +212,12 @@ Binds :damage-amt (in obj) to the bullet hit amount."
   *env*)
 
 (defun restore-entity-states! (env)
-  (update-env! env)
-  (loop for (id . e) in (aval *env* :entity-registry)
+  (loop for (id . e) in (aval env :entity-registry)
      do
-       (update-env! (aupdate
-		     *env*
-		     :registry #_(register-entity-subsystems _ id e)))))
+       (setq env (aupdate
+		  env
+		  :registry #_(register-entity-subsystems _ id e))))
+  (update-env! env))
 
 (defun gen-entity-id ()
   (gensym))

@@ -5,8 +5,9 @@
 (defvar *window*)
 (defvar *renderer*)
 (defvar *font*)
-(defvar* *stage-viewer* nil)
 (defvar *stage-viewer-camera-pos* (scale-v *window-dims* 1/2))
+
+(defvar* *stage-viewer* nil)
 
 ;; Debug params.
 (defvar* *update-period* 1
@@ -30,7 +31,7 @@
       (((:key :n)) .
        ,(lambda ()
 		(when *global-paused?*
-		  (update-env! (aupdate *env* :game #'update!)))))))
+		  (update-env! (update *env*)))))))
 
 (defun make-game
     (&key player camera stage projectile-groups hud gun-exps
