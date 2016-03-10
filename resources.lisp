@@ -353,8 +353,6 @@ the get- function that is produced."
     (sdl.mixer:play-channel -1 (get-sound s) 0))
   :done)
 
-(defvar *sfx-play-list* nil)
-
 (def-resource-type sound
     (()
      (sdl.mixer:load-wav (wav-path fname)))

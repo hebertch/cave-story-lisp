@@ -63,8 +63,6 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 (defun update-timer (tr)
   (funcall (aval tr :update-fn) tr))
 
-(defvar *registry* nil
-  "A registry table is a table of registry-name keyword to entity-ids.")
 (defun registry-insert-id (table registry-key id)
   "Insert entity-id ID into the registry table."
   (aupdate table registry-key (pushfn id)))
@@ -86,16 +84,14 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 (defun entity-id (key &optional (env (make-env)))
   (aval (aval env :game) key))
 
-(defun make-env ()
-  (alist :entity-registry *current-entity-registry*
-	 :registry *registry*
-	 :sfx-play-list *sfx-play-list*
-	 :game *global-game*))
-(defun update-env! (env)
-  (setq *current-entity-registry* (aval env :entity-registry)
-	*registry* (aval env :registry)
-	*sfx-play-list* (aval env :sfx-play-list)
-	*global-game* (aval env :game)))
+(defvar *env* (alist :entity-registry nil
+		     :registry nil
+		     :sfx-play-list nil
+		     :game nil)
+  "The globally read-only environment for the game.")
+
+(defun make-env () *env*)
+(defun update-env! (env) (setq *env* env))
 
 (defun update-subsystem (env key update-fn)
   (dolist (entity-id (aval (aval env :registry) key))
@@ -211,17 +207,14 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 (defun ticked? (obj timer-key)
   (member timer-key (aval obj :ticks)))
 
-(defvar *current-entity-registry* nil
-  "A mapping of entity-id -> current state.")
-
 (let (id)
   (defun current-entity-states ()
-    (list id *current-entity-registry*))
+    (list id (aval (make-env) :entity-registry)))
 
   (defun restore-entity-states! (id-and-registry)
     (setq id (first id-and-registry))
-    (setq *current-entity-registry* (second id-and-registry))
-    (loop for (id . e) in *current-entity-registry*
+    (update-env! (aset (make-env) :entity-registry (second id-and-registry)))
+    (loop for (id . e) in (aval (make-env) :entity-registry)
        do
 	 (update-env! (aupdate
 		       (make-env)
@@ -234,8 +227,9 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 
 (defun init-entity-registry! ()
   (init-id-system!)
-  (update-env! (aset (make-env) :registry nil))
-  (setq *current-entity-registry* (make-entity-registry)))
+  (update-env! (aset (make-env)
+		     :registry nil
+		     :entity-registry (make-entity-registry))))
 
 (defun estate (id &optional (env (make-env)))
   (let ((lookup (cdr (assoc id (aval env :entity-registry)))))
