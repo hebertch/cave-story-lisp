@@ -58,7 +58,7 @@ Binds :damage-amt (in obj) to the bullet hit amount."
   (funcall (aval obj :damage-collision-amt-fn) obj))
 
 (defun dead? (obj)
-  (aval obj :dead?))
+  (or (null obj) (aval obj :dead?)))
 
 (defun update-timer (tr)
   (funcall (aval tr :update-fn) tr))
@@ -69,13 +69,20 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 
 (defun registry-remove-dead (env)
   "Remove the dead entities associated with all registry-keys."
-  (aset env
-	:registry
-	(mapcar (lambda (key-and-ids)
-		  (cons (car key-and-ids)
-			(remove-if (lambda (id) (dead? (estate id env)))
-				   (cdr key-and-ids))))
-		(aval env :registry))))
+  (aupdate env
+	   :registry
+	   #_(mapcar (lambda (key-and-ids)
+		       (cons (first key-and-ids)
+			     (remove-if (lambda (id) (dead? (estate id env)))
+					(rest key-and-ids))))
+		     _)))
+
+(defun entity-registry-remove-dead (env)
+  "Remove the dead entities in env's entity-registry."
+  (aupdate env
+	   :entity-registry
+	   (lambda (entity-registry)
+	     (remove-if (lambda (state) (dead? state)) entity-registry :key #'cdr))))
 
 (defun update-world (env id fn)
   (let ((obj (funcall fn (estate id env))))
@@ -106,8 +113,9 @@ Binds :damage-amt (in obj) to the bullet hit amount."
   (update-world env id #'timers))
 
 (defun update-drawable-entity (env id)
-  (let ((drawings (ensure-list (draw (estate id env)))))
-    (appendf *render-list* drawings))
+  (let ((*env* env))
+    (let ((drawings (ensure-list (draw (estate id env)))))
+      (appendf *render-list* drawings)))
   env)
 
 (defun update-stage-collision-entity (env id)
@@ -135,7 +143,7 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 	(draw-rect player-rect *green* :layer :debug-dynamic-collision)
 	(when (rects-collide? rect player-rect)
 	  (draw-rect player-rect *green* :layer :debug-dynamic-collision
-		      :filled? t)
+		     :filled? t)
 	  (draw-rect rect *yellow* :layer :debug-dynamic-collision :filled? t)
 	  (setq env
 		(estate-set
@@ -178,7 +186,7 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 				     (estate id env)))))
 	(draw-rect rect *magenta* :layer :debug-damage-collision :filled? t)
 	(draw-rect player-rect *magenta* :layer :debug-damage-collision
-		    :filled? t))))
+		   :filled? t))))
   env)
 
 (defun update-damageable-subsystem (env bullet-id)
@@ -220,7 +228,7 @@ Binds :damage-amt (in obj) to the bullet hit amount."
   (update-env! env))
 
 (defun gen-entity-id ()
-  (gensym))
+  (gensym "ENTITY-ID-"))
 
 (defun init-entity-registry (env)
   (aset env

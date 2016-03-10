@@ -408,7 +408,7 @@ This can be abused with the machine gun in TAS."
 
 (defun particle-drawing (p)
   (let ((sp (estate (aval p :single-loop-sprite))))
-    (unless (aval sp :dead?)
+    (unless (dead? sp)
       (list (make-sprite-drawing :layer :particle
 				 :sheet-key (aval sp :sheet-key)
 				 :src-rect
@@ -480,37 +480,45 @@ This can be abused with the machine gun in TAS."
 (defvar* *floating-number-subsystems*
     '(:timers :drawable :physics))
 (defun make-floating-number (entity amt)
-  (amerge
-   (floating-number-fns-alist)
-   (alist :subsystems *floating-number-subsystems*)
-   (alist :entity (if (eq :exp entity)
-		      (entity-id :player)
-		      entity)
-	  :exp? (eq :exp entity)
-	  :amt amt
-	  :id (gen-entity-id)
-	  :timers '(:life-timer)
-	  :life-timer (make-expiring-timer (s->ms 2) t)
-	  :physics '(:offset)
-	  :offset (make-offset-motion (zero-v)
-				      :up
-				      (/ (tiles 1/30) *frame-time*)))))
+  (let ((entity (if (eq :exp entity)
+		    (entity-id :player)
+		    entity)))
+    (amerge
+     (floating-number-fns-alist)
+     (alist :subsystems *floating-number-subsystems*)
+     (alist :entity entity
+	    :exp? (eq :exp entity)
+	    :amt amt
+	    :id (gen-entity-id)
+	    :timers '(:life-timer)
+	    :life-timer (make-expiring-timer (s->ms 2) t)
+	    :physics '(:offset)
+	    :origin (origin (estate entity))
+	    :offset (make-offset-motion (zero-v)
+					:up
+					(/ (tiles 1/30) *frame-time*))))))
 
 (defun floating-number-drawing (fn)
-  (number-drawing (+ (origin (estate (aval fn :entity)))
-		     (physics-pos fn))
+  (number-drawing (+ (aval fn :origin) (physics-pos fn))
 		  (aval fn :amt)
 		  :layer :floating-text))
 
 (defun floating-number-ai (fn)
-  (let ((dead? (not (timer-active? (aval fn :life-timer)))))
-    (cond ((< (y (motion-pos (aval fn :offset)))
-	      (- (tiles 1)))
-	   (aset fn
-		 :dead? dead?
-		 :offset
-		 (make-offset-motion (zero-v :y (- (tiles 1))) :up 0)))
-	  (t (aset fn :dead? dead?)))))
+  
+  (let ((dead? (not (timer-active? (aval fn :life-timer))))
+	(offset
+	 (if (< (y (motion-pos (aval fn :offset)))
+		(- (tiles 1)))
+	     (make-offset-motion (zero-v :y (- (tiles 1))) :up 0)
+	     (aval fn :offset))))
+    (aset fn
+	  :dead? dead?
+	  :offset offset
+	  :origin
+	  (let ((state (estate (aval fn :entity))))
+	    (if (dead? state)
+		(aval fn :origin)
+		(origin state))))))
 
 (defun floating-number-add-amt (fn amount)
   (aupdate fn
@@ -519,19 +527,22 @@ This can be abused with the machine gun in TAS."
 
 (defun remove-all-dead (env)
   (funcall (comp
+	    #'entity-registry-remove-dead
 	    #'registry-remove-dead
 	    (lambda (env)
-	      (estate-set
-	       env
-	       (entity-id :projectile-groups env)
-	       (projectile-groups-remove-dead
-		(estate (entity-id :projectile-groups env) env))))
+	      (let ((*env* env))
+		(estate-set
+		 env
+		 (entity-id :projectile-groups env)
+		 (projectile-groups-remove-dead
+		  (estate (entity-id :projectile-groups env) env)))))
 	    (lambda (env)
-	      (estate-set
-	       env
-	       (entity-id :damage-numbers env)
-	       (damage-numbers-remove-dead
-		(estate (entity-id :damage-numbers env) env)))))
+	      (let ((*env* env))
+		(estate-set
+		 env
+		 (entity-id :damage-numbers env)
+		 (damage-numbers-remove-dead
+		  (estate (entity-id :damage-numbers env) env))))))
 	   env))
 
 (defun hud-number-drawing (tile/2-y number)
@@ -831,15 +842,15 @@ This can be abused with the machine gun in TAS."
     (draw-rect camera-bounds *cyan* :layer :debug-camera))
   (unless *stage-viewer*
     (draw-point (camera-target-from-player (estate (entity-id :player)))
-		 *white*))
+		*white*))
   (let ((mouse-pos (input-mouse-coords (entity-id :input))))
     (draw-point mouse-pos
-		 *white*
-		 :layer :mouse)
+		*white*
+		:layer :mouse)
     (let ((tp (mouse->tile-pos mouse-pos (current-camera-pos))))
       (draw-text-line (make-v 320 0)
-		       (format nil "TILE: [~A, ~A]"
-			       (x tp) (y tp)))))
+		      (format nil "TILE: [~A, ~A]"
+			      (x tp) (y tp)))))
 
   ;; End Debug Drawings.
   (play-sounds! (aval env :sfx-play-list))
@@ -1173,8 +1184,9 @@ This can be abused with the machine gun in TAS."
 	     (clamper+- *terminal-speed*))))))
 
 (defun death-cloud-particle-drawing (d)
-  (single-loop-sprite-drawing (estate (aval d :single-loop-sprite))
-			      (physics-pos d)))
+  (let ((state (estate (aval d :single-loop-sprite))))
+    (unless (dead? state)
+      (single-loop-sprite-drawing state (physics-pos d)))))
 
 (let ((collision-rects (rect->collision-rects
 			(centered-rect (tile-dims/2) (both-v (tiles 2/5))))))

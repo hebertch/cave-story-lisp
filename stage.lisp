@@ -56,14 +56,6 @@
   (append (aval stage :drawings)
 	  (destroyable-tile-drawings stage)))
 
-(defun make-stage (stage-data)
-  (amerge
-   (stage-fns-alist)
-   (alist :subsystems *stage-subsystems*)
-   (alist :data stage-data
-	  :drawings (ncompile-drawings (prerendered-stage-drawings stage-data))
-	  :id (gen-entity-id))))
-
 (defun load-stage-from-stage-key (stage-key)
   (let* ((stage-fnames (aval *stage-fnames-table* stage-key))
 	 (data
