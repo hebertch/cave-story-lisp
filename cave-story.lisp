@@ -997,7 +997,7 @@ This can be abused with the machine gun in TAS."
 				:entities)))
    nil))
 
-(defun create-game! ()
+(defun create-game (env)
   (let* ((stage-key :stage-cave)
 	 (damage-numbers (make-damage-numbers))
 	 (projectile-groups (make-projectile-groups))
@@ -1009,44 +1009,41 @@ This can be abused with the machine gun in TAS."
 	 (active-systems (make-active-systems)))
     
     (let ((camera (make-camera (physics-pos player) (zero-v) player)))
-      (let ((env (make-env)))
-	(mapc (lambda (entity)
-		(setq env (create-entity env (aval entity :id) entity)))
-	      (list*
-	       stage
-	       damage-numbers
-	       projectile-groups
-	       stage
-	       hud
-	       player
-	       gun-exps
-	       active-systems
-	       camera
+      (mapc (lambda (entity)
+	      (setq env (create-entity env (aval entity :id) entity)))
+	    (list*
+	     stage
+	     damage-numbers
+	     projectile-groups
+	     stage
+	     hud
+	     player
+	     gun-exps
+	     active-systems
+	     camera
 
-	       entities))
-	(update-env! env))
+	     entities))
 
-      (update-env! (aset (make-env)
-			 :game
-			 (make-game :player (aval player :id)
-				    :camera (aval camera :id)
-				    :stage (aval stage :id)
-				    :hud (aval hud :id)
-				    :projectile-groups (aval projectile-groups :id)
-				    :gun-exps (aval gun-exps :id)
-				    :active-systems (aval active-systems :id)
-				    :damage-numbers (aval damage-numbers :id)))))))
+      (aset env
+	    :game
+	    (make-game :player (aval player :id)
+		       :camera (aval camera :id)
+		       :stage (aval stage :id)
+		       :hud (aval hud :id)
+		       :projectile-groups (aval projectile-groups :id)
+		       :gun-exps (aval gun-exps :id)
+		       :active-systems (aval active-systems :id)
+		       :damage-numbers (aval damage-numbers :id))))))
 
 (defun reset! ()
   ;;(switch-to-new-song! :lastcave)
   (set-music-volume! 20)
 
-  (setq *registry* nil)
   (init-entity-registry!)
 
   (setq *global-paused?* nil)
 
-  (create-game!))
+  (update-env! (create-game (make-env))))
 
 (defun init! ()
   "Called at application startup."

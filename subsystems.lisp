@@ -232,6 +232,7 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 
 (defun init-entity-registry! ()
   (init-id-system!)
+  (setq *registry* nil)
   (setq *current-entity-registry* (make-entity-registry)))
 
 (defun estate (id &optional (env (make-env)))
