@@ -81,7 +81,7 @@ Binds :damage-amt (in obj) to the bullet hit amount."
   (let ((obj (funcall fn (estate id env))))
     (apply-effects env obj)))
 
-(defun entity-id (key &optional (env (make-env)))
+(defun entity-id (key &optional (env (get-env)))
   (aval (aval env :game) key))
 
 (defvar *env* (alist :entity-registry nil
@@ -90,7 +90,7 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 		     :game nil)
   "The globally read-only environment for the game.")
 
-(defun make-env () *env*)
+(defun get-env () *env*)
 (defun update-env! (env) (setq *env* env))
 
 (defun update-subsystem (env key update-fn)
@@ -209,15 +209,15 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 
 (let (id)
   (defun current-entity-states ()
-    (list id (aval (make-env) :entity-registry)))
+    (list id (aval (get-env) :entity-registry)))
 
   (defun restore-entity-states! (id-and-registry)
     (setq id (first id-and-registry))
-    (update-env! (aset (make-env) :entity-registry (second id-and-registry)))
-    (loop for (id . e) in (aval (make-env) :entity-registry)
+    (update-env! (aset (get-env) :entity-registry (second id-and-registry)))
+    (loop for (id . e) in (aval (get-env) :entity-registry)
        do
 	 (update-env! (aupdate
-		       (make-env)
+		       (get-env)
 		       :registry #_(register-entity-subsystems _ id e)))))
   
   (defun init-id-system! ()
@@ -227,11 +227,11 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 
 (defun init-entity-registry! ()
   (init-id-system!)
-  (update-env! (aset (make-env)
+  (update-env! (aset (get-env)
 		     :registry nil
 		     :entity-registry (make-entity-registry))))
 
-(defun estate (id &optional (env (make-env)))
+(defun estate (id &optional (env (get-env)))
   (let ((lookup (cdr (assoc id (aval env :entity-registry)))))
     lookup))
 

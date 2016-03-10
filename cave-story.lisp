@@ -20,7 +20,7 @@
        ,(lambda () (setq *global-paused?* (not *global-paused?*))))
       (((:key :r)
 	(:joy :select)) .
-       ,(lambda () (update-env! (aset (make-env) :game (reset!)))))
+       ,(lambda () (update-env! (aset (get-env) :game (reset!)))))
       (((:joy :r)) .
        ,(lambda ()
 		(case *input-playback*
@@ -30,7 +30,7 @@
       (((:key :n)) .
        ,(lambda ()
 		(when *global-paused?*
-		  (update-env! (aupdate (make-env) :game #'update!)))))))
+		  (update-env! (aupdate (get-env) :game #'update!)))))))
 
 (defun make-game
     (&key player camera stage projectile-groups hud gun-exps
@@ -133,7 +133,7 @@
 (defun main-loop-iteration! ()
   (let ((transient-input (gather-transient-input)))
     (handle-debug-input! transient-input)
-    (update-env! (aupdate (make-env)
+    (update-env! (aupdate (get-env)
 			  :game
 			  (asetfn
 			   :input (gather-input (entity-id :input) transient-input)))))
@@ -170,8 +170,8 @@
   "Handles input. Often called many times between updates.
 This can be abused with the machine gun in TAS."
 
-  (update-env! (update-subsystem (make-env) :input #'update-input-entity))
-  (let ((env (make-env)))
+  (update-env! (update-subsystem (get-env) :input #'update-input-entity))
+  (let ((env (get-env)))
     (let ((input (entity-id :input env)))
       (when (or (joy-pressed? input :b) (key-pressed? input :x))
 	;; Fire Gun
@@ -793,7 +793,7 @@ This can be abused with the machine gun in TAS."
 (defun update! ()
   "The Main Loop, called once per *FRAME-TIME*."
   (when (eq *input-playback* :playback)
-    (update-env! (aupdate (make-env) :game (asetfn :input (next-playback-input)))))
+    (update-env! (aupdate (get-env) :game (asetfn :input (next-playback-input)))))
   (handle-input!)
 
   (setq *render-list* nil)
@@ -805,16 +805,16 @@ This can be abused with the machine gun in TAS."
      (draw-text-line! (zero-v) "PLAYBACK")))
 
   (unless *stage-viewer*
-    (update-env! (update-subsystem (make-env) :timers #'update-timers-entity))
-    (update-env! (update-subsystem (make-env) :physics #'update-physics-entity))
-    (update-env! (update-subsystem (make-env) :bullet #'update-damageable-subsystem))
-    (update-env! (update-subsystem (make-env) :stage-collision #'update-stage-collision-entity))
-    (update-env! (update-subsystem (make-env) :pickup #'update-pickup-entity))
-    (update-env! (update-subsystem (make-env) :damage-collision #'update-damage-collision-entity))
-    (update-env! (update-subsystem (make-env) :dynamic-collision #'update-dynamic-collision-entity)))
+    (update-env! (update-subsystem (get-env) :timers #'update-timers-entity))
+    (update-env! (update-subsystem (get-env) :physics #'update-physics-entity))
+    (update-env! (update-subsystem (get-env) :bullet #'update-damageable-subsystem))
+    (update-env! (update-subsystem (get-env) :stage-collision #'update-stage-collision-entity))
+    (update-env! (update-subsystem (get-env) :pickup #'update-pickup-entity))
+    (update-env! (update-subsystem (get-env) :damage-collision #'update-damage-collision-entity))
+    (update-env! (update-subsystem (get-env) :dynamic-collision #'update-dynamic-collision-entity)))
 
-  (update-env! (update-subsystem (make-env) :drawable #'update-drawable-entity))
-  (update-env! (remove-all-dead (make-env)))
+  (update-env! (update-subsystem (get-env) :drawable #'update-drawable-entity))
+  (update-env! (remove-all-dead (get-env)))
 
   ;; Debug Drawings Below.
 
@@ -839,13 +839,13 @@ This can be abused with the machine gun in TAS."
 			       (x tp) (y tp)))))
 
   ;; End Debug Drawings.
-  (play-sounds! (aval (make-env) :sfx-play-list))
-  (update-env! (aset (make-env) :sfx-play-list nil))
+  (play-sounds! (aval (get-env) :sfx-play-list))
+  (update-env! (aset (get-env) :sfx-play-list nil))
 
   (when (eq *input-playback* :recording)
     (record-frame-input (entity-id :input)))
 
-  (update-env! (aupdate (make-env)
+  (update-env! (aupdate (get-env)
 			:game
 			(asetfn :input (reset-transient-input (entity-id :input))))))
 
@@ -946,11 +946,11 @@ This can be abused with the machine gun in TAS."
      gun-name)))
 
 (defun save-current-state ()
-  (list (current-entity-states) (aval (make-env) :game)))
+  (list (current-entity-states) (aval (get-env) :game)))
 
 (defun restore-state (state)
   (restore-entity-states! (first state))
-  (update-env! (aset (make-env)
+  (update-env! (aset (get-env)
 		     :registry nil
 		     :game (second state))))
 
@@ -1039,7 +1039,7 @@ This can be abused with the machine gun in TAS."
 
   (setq *global-paused?* nil)
 
-  (update-env! (create-game (make-env))))
+  (update-env! (create-game (get-env))))
 
 (defun init! ()
   "Called at application startup."
