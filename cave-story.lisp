@@ -20,7 +20,7 @@
        ,(lambda () (setq *global-paused?* (not *global-paused?*))))
       (((:key :r)
 	(:joy :select)) .
-       ,(lambda () (update-env! (aset *env* :game (reset!)))))
+       ,(lambda () (reset!)))
       (((:joy :r)) .
        ,(lambda ()
 		(case *input-playback*
@@ -108,7 +108,7 @@
       (draw-text-line! (zero-v) "PAUSED")
       (progn
 	(rolling-average-time *update-rolling-average*
-	  (update!))
+	  (update-env! (update *env*)))
 
 	(draw-text-line!
 	 (make-v 0 (- (y *window-dims*) *tile-size*))
@@ -792,11 +792,11 @@ This can be abused with the machine gun in TAS."
 (defun mouse->tile-pos (mouse-pos camera-pos)
   (pos->tile-pos (+ mouse-pos camera-pos)))
 
-(defun update! ()
+(defun update (env)
   "The Main Loop, called once per *FRAME-TIME*."
   (when (eq *input-playback* :playback)
-    (update-env! (aupdate *env* :game (asetfn :input (next-playback-input)))))
-  (update-env! (handle-input *env*))
+    (setq env (aupdate env :game (asetfn :input (next-playback-input)))))
+  (setq env (handle-input env))
 
   (setq *render-list* nil)
 
@@ -806,20 +806,17 @@ This can be abused with the machine gun in TAS."
     (:playback
      (draw-text-line! (zero-v) "PLAYBACK")))
 
-  (let ((env *env*))
-    (unless *stage-viewer*
-      (setq env (update-subsystem env :timers #'update-timers-entity))
-      (setq env (update-subsystem env :physics #'update-physics-entity))
-      (setq env (update-subsystem env :bullet #'update-damageable-subsystem))
-      (setq env (update-subsystem env :stage-collision #'update-stage-collision-entity))
-      (setq env (update-subsystem env :pickup #'update-pickup-entity))
-      (setq env (update-subsystem env :damage-collision #'update-damage-collision-entity))
-      (setq env (update-subsystem env :dynamic-collision #'update-dynamic-collision-entity)))
+  (unless *stage-viewer*
+    (setq env (update-subsystem env :timers #'update-timers-entity))
+    (setq env (update-subsystem env :physics #'update-physics-entity))
+    (setq env (update-subsystem env :bullet #'update-damageable-subsystem))
+    (setq env (update-subsystem env :stage-collision #'update-stage-collision-entity))
+    (setq env (update-subsystem env :pickup #'update-pickup-entity))
+    (setq env (update-subsystem env :damage-collision #'update-damage-collision-entity))
+    (setq env (update-subsystem env :dynamic-collision #'update-dynamic-collision-entity)))
 
-    (setq env (update-subsystem env :drawable #'update-drawable-entity))
-    (setq env (remove-all-dead env))
-
-    (update-env! env))
+  (setq env (update-subsystem env :drawable #'update-drawable-entity))
+  (setq env (remove-all-dead env))
 
   ;; Debug Drawings Below.
 
@@ -844,15 +841,15 @@ This can be abused with the machine gun in TAS."
 			       (x tp) (y tp)))))
 
   ;; End Debug Drawings.
-  (play-sounds! (aval *env* :sfx-play-list))
-  (update-env! (aset *env* :sfx-play-list nil))
+  (play-sounds! (aval env :sfx-play-list))
+  (setq env (aset env :sfx-play-list nil))
 
   (when (eq *input-playback* :recording)
     (record-frame-input (entity-id :input)))
 
-  (update-env! (aupdate *env*
-			:game
-			(asetfn :input (reset-transient-input (entity-id :input))))))
+  (aupdate env
+	   :game
+	   (asetfn :input (reset-transient-input (entity-id :input)))))
 
 (defvar* *input-playback* nil)
 
