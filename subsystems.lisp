@@ -131,12 +131,12 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 	     (player-rect
 	      (rect-offset player-collision-rect
 			   (physics-pos player-state))))
-	(draw-rect! rect *blue* :layer :debug-dynamic-collision)
-	(draw-rect! player-rect *green* :layer :debug-dynamic-collision)
+	(draw-rect rect *blue* :layer :debug-dynamic-collision)
+	(draw-rect player-rect *green* :layer :debug-dynamic-collision)
 	(when (rects-collide? rect player-rect)
-	  (draw-rect! player-rect *green* :layer :debug-dynamic-collision
+	  (draw-rect player-rect *green* :layer :debug-dynamic-collision
 		      :filled? t)
-	  (draw-rect! rect *yellow* :layer :debug-dynamic-collision :filled? t)
+	  (draw-rect rect *yellow* :layer :debug-dynamic-collision :filled? t)
 	  (setq env
 		(estate-set
 		 env
@@ -152,11 +152,11 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 	   (rect (pickup-rect state))
 	   (player-rect (player-damage-collision-rect
 			 (estate player-id env))))
-      (draw-rect! rect *green* :layer :debug-pickup)
-      (draw-rect! player-rect *blue* :layer :debug-pickup)
+      (draw-rect rect *green* :layer :debug-pickup)
+      (draw-rect player-rect *blue* :layer :debug-pickup)
       (when (rects-collide? rect player-rect)
-	(draw-rect! rect *yellow* :layer :debug-pickup :filled? t)
-	(draw-rect! player-rect *yellow* :layer :debug-pickup :filled? t)
+	(draw-rect rect *yellow* :layer :debug-pickup :filled? t)
+	(draw-rect player-rect *yellow* :layer :debug-pickup :filled? t)
 	(setq env (update-world env player-id #_(player-pickup _ state)))
 	(setq env (update-world env id #'pickup-kill)))))
   env)
@@ -167,8 +167,8 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 		 (estate id env)))
 	  (player-rect (player-damage-collision-rect
 			(estate player-id env))))
-      (draw-rect! rect *red* :layer :debug-damage-collision)
-      (draw-rect! player-rect *blue* :layer :debug-damage-collision)
+      (draw-rect rect *red* :layer :debug-damage-collision)
+      (draw-rect player-rect *blue* :layer :debug-damage-collision)
       (when (rects-collide? rect player-rect)
 	(setq env (update-world env
 				player-id
@@ -176,8 +176,8 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 				    _
 				    (damage-collision-amt
 				     (estate id env)))))
-	(draw-rect! rect *magenta* :layer :debug-damage-collision :filled? t)
-	(draw-rect! player-rect *magenta* :layer :debug-damage-collision
+	(draw-rect rect *magenta* :layer :debug-damage-collision :filled? t)
+	(draw-rect player-rect *magenta* :layer :debug-damage-collision
 		    :filled? t))))
   env)
 
@@ -193,11 +193,11 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 	      (bullet-damage-amt (estate bullet-id env)))
 	     (rect
 	      (damageable-rect (estate id env))))
-	 (draw-rect! bullet-rect *green* :layer :debug-damageable)
-	 (draw-rect! rect *blue* :layer :debug-damageable)
+	 (draw-rect bullet-rect *green* :layer :debug-damageable)
+	 (draw-rect rect *blue* :layer :debug-damageable)
 	 (when (rects-collide? rect bullet-rect)
-	   (draw-rect! bullet-rect *yellow* :layer :debug-damageable :filled? t)
-	   (draw-rect! rect *yellow* :layer :debug-damageable :filled? t)
+	   (draw-rect bullet-rect *yellow* :layer :debug-damageable :filled? t)
+	   (draw-rect rect *yellow* :layer :debug-damageable :filled? t)
 	   (setq env
 		 (update-world env id
 			       #_(damageable-hit-react _ bullet-hit-amt)))

@@ -60,19 +60,19 @@
 (defvar* *magenta* #(255 0 255 255))
 (defvar* *cyan* #(0 255 255 255))
 
-(defvar *render-debug?* t
-  "Whether to render the DEBUG-RENDER-LIST")
 (defvar *render-list* nil
   "The list of drawings to be rendered once per frame.")
+(defvar *debug-render-list* nil
+  "A separate render-list specifically for debug drawings.")
 (defvar* *debug-layers*
-  (list :debug
-	:debug-damage-collision
-	:debug-stage-collision
-	:debug-pickup
-	:debug-damageable
-	:debug-dynamic-collision
-	:debug-camera
-	:debug-mouse))
+    (list :debug
+	  :debug-damage-collision
+	  :debug-stage-collision
+	  :debug-pickup
+	  :debug-damageable
+	  :debug-dynamic-collision
+	  :debug-camera
+	  :debug-mouse))
 (defvar* *game-layers*
   (list  :background
 	 :npc
@@ -157,9 +157,9 @@
 			  (round (x b))
 			  (round (y b)))))
 
-(defun push-render! (r)
-  "Interface to the *RENDER-LIST*"
-  (push r *render-list*))
+(defun push-debug-render (r)
+  "Debug method to add a drawing to the debug render-list."
+  (push r *debug-render-list*))
 
 (defun slope-drawing (tile-pos tile-type color layer)
   (let* ((pos (tile-pos->pos tile-pos))
@@ -171,9 +171,9 @@
      :a (make-v left (tile-slope-pos-y tile-pos tile-type left))
      :b (make-v right (tile-slope-pos-y tile-pos tile-type right)))))
 
-(defun draw-slope! (tile-pos tile-type &key (layer :debug) (color *white*))
+(defun draw-slope (tile-pos tile-type &key (layer :debug) (color *white*))
   "Pushes a slope to the DEBUG-RENDER-LIST"
-  (push-render! (slope-drawing tile-pos tile-type color layer)))
+  (push-debug-render (slope-drawing tile-pos tile-type color layer)))
 
 (defun pixel-v (v)
   (make-v (round (x v))
@@ -202,8 +202,9 @@
    drawings
    :key #'drawing-layer))
 
-(defun draw-rect! (rect color &key (layer :debug) filled?)
-  (push-render!
+(defun draw-rect (rect color &key (layer :debug) filled?)
+  "Add a rectangle to the debug draw list."
+  (push-debug-render
    (make-rect-drawing :color color
 		      :rect rect
 		      :layer layer
@@ -215,8 +216,9 @@
 		     :layer layer
 		     :filled? filled?))
 
-(defun draw-tile-rect! (pos color &key (layer :debug) filled?)
-  (push-render! (tile-rect-drawing pos color layer filled?)))
+(defun draw-tile-rect (pos color &key (layer :debug) filled?)
+  "Add a tile-rectangle to the debug drawing list."
+  (push-debug-render (tile-rect-drawing pos color layer filled?)))
 
 (defun point-drawing (pos color layer size)
   (make-rect-drawing :rect (centered-rect pos (both-v size))
@@ -224,24 +226,14 @@
 		     :layer layer
 		     :filled? t))
 
-(defun draw-point! (pos color &key (layer :debug) (size 5))
-  (push-render! (point-drawing pos color layer size)))
+(defun draw-point (pos color &key (layer :debug) (size 5))
+  "Add a point drawing to the debug render list."
+  (push-debug-render (point-drawing pos color layer size)))
 
-(defun draw-line! (a b color &key (layer :debug))
-  (push-render!
+(defun draw-line (a b color &key (layer :debug))
+  "Add a line drawing to the debug render list."
+  (push-debug-render
    (make-line-drawing :a a :b b :layer layer :color color)))
-
-(defun draw-sprite! (layer sheet-key src-rect pos)
-  (push-render! (make-sprite-drawing :layer layer
-				     :sheet-key sheet-key
-				     :src-rect src-rect
-				     :pos pos)))
-
-(defun draw-hud-sprite! (layer sheet-key src-rect pos)
-  (push-render! (make-sprite-drawing :layer layer
-				     :sheet-key sheet-key
-				     :src-rect src-rect
-				     :pos pos)))
 
 (defun get-text-size (font text)
   (destructuring-bind (w h) (sdl.ttf:get-text-size font text)
@@ -272,8 +264,9 @@
 				     (string char)
 				     (color->hex *white*)))))))
 
-(defun draw-text-line! (pos text)
-  (push-render!
+(defun draw-text-line (pos text)
+  "Add a text-line drawing to the debug render list."
+  (push-debug-render
    (make-text-line-drawing :pos pos :text text :layer :text)))
 
 (defun render-background! (renderer camera-pos)

@@ -122,7 +122,7 @@ Returns the TILE-TYPE of the colliding tile."
 
   (loop for (tile-pos tile-type) in (stage-get-colliding-tiles stage rect)
      do
-       (draw-tile-rect! (tile-pos tile-pos) *cyan* :layer :debug-stage-collision)
+       (draw-tile-rect (tile-pos tile-pos) *cyan* :layer :debug-stage-collision)
 
        (cond
 	 ((member :solid-player tile-type)
@@ -140,7 +140,7 @@ Returns the TILE-TYPE of the colliding tile."
 	    (when should-test?
 	      ;; Only test if our center is inside the tile.
 	      (when (rect-center-in-tile? rect tile-pos offset-dir)
-		(draw-slope! tile-pos tile-type)
+		(draw-slope tile-pos tile-type)
 		(let* ((x (x (center rect)))
 		       (y (tile-slope-pos-y tile-pos tile-type x))
 		       ;; Sticky collisions only apply when going down.
@@ -179,7 +179,7 @@ Stage-collisions returns the final data argument."
 			      :tile-type (constantly tile-type)))
 	  (when fn
 	    (setq data (funcall fn data))))
-	(draw-rect! (rect-offset collision-rect
+	(draw-rect (rect-offset collision-rect
 				 (aval (aval data :stage-physics) :pos))
 		    *blue*
 		    :layer :debug-stage-collision))))

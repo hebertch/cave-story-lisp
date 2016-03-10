@@ -106,7 +106,7 @@ Returns the tile of the collision if one occurred."
 		   size))))
 
 (defun missile-projectile-collisions (rect dir stage)
-  (draw-rect! rect *yellow*)
+  (draw-rect rect *yellow*)
   (projectile-collision? rect dir stage))
 
 (defun missile-projectile-pos (m)
@@ -284,7 +284,7 @@ Returns the tile of the collision if one occurred."
 		 size)))
 
 (defun polar-star-projectile-collisions (rect dir stage)
-  (draw-rect! rect *yellow*)
+  (draw-rect rect *yellow*)
   (projectile-collision? rect dir stage))
 
 (defun add-projectile-group (obj gun-name lvl dir nozzle-pos)

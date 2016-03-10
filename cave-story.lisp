@@ -106,26 +106,28 @@
 
 (defun update-and-render! ()
   (if *global-paused?*
-      (draw-text-line! (zero-v) "PAUSED")
+      (draw-text-line (zero-v) "PAUSED")
       (progn
 	(rolling-average-time *update-rolling-average*
+	  (setq *render-list* nil
+		*debug-render-list* nil)
 	  (update-env! (update *env*)))
 
-	(draw-text-line!
+	(draw-text-line
 	 (make-v 0 (- (y *window-dims*) *tile-size*))
 	 (format nil "Renderer: ~,0f%"
 		 (rolling-average-percent *render-rolling-average*)))
-	(draw-text-line!
+	(draw-text-line
 	 (make-v (* 6 *tile-size*) (- (y *window-dims*) *tile-size*))
 	 (format nil "Update: ~,0f%"
 		 (rolling-average-percent *update-rolling-average*)))
-	(draw-text-line!
+	(draw-text-line
 	 (make-v (* 12 *tile-size*) (- (y *window-dims*) *tile-size*))
 	 (format nil "Total: ~,0f%"
 		 (rolling-average-percent *frame-rolling-average*)))))
 
   (rolling-average-time *render-rolling-average*
-    (render! *render-list* (current-camera-pos)))
+    (render! (nconc *debug-render-list* *render-list*) (current-camera-pos)))
 
   
   (setq *frame-timer* (- *frame-timer*
@@ -584,7 +586,7 @@ This can be abused with the machine gun in TAS."
 					5)))
        (let ((char-dims (get-text-size *font* " "))
 	     (w (x (get-text-size *font* (text-display-text td)))))
-	 (draw-rect!
+	 (draw-rect
 	  (create-rect (+ (text-display-pos td) (make-v w 0)) char-dims)
 	  *white*
 	  :layer :text
@@ -799,13 +801,11 @@ This can be abused with the machine gun in TAS."
     (setq env (aupdate env :game (asetfn :input (next-playback-input)))))
   (setq env (handle-input env))
 
-  (setq *render-list* nil)
-
   (case *input-playback*
     (:recording
-     (draw-text-line! (zero-v) "RECORD"))
+     (draw-text-line (zero-v) "RECORD"))
     (:playback
-     (draw-text-line! (zero-v) "PLAYBACK")))
+     (draw-text-line (zero-v) "PLAYBACK")))
 
   (unless *stage-viewer*
     (setq env (update-subsystem env :timers #'update-timers-entity))
@@ -821,23 +821,23 @@ This can be abused with the machine gun in TAS."
 
   ;; Debug Drawings Below.
 
-  ;; (draw-point! (player-nozzle-pos player) *red*)
+  ;; (draw-point (player-nozzle-pos player) *red*)
   (let ((focus (camera-focus (estate (entity-id :camera))))
 	(camera-bounds (stage-dims->camera-bounds
 			(stage-dims (estate (entity-id :stage))))))
     (unless *stage-viewer*
-      (draw-point! focus *cyan*)
-      (draw-point! (clamp-pos focus camera-bounds) *red*))
-    (draw-rect! camera-bounds *cyan* :layer :debug-camera))
+      (draw-point focus *cyan*)
+      (draw-point (clamp-pos focus camera-bounds) *red*))
+    (draw-rect camera-bounds *cyan* :layer :debug-camera))
   (unless *stage-viewer*
-    (draw-point! (camera-target-from-player (estate (entity-id :player)))
+    (draw-point (camera-target-from-player (estate (entity-id :player)))
 		 *white*))
   (let ((mouse-pos (input-mouse-coords (entity-id :input))))
-    (draw-point! mouse-pos
+    (draw-point mouse-pos
 		 *white*
 		 :layer :mouse)
     (let ((tp (mouse->tile-pos mouse-pos (current-camera-pos))))
-      (draw-text-line! (make-v 320 0)
+      (draw-text-line (make-v 320 0)
 		       (format nil "TILE: [~A, ~A]"
 			       (x tp) (y tp)))))
 

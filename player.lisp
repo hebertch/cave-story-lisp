@@ -119,7 +119,7 @@
       nil))
 
 (defun player-kin-2d-physics (p kin-2d)
-  (draw-line! (aval kin-2d :pos)
+  (draw-line (aval kin-2d :pos)
 	      (+ (aval kin-2d :pos)
 		 (* (aval kin-2d :vel) *debug-velocity-scale*))
 	      *magenta*)
