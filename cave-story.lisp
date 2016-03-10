@@ -166,17 +166,19 @@
 		  (main-loop-iteration!))))
       (cleanup!))))
 
-(defun handle-input! ()
+(defun handle-input (env)
   "Handles input. Often called many times between updates.
 This can be abused with the machine gun in TAS."
 
-  (update-env! (update-subsystem *env* :input #'update-input-entity))
-  (let ((env *env*))
-    (let ((input (entity-id :input env)))
+  (setq env (update-subsystem env :input #'update-input-entity))
+
+  (let ((*env* env))
+    (let ((input (entity-id :input)))
       (when (or (joy-pressed? input :b) (key-pressed? input :x))
 	;; Fire Gun
-	(update-env! (update-world env (entity-id :player env)
-				   #'player-fire-gun))))))
+	(setq env (update-world env (entity-id :player) #'player-fire-gun)))))
+
+  env)
 
 (defun dialog-ok-pressed! ()
   )
@@ -794,7 +796,7 @@ This can be abused with the machine gun in TAS."
   "The Main Loop, called once per *FRAME-TIME*."
   (when (eq *input-playback* :playback)
     (update-env! (aupdate *env* :game (asetfn :input (next-playback-input)))))
-  (handle-input!)
+  (update-env! (handle-input *env*))
 
   (setq *render-list* nil)
 
