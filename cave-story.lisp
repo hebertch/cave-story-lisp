@@ -35,7 +35,7 @@
 
 (defun make-game
     (&key player camera stage projectile-groups hud gun-exps
-       damage-numbers active-systems (input (make-input)))
+       damage-numbers active-systems)
   (alist :player player
 	 :camera camera
 	 :stage stage
@@ -43,8 +43,7 @@
 	 :gun-exps gun-exps
 	 :hud hud
 	 :damage-numbers damage-numbers
-	 :active-systems active-systems
-	 :input input))
+	 :active-systems active-systems))
 
 (let (debug-toggle-off?)
   (defun handle-debug-input! (transient-input)
@@ -136,10 +135,9 @@
 (defun main-loop-iteration! ()
   (let ((transient-input (gather-transient-input)))
     (handle-debug-input! transient-input)
-    (update-env! (aupdate *env*
-			  :game
-			  (asetfn
-			   :input (gather-input (entity-id :input) transient-input)))))
+    (update-env!
+     (aupdate *env* :input #_(gather-input _ transient-input))))
+
   (when (>= *frame-timer* (* *update-period* *frame-time*))
     (rolling-average-time *frame-rolling-average* (update-and-render!)))
 
@@ -176,7 +174,7 @@ This can be abused with the machine gun in TAS."
   (setq env (update-subsystem env :input #'update-input-entity))
 
   (let ((*env* env))
-    (let ((input (entity-id :input)))
+    (let ((input (aval env :input)))
       (when (or (joy-pressed? input :b) (key-pressed? input :x))
 	;; Fire Gun
 	(setq env (update-world env (entity-id :player) #'player-fire-gun)))))
@@ -809,7 +807,7 @@ This can be abused with the machine gun in TAS."
 (defun update (env)
   "The Main Loop, called once per *FRAME-TIME*."
   (when (eq *input-playback* :playback)
-    (setq env (aupdate env :game (asetfn :input (next-playback-input)))))
+    (setq env (aset env :input (next-playback-input))))
   (setq env (handle-input env))
 
   (case *input-playback*
@@ -843,7 +841,7 @@ This can be abused with the machine gun in TAS."
   (unless *stage-viewer*
     (draw-point (camera-target-from-player (estate (entity-id :player)))
 		*white*))
-  (let ((mouse-pos (input-mouse-coords (entity-id :input))))
+  (let ((mouse-pos (input-mouse-coords (aval *env* :input))))
     (draw-point mouse-pos
 		*white*
 		:layer :mouse)
@@ -857,11 +855,9 @@ This can be abused with the machine gun in TAS."
   (setq env (aset env :sfx-play-list nil))
 
   (when (eq *input-playback* :recording)
-    (record-frame-input (entity-id :input)))
+    (record-frame-input (aval *env* :input)))
 
-  (aupdate env
-	   :game
-	   (asetfn :input (reset-transient-input (entity-id :input)))))
+  (aupdate env :input #'reset-transient-input))
 
 (defvar* *input-playback* nil)
 
@@ -1035,6 +1031,7 @@ This can be abused with the machine gun in TAS."
 	     entities))
 
       (aset env
+	    :input (make-input)
 	    :game
 	    (make-game :player (aval player :id)
 		       :camera (aval camera :id)

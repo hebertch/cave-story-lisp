@@ -124,7 +124,7 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 		  #_(stage-collision _ stage))))
 
 (defun update-input-entity (env id)
-  (let ((input (entity-id :input env)))
+  (let ((input (aval env :input)))
     (update-world env id  #_(input _ input))))
 
 (defun update-dynamic-collision-entity (env id)
