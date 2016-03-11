@@ -39,7 +39,8 @@
 (defun make-text-line-drawing (&key layer pos text)
   (alist :rect-fn (lambda (d)
 		    (make-rect :pos (aval d :pos)
-			       :size (get-text-size *font* (aval d :text))))
+			       :size (get-text-size (aval *sdl* :font)
+						    (aval d :text))))
 	 :layer layer
 	 :pos pos
 	 :text text
@@ -259,7 +260,7 @@
 	tex
 	(setf (gethash char *character-textures*)
 	      (multiple-value-list
-	       (create-text-texture! *renderer*
+	       (create-text-texture! (aval *sdl* :renderer)
 				     font
 				     (string char)
 				     (color->hex *white*)))))))
@@ -327,19 +328,20 @@ are sorted by layer."
    :key #'drawing-layer))
 
 (defun render! (render-list camera-pos)
-  (sdl:set-render-draw-color *renderer* 128 128 128 255)
-  (sdl:render-clear *renderer*)
+  (let ((renderer (aval *sdl* :renderer)))
+    (sdl:set-render-draw-color renderer 128 128 128 255)
+    (sdl:render-clear renderer)
 
-  (let ((drawings (nsort-by-layer (remove-invisible-layers render-list))))
-    (render-background! *renderer* camera-pos)
+    (let ((drawings (nsort-by-layer (remove-invisible-layers render-list))))
+      (render-background! renderer camera-pos)
 
-    (dolist (r (game-drawings drawings))
-      (render-drawing! r *renderer* *font* camera-pos))
-    
-    (dolist (r (hud-drawings drawings))
-      (render-drawing! r *renderer* *font* (zero-v))))
+      (dolist (r (game-drawings drawings))
+	(render-drawing! r renderer (aval *sdl* :font) camera-pos))
+      
+      (dolist (r (hud-drawings drawings))
+	(render-drawing! r renderer (aval *sdl* :font) (zero-v))))
 
-  (sdl:render-present *renderer*))
+    (sdl:render-present renderer)))
 
 (defun group-by (key list)
   "Group list into lists sharing the same key.
@@ -411,23 +413,24 @@ Returns a list of (key . sublist) pairs."
 
 (defun render-drawings-to-texture (layer drawings)
   "Render all drawings on a given layer to an SDL texture."
-  (let* ((rect (drawings-rect drawings))
+  (let* ((renderer (aval *sdl* :renderer))
+	 (rect (drawings-rect drawings))
 	 (target (sdl:create-texture
-		  *renderer*
-		  (sdl:get-window-display-mode-format *window*)
+		  renderer
+		  (sdl:get-window-display-mode-format (aval *sdl* :window))
 		  :target
 		  (x (aval rect :size))
 		  (y (aval rect :size)))))
     (sdl:set-texture-blend-mode target :blend)
-    (sdl:set-render-target *renderer* target)
-    (sdl:set-render-draw-color *renderer* 0 0 0 0)
-    (sdl:render-clear *renderer*)
+    (sdl:set-render-target renderer target)
+    (sdl:set-render-draw-color renderer 0 0 0 0)
+    (sdl:render-clear renderer)
     (dolist (d drawings)
       (render-drawing! d
-		       *renderer*
-		       *font*
+		       renderer
+		       (aval *sdl* :font)
 		       (rect-pos rect)))
-    (sdl:set-render-target *renderer* (cffi:null-pointer))
+    (sdl:set-render-target renderer (cffi:null-pointer))
     (make-texture-drawing :layer layer
 			  :texture target
 			  :src-rect (make-rect :pos (zero-v)

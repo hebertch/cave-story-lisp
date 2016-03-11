@@ -2,10 +2,10 @@
 
 (in-package #:cave-story)
 
-(defvar *window*)
-(defvar *renderer*)
-(defvar *font*)
 (defvar *stage-viewer-camera-pos* (scale-v *window-dims* 1/2))
+
+(defvar *sdl* nil
+  "Values for the sdl environment.")
 
 (defvar* *stage-viewer* nil)
 
@@ -583,8 +583,8 @@ This can be abused with the machine gun in TAS."
 		(> 2 (chunk-time-period (text-display-blink-time td)
 					*cursor-blink-time*
 					5)))
-       (let ((char-dims (get-text-size *font* " "))
-	     (w (x (get-text-size *font* (text-display-text td)))))
+       (let ((char-dims (get-text-size (aval *sdl* :font) " "))
+	     (w (x (get-text-size (aval *sdl* :fontn) (text-display-text td)))))
 	 (draw-rect
 	  (create-rect (+ (text-display-pos td) (make-v w 0)) char-dims)
 	  *white*
@@ -1046,7 +1046,7 @@ This can be abused with the machine gun in TAS."
 
   (sdl:init '(:audio :video :joystick))
   (sdl.ttf:init)
-  (setq *font* (sdl.ttf:open-font "./content/VeraMoBd.ttf" 19))
+  (setq *sdl* (aset *sdl* :font (sdl.ttf:open-font "./content/VeraMoBd.ttf" 19)))
   (sdl.mixer:open-audio sdl.mixer:+default-frequency+
 			sdl.mixer:+default-format+
 			2
@@ -1058,14 +1058,16 @@ This can be abused with the machine gun in TAS."
   (put-all-resources!)
   (setq *current-song* nil)
 
-  (multiple-value-setq
-      (*window* *renderer*)
-    (sdl:default-window-and-renderer
-	"Cave Story"
-	(x *window-dims*) (y *window-dims*)
-	'()
-	'(:target-texture)))
-  (sdl:set-render-draw-blend-mode *renderer* :blend)
+  (multiple-value-bind (window renderer)
+      (sdl:default-window-and-renderer
+	  "Cave Story"
+	  (x *window-dims*) (y *window-dims*)
+	  '()
+	  '(:target-texture))
+    (setq *sdl* (aset *sdl*
+		      :window window
+		      :renderer renderer)))
+  (sdl:set-render-draw-blend-mode (aval *sdl* :renderer) :blend)
   (reset!))
 
 (defun cleanup! ()
@@ -1076,12 +1078,11 @@ This can be abused with the machine gun in TAS."
 
   (setq *input-playback* nil)
   (sdl.mixer:close-audio)
-  (sdl:destroy-renderer *renderer*)
-  (sdl:destroy-window *window*)
+  (sdl:destroy-renderer (aval *sdl* :renderer))
+  (sdl:destroy-window (aval *sdl* :window))
   (sdl.ttf:quit)
   (sdl:quit)
-  (setq *renderer* nil
-	*window* nil))
+  (setq *sdl* nil))
 
 (defun quit ()
   "Quits the application."
