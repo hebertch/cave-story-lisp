@@ -39,7 +39,7 @@
 (defun make-text-line-drawing (&key layer pos text)
   (alist :rect-fn (lambda (d)
 		    (make-rect :pos (aval d :pos)
-			       :size (get-text-size (aval (aval *env* :sdl) :font)
+			       :size (get-text-size (aval *env* :font)
 						    (aval d :text))))
 	 :layer layer
 	 :pos pos
@@ -258,7 +258,7 @@
 	tex
 	(setf (gethash char *character-textures*)
 	      (multiple-value-list
-	       (create-text-texture! (aval (aval *env* :sdl) :renderer)
+	       (create-text-texture! (aval *env* :renderer)
 				     font
 				     (string char)
 				     (color->hex *white*)))))))
@@ -326,12 +326,12 @@ are sorted by layer."
    :key #'drawing-layer))
 
 (defun render! (render-list camera-pos)
-  (let ((renderer (aval (aval *env* :sdl) :renderer)))
+  (let ((renderer (aval *env* :renderer)))
     (sdl:set-render-draw-color renderer 128 128 128 255)
     (sdl:render-clear renderer)
 
     (let ((drawings (nsort-by-layer (remove-invisible-layers render-list)))
-	  (font (aval (aval *env* :sdl) :font)))
+	  (font (aval *env* :font)))
       (render-background! renderer camera-pos)
 
       (dolist (r (game-drawings drawings))
@@ -412,11 +412,11 @@ Returns a list of (key . sublist) pairs."
 
 (defun render-drawings-to-texture (layer drawings)
   "Render all drawings on a given layer to an SDL texture."
-  (let* ((renderer (aval (aval *env* :sdl) :renderer))
+  (let* ((renderer (aval *env* :renderer))
 	 (rect (drawings-rect drawings))
 	 (target (sdl:create-texture
 		  renderer
-		  (sdl:get-window-display-mode-format (aval (aval *env* :sdl) :window))
+		  (sdl:get-window-display-mode-format (aval *env* :window))
 		  :target
 		  (x (aval rect :size))
 		  (y (aval rect :size)))))
@@ -427,7 +427,7 @@ Returns a list of (key . sublist) pairs."
     (dolist (d drawings)
       (render-drawing! d
 		       renderer
-		       (aval (aval *env* :sdl) :font)
+		       (aval *env* :font)
 		       (rect-pos rect)))
     (sdl:set-render-target renderer (cffi:null-pointer))
     (make-texture-drawing :layer layer

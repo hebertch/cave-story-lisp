@@ -46,27 +46,25 @@
 
 (defun init-input! ()
   (update-env!
-   (aupdate *env*
-	    :sdl
-	    (asetfn
-	     :event (sdl:create-event)
-	     :joystick (open-joystick)))))
+   (aset *env*
+	 :event (sdl:create-event)
+	 :joystick (open-joystick))))
 
 (defun cleanup-input! ()
-  (sdl:destroy-event (aval (aval *env* :sdl) :event))
-  (let ((joystick (aval (aval *env* :sdl) :joystick)))
+  (sdl:destroy-event (aval *env* :event))
+  (let ((joystick (aval *env* :joystick)))
     (when joystick
       (when (sdl:joystick-get-attached joystick)
 	(sdl:joystick-close joystick))))
   (update-env!
-   (aupdate *env* :sdl (asetfn
-			:event nil
-			:joystick nil))))
+   (aset *env*
+	 :event nil
+	 :joystick nil)))
 
 (defun gather-transient-input ()
   "Gather all input for a frame into a transient-input object."
   (let ((ti (make-transient-input))
-	(event (aval (aval *env* :sdl) :event)))
+	(event (aval *env* :event)))
     ;; Gather all input for this frame into the transient input object.
     (loop until (= 0 (sdl:poll-event event)) do
 	 (case (sdl:event-get-type event)
