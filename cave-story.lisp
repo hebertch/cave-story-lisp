@@ -109,8 +109,9 @@
 	(draw-text-line (zero-v) "PAUSED"))
       (progn
 	(rolling-average-time *update-rolling-average*
-	  (setq *render-list* nil
-		*debug-render-list* nil)
+	  (update-env! (aset *env*
+			     :render-list nil))
+	  (setq *debug-render-list* nil)
 	  (update-env! (update *env*)))
 
 	(draw-text-line
@@ -127,7 +128,8 @@
 		 (rolling-average-percent *frame-rolling-average*)))))
 
   (rolling-average-time *render-rolling-average*
-    (render! (nconc *debug-render-list* *render-list*) (current-camera-pos))))
+    (render! (nconc *debug-render-list* (aval *env* :render-list))
+	     (current-camera-pos))))
 
 (defun main! ()
   "Entry point to the game."

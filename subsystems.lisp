@@ -115,8 +115,7 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 (defun update-drawable-entity (env id)
   (let ((*env* env))
     (let ((drawings (ensure-list (draw (estate id env)))))
-      (appendf *render-list* drawings)))
-  env)
+      (aupdate env :render-list (appendfn drawings)))))
 
 (defun update-stage-collision-entity (env id)
   (let ((stage (estate (entity-id :stage env) env)))

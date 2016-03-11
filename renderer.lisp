@@ -61,8 +61,6 @@
 (defvar* *magenta* #(255 0 255 255))
 (defvar* *cyan* #(0 255 255 255))
 
-(defvar *render-list* nil
-  "The list of drawings to be rendered once per frame.")
 (defvar *debug-render-list* nil
   "A separate render-list specifically for debug drawings.")
 (defvar* *debug-layers*
