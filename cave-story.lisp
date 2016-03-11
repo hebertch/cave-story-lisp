@@ -18,7 +18,7 @@
        ,(lambda () (quit)))
       (((:key :p)
 	(:joy :start)) .
-       ,(lambda () (setq *global-paused?* (not *global-paused?*))))
+       ,(lambda () (update-env! (aupdate *env* :paused? #'not))))
       (((:key :r)
 	(:joy :select)) .
        ,(lambda () (reset!)))
@@ -30,7 +30,7 @@
 		  (t (begin-input-recording)))))
       (((:key :n)) .
        ,(lambda ()
-		(when *global-paused?*
+		(when (aval *env* :paused?)
 		  (update-env! (update *env*)))))))
 
 (defun make-game
@@ -102,8 +102,11 @@
 (defvar* *render-rolling-average* (make-rolling-average (* *fps* 3)))
 
 (defun update-and-render! ()
-  (if *global-paused?*
-      (draw-text-line (zero-v) "PAUSED")
+  (if (aval *env* :paused?)
+      (progn
+	(rolling-average-time *update-rolling-average*
+	  (setq *debug-render-list* nil))
+	(draw-text-line (zero-v) "PAUSED"))
       (progn
 	(rolling-average-time *update-rolling-average*
 	  (setq *render-list* nil
@@ -877,7 +880,6 @@ This can be abused with the machine gun in TAS."
     (setq game-state (save-current-state))))
 
 (defvar* *dialog-text-pos* (tiles/2-v 7 24))
-(defvar *global-paused?*)
 (defvar* *entity-systems* '(:game :dialog))
 
 (defun make-active-systems
@@ -1036,7 +1038,7 @@ This can be abused with the machine gun in TAS."
 (defun reset! ()
   ;;(switch-to-new-song! :lastcave)
   (set-music-volume! 20)
-  (setq *global-paused?* nil)
+  (update-env! (aset *env* :paused? nil))
   (update-env! (funcall (comp create-game init-entity-registry) *env*)))
 
 (defun init! ()
@@ -1272,7 +1274,7 @@ This can be abused with the machine gun in TAS."
 		 (asetfn :vel
 			 (make-v (* 0.04 (if (eq facing :left) -1 1))
 				 (- 0.35))))
-	c))))
+	c)))
 
 (defun critter-drawing (c)
   (let* ((sleep-timer (aval c :sleep-timer))
