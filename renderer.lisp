@@ -39,7 +39,7 @@
 (defun make-text-line-drawing (&key layer pos text)
   (alist :rect-fn (lambda (d)
 		    (make-rect :pos (aval d :pos)
-			       :size (get-text-size (aval *sdl* :font)
+			       :size (get-text-size (aval (aval *env* :sdl) :font)
 						    (aval d :text))))
 	 :layer layer
 	 :pos pos
@@ -258,7 +258,7 @@
 	tex
 	(setf (gethash char *character-textures*)
 	      (multiple-value-list
-	       (create-text-texture! (aval *sdl* :renderer)
+	       (create-text-texture! (aval (aval *env* :sdl) :renderer)
 				     font
 				     (string char)
 				     (color->hex *white*)))))))
@@ -326,18 +326,19 @@ are sorted by layer."
    :key #'drawing-layer))
 
 (defun render! (render-list camera-pos)
-  (let ((renderer (aval *sdl* :renderer)))
+  (let ((renderer (aval (aval *env* :sdl) :renderer)))
     (sdl:set-render-draw-color renderer 128 128 128 255)
     (sdl:render-clear renderer)
 
-    (let ((drawings (nsort-by-layer (remove-invisible-layers render-list))))
+    (let ((drawings (nsort-by-layer (remove-invisible-layers render-list)))
+	  (font (aval (aval *env* :sdl) :font)))
       (render-background! renderer camera-pos)
 
       (dolist (r (game-drawings drawings))
-	(render-drawing! r renderer (aval *sdl* :font) camera-pos))
+	(render-drawing! r renderer font camera-pos))
       
       (dolist (r (hud-drawings drawings))
-	(render-drawing! r renderer (aval *sdl* :font) (zero-v))))
+	(render-drawing! r renderer font (zero-v))))
 
     (sdl:render-present renderer)))
 
@@ -411,11 +412,11 @@ Returns a list of (key . sublist) pairs."
 
 (defun render-drawings-to-texture (layer drawings)
   "Render all drawings on a given layer to an SDL texture."
-  (let* ((renderer (aval *sdl* :renderer))
+  (let* ((renderer (aval (aval *env* :sdl) :renderer))
 	 (rect (drawings-rect drawings))
 	 (target (sdl:create-texture
 		  renderer
-		  (sdl:get-window-display-mode-format (aval *sdl* :window))
+		  (sdl:get-window-display-mode-format (aval (aval *env* :sdl) :window))
 		  :target
 		  (x (aval rect :size))
 		  (y (aval rect :size)))))
@@ -426,7 +427,7 @@ Returns a list of (key . sublist) pairs."
     (dolist (d drawings)
       (render-drawing! d
 		       renderer
-		       (aval *sdl* :font)
+		       (aval (aval *env* :sdl) :font)
 		       (rect-pos rect)))
     (sdl:set-render-target renderer (cffi:null-pointer))
     (make-texture-drawing :layer layer

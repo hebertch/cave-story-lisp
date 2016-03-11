@@ -1051,7 +1051,10 @@ This can be abused with the machine gun in TAS."
 
   (sdl:init '(:audio :video :joystick))
   (sdl.ttf:init)
-  (setq *sdl* (aset *sdl* :font (sdl.ttf:open-font "./content/VeraMoBd.ttf" 19)))
+  (update-env! nil)
+  (update-env! (aupdate *env*
+			:sdl
+			(asetfn :font (sdl.ttf:open-font "./content/VeraMoBd.ttf" 19))))
   (sdl.mixer:open-audio sdl.mixer:+default-frequency+
 			sdl.mixer:+default-format+
 			2
@@ -1068,11 +1071,11 @@ This can be abused with the machine gun in TAS."
 	  (x *window-dims*) (y *window-dims*)
 	  '()
 	  '(:target-texture))
-    (setq *sdl* (aset *sdl*
-		      :window window
-		      :renderer renderer
-		      :current-song nil)))
-  (sdl:set-render-draw-blend-mode (aval *sdl* :renderer) :blend)
+    (update-env! (aupdate *env* :sdl (asetfn
+				      :window window
+				      :renderer renderer
+				      :current-song nil))))
+  (sdl:set-render-draw-blend-mode (aval (aval *env* :sdl) :renderer) :blend)
   (reset!))
 
 (defun cleanup! ()
@@ -1083,11 +1086,11 @@ This can be abused with the machine gun in TAS."
 
   (setq *input-playback* nil)
   (sdl.mixer:close-audio)
-  (sdl:destroy-renderer (aval *sdl* :renderer))
-  (sdl:destroy-window (aval *sdl* :window))
+  (sdl:destroy-renderer (aval (aval *env* :sdl) :renderer))
+  (sdl:destroy-window (aval (aval *env* :sdl) :window))
   (sdl.ttf:quit)
   (sdl:quit)
-  (setq *sdl* nil))
+  (update-env! (aset *env* :sdl nil)))
 
 (defun quit ()
   "Quits the application."
