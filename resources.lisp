@@ -287,7 +287,6 @@ the get- function that is produced."
 
 ;;; MUSIC
 (defstruct song intro loop name)
-(defvar *current-song*)
 
 (defun load-song (name)
   (make-song
@@ -302,20 +301,21 @@ the get- function that is produced."
 
 (defun music-update! ()
   "Call as often as possible."
-  (when (and *current-song* (= 0 (sdl.mixer:playing-music)))
-    ;; When the song intro has finished, switch to the loop portion.
-    (sdl.mixer:play-music (song-loop *current-song*) -1))
+  (let ((song (aval *env* :current-song)))
+    (when (and song (= 0 (sdl.mixer:playing-music)))
+      ;; When the song intro has finished, switch to the loop portion.
+      (sdl.mixer:play-music (song-loop song) -1)))
   :done)
 
 (defun stop-music! ()
   (sdl.mixer:halt-music)
-  (setq *current-song* nil)
   :done)
 
 (defun switch-to-new-song! (song-key)
-  (sdl.mixer:halt-music)
-  (setq *current-song* (get-song song-key))
-  (sdl.mixer:play-music (song-intro *current-song*) 0)
+  (stop-music!)
+  (let ((song (get-song song-key)))
+    (sdl.mixer:play-music (song-intro song) 0)
+    (update-env! (aset *env* :current-song song)))
   :done)
 
 (defun percent->volume (fixnum-percent)

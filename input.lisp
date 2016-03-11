@@ -24,8 +24,6 @@
   joy-axis-y
   (transient-input (make-transient-input)))
 
-(defvar *event*)
-(defvar *joystick*)
 (defvar* *show-joy-buttons?* nil)
 
 (defun reset-transient-input (input)
@@ -47,38 +45,43 @@
 	joystick))))
 
 (defun init-input! ()
-  (setq *event* (sdl:create-event)
-	*joystick* (open-joystick)))
+  (setq *sdl*
+	(aset *sdl*
+	      :event (sdl:create-event)
+	      :joystick (open-joystick))))
 
 (defun cleanup-input! ()
-  (sdl:destroy-event *event*)
-  (setq *event* nil)
-  (when *joystick*
-    (when (sdl:joystick-get-attached *joystick*)
-      (sdl:joystick-close *joystick*))
-    (setq *joystick* nil)))
+  (sdl:destroy-event (aval *sdl* :event))
+  (let ((joystick (aval *sdl* :joystick)))
+    (when joystick
+      (when (sdl:joystick-get-attached joystick)
+	(sdl:joystick-close joystick))))
+  (setq *sdl* (aset *sdl*
+		    :event nil
+		    :joystick nil)))
 
 (defun gather-transient-input ()
   "Gather all input for a frame into a transient-input object."
-  (let ((ti (make-transient-input)))
+  (let ((ti (make-transient-input))
+	(event (aval *sdl* :event)))
     ;; Gather all input for this frame into the transient input object.
-    (loop until (= 0 (sdl:poll-event *event*)) do
-	 (case (sdl:event-get-type *event*)
+    (loop until (= 0 (sdl:poll-event event)) do
+	 (case (sdl:event-get-type event)
 	   ;; Keyboard
 	   (:key-up
-	    (pushnew (sdl:keyboard-event-get-scancode *event*)
+	    (pushnew (sdl:keyboard-event-get-scancode event)
 		     (ti-released-keys ti)))
 	   (:key-down
-	    (unless (sdl:keyboard-event-get-repeat *event*)
-	      (pushnew (sdl:keyboard-event-get-scancode *event*)
+	    (unless (sdl:keyboard-event-get-repeat event)
+	      (pushnew (sdl:keyboard-event-get-scancode event)
 		       (ti-pressed-keys ti))))
 
 	   ;; Joystick
 	   (:joy-axis-motion
-	    (when (= 0 (sdl:event-get-joystick-which *event*))
+	    (when (= 0 (sdl:event-get-joystick-which event))
 	      ;; NOTE: Converts from value to :pos/:neg/nil
-	      (let* ((axis (sdl:event-get-joystick-axis *event*))
-		     (value (sdl:event-get-joystick-axis-value *event*))
+	      (let* ((axis (sdl:event-get-joystick-axis event))
+		     (value (sdl:event-get-joystick-axis-value event))
 		     (sign (cond
 			     ((plusp value) :positive)
 			     ((minusp value) :negative)
@@ -87,28 +90,28 @@
 		  (0 (setf (ti-joy-axis-x ti) sign))
 		  (1 (setf (ti-joy-axis-y ti) sign))))))
 	   (:joy-button-down
-	    (when (= 0 (sdl:event-get-joystick-which *event*))
-	      (let ((button (sdl:event-get-joystick-button *event*)))
+	    (when (= 0 (sdl:event-get-joystick-which event))
+	      (let ((button (sdl:event-get-joystick-button event)))
 		(pushnew button (ti-pressed-joy-buttons ti))
 		(when *show-joy-buttons?*
 		  (format t "Button Pressed: ~A~%" button)))))
 	   (:joy-button-up
-	    (when (= 0 (sdl:event-get-joystick-which *event*))
-	      (let ((button (sdl:event-get-joystick-button *event*)))
+	    (when (= 0 (sdl:event-get-joystick-which event))
+	      (let ((button (sdl:event-get-joystick-button event)))
 		(pushnew button (ti-released-joy-buttons ti)))))
 
 	   ;; Mouse
 	   (:mouse-button-down
-	    (pushnew (sdl:event-get-mouse-button *event*)
+	    (pushnew (sdl:event-get-mouse-button event)
 		     (ti-pressed-buttons ti)))
 	   (:mouse-button-up
-	    (pushnew (sdl:event-get-mouse-button *event*)
+	    (pushnew (sdl:event-get-mouse-button event)
 		     (ti-released-buttons ti)))
 	   (:mouse-motion
-	    (multiple-value-bind (x y) (sdl:event-get-mouse-xy *event*)
+	    (multiple-value-bind (x y) (sdl:event-get-mouse-xy event)
 	      (setf (ti-mouse-coords ti) (make-v x y))))
 	   (:mouse-wheel
-	    (multiple-value-bind (x y) (sdl:event-get-mouse-xy *event*)
+	    (multiple-value-bind (x y) (sdl:event-get-mouse-xy event)
 	      (setf (ti-mouse-wheel-dt ti) (make-v x y))))
 
 	   ;; Window-Manager

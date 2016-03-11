@@ -48,14 +48,16 @@
 	:shake-h (make-shake)))
 
 (defun camera-ai (c)
-  (let ((shake-tick? (ticked? c :shake-timer))
-	(player-id (entity-id :player)))
+  (let ((shake-tick? (ticked? c :shake-timer)))
     (aupdate c
 	     :target
-	     (constantly (target-kin-2d-update-target
-			  (aval c :target)
-			  (camera-target-from-player (estate player-id))
-			  (player-vel (estate player-id))))
+	     (constantly (let ((player (estate (entity-id :player))))
+			   (if player
+			       (target-kin-2d-update-target
+				(aval c :target)
+				(camera-target-from-player player)
+				(player-vel player))
+			       (aval c :target))))
 	     :physics (when shake-tick?
 			(removefn :shake-v :shake-h))
 	     :timers (when shake-tick?

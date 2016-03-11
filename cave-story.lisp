@@ -2,7 +2,7 @@
 
 (in-package #:cave-story)
 
-(defvar *stage-viewer-camera-pos* (scale-v *window-dims* 1/2))
+(defvar* *stage-viewer-camera-pos* (scale-v *window-dims* 1/2))
 
 (defvar *sdl* nil
   "Values for the sdl environment.")
@@ -97,9 +97,9 @@
 		  (stage-dims->camera-bounds
 		   (stage-dims (estate (entity-id :stage)))))))
 
-(defvar *update-rolling-average* (make-rolling-average (* *fps* 3)))
-(defvar *frame-rolling-average* (make-rolling-average (* *fps* 3)))
-(defvar *render-rolling-average* (make-rolling-average (* *fps* 3)))
+(defvar* *update-rolling-average* (make-rolling-average (* *fps* 3)))
+(defvar* *frame-rolling-average* (make-rolling-average (* *fps* 3)))
+(defvar* *render-rolling-average* (make-rolling-average (* *fps* 3)))
 
 (defun update-and-render! ()
   (if *global-paused?*
@@ -634,108 +634,109 @@ This can be abused with the machine gun in TAS."
 	  :health-change-timer (make-expiring-timer (s->ms 1/2)))))
 
 (defun hud-drawing (hud)
-  (let ((bar-tile/2-w 5)
-	(bar-tile/2-x 5)
-	(drawings))
-    (push
-     (make-sprite-drawing :layer
-			  :hud-bg :sheet-key :text-box
-			  :src-rect
-			  (create-rect-cmpts 0 (tiles/2 5)
-					     (tiles/2 8) (tiles/2 1))
-			  :pos (tile-v 1 2))
-     drawings)
-
-    (let ((health (aval (estate (entity-id :player)) :health-amt)))
-      (when (timer-active? (aval hud :health-change-timer))
-	(push
-	 (make-sprite-drawing
-	  :layer :hud
-	  :sheet-key :text-box
-	  :src-rect
-	  (create-rect-cmpts 0 (tiles/2 4)
-			     (floor (* (tiles/2 bar-tile/2-w)
-				       (/ (aval hud :last-health-amt)
-					  (aval (estate (entity-id :player))
-						:max-health-amt))))
-			     (tiles/2 1))
-	  :pos (tiles/2-v bar-tile/2-x 4))
-	 drawings))
+  (unless (dead? (estate (entity-id :player)))
+    (let ((bar-tile/2-w 5)
+	  (bar-tile/2-x 5)
+	  (drawings))
       (push
-       (make-sprite-drawing
-	:layer :hud-fg
-	:sheet-key :text-box
-	:src-rect
-	(create-rect-cmpts 0 (tiles/2 3)
-			   (floor (* (tiles/2 bar-tile/2-w)
-				     (/ health
-					(aval (estate (entity-id :player))
-					      :max-health-amt))))
-			   (tiles/2 1))
-	:pos (tiles/2-v bar-tile/2-x 4))
-       drawings)
-      (appendf drawings (hud-number-drawing 4 health)))
-
-    (let ((exp-pos (tiles/2-v bar-tile/2-x 3)))
-      (push
-       (make-sprite-drawing :layer :hud-bg
-			    :sheet-key :text-box
+       (make-sprite-drawing :layer
+			    :hud-bg :sheet-key :text-box
 			    :src-rect
-			    (create-rect-cmpts 0 (tiles/2 9) (tiles/2 5) (tiles/2 1))
-			    :pos exp-pos)
+			    (create-rect-cmpts 0 (tiles/2 5)
+					       (tiles/2 8) (tiles/2 1))
+			    :pos (tile-v 1 2))
        drawings)
 
-      (when (flash-time? (aval hud :exp-change-timer))
-	(push
-	 (make-sprite-drawing :layer :hud-fg
-			      :sheet-key :text-box
-			      :src-rect
-			      (create-rect (tiles/2-v 5 10)
-					   (tiles/2-v bar-tile/2-w 1))
-			      :pos exp-pos)
-	 drawings))
-
-      (multiple-value-bind (exp gun-name) (current-gun-exp (entity-id :player)
-							   (entity-id :gun-exps))
-	(let* ((current-level (gun-level exp (cdr (assoc gun-name *gun-level-exps*))))
-	       (next-lvl-exp (exp-for-gun-level gun-name current-level))
-	       (current-lvl-exp (if (zerop current-level)
-				    0
-				    (exp-for-gun-level gun-name (1- current-level)))))
-	  (if (= exp (exp-for-gun-level gun-name :max))
-	      (push
-	       (make-sprite-drawing :layer :hud-fg :sheet-key :text-box
-				    :src-rect
-				    (create-rect (tiles/2-v 5 9)
-						 (tiles/2-v bar-tile/2-w 1))
-				    :pos exp-pos)
-	       drawings)
-
-	      (push
-	       (make-sprite-drawing
-		:layer :hud
-		:sheet-key :text-box
-		:src-rect
-		(create-rect-cmpts 0 (tiles/2 10)
-				   (floor (* (tiles/2 bar-tile/2-w)
-					     (/ (- exp current-lvl-exp)
-						(- next-lvl-exp current-lvl-exp))))
-				   (tiles/2 1))
-		:pos exp-pos)
-	       drawings))
-
+      (let ((health (aval (estate (entity-id :player)) :health-amt)))
+	(when (timer-active? (aval hud :health-change-timer))
 	  (push
 	   (make-sprite-drawing
 	    :layer :hud
 	    :sheet-key :text-box
 	    :src-rect
-	    (create-rect-cmpts (tiles/2 10) (tiles/2 10)
-			       (tiles/2 2) (tiles/2 1))
-	    :pos (make-v (tiles/2 2) (y exp-pos)))
-	   drawings)
+	    (create-rect-cmpts 0 (tiles/2 4)
+			       (floor (* (tiles/2 bar-tile/2-w)
+					 (/ (aval hud :last-health-amt)
+					    (aval (estate (entity-id :player))
+						  :max-health-amt))))
+			       (tiles/2 1))
+	    :pos (tiles/2-v bar-tile/2-x 4))
+	   drawings))
+	(push
+	 (make-sprite-drawing
+	  :layer :hud-fg
+	  :sheet-key :text-box
+	  :src-rect
+	  (create-rect-cmpts 0 (tiles/2 3)
+			     (floor (* (tiles/2 bar-tile/2-w)
+				       (/ health
+					  (aval (estate (entity-id :player))
+						:max-health-amt))))
+			     (tiles/2 1))
+	  :pos (tiles/2-v bar-tile/2-x 4))
+	 drawings)
+	(appendf drawings (hud-number-drawing 4 health)))
 
-	  (appendf drawings (hud-number-drawing 3 (1+ current-level))))))
-    drawings))
+      (let ((exp-pos (tiles/2-v bar-tile/2-x 3)))
+	(push
+	 (make-sprite-drawing :layer :hud-bg
+			      :sheet-key :text-box
+			      :src-rect
+			      (create-rect-cmpts 0 (tiles/2 9) (tiles/2 5) (tiles/2 1))
+			      :pos exp-pos)
+	 drawings)
+
+	(when (flash-time? (aval hud :exp-change-timer))
+	  (push
+	   (make-sprite-drawing :layer :hud-fg
+				:sheet-key :text-box
+				:src-rect
+				(create-rect (tiles/2-v 5 10)
+					     (tiles/2-v bar-tile/2-w 1))
+				:pos exp-pos)
+	   drawings))
+
+	(multiple-value-bind (exp gun-name) (current-gun-exp (entity-id :player)
+							     (entity-id :gun-exps))
+	  (let* ((current-level (gun-level exp (cdr (assoc gun-name *gun-level-exps*))))
+		 (next-lvl-exp (exp-for-gun-level gun-name current-level))
+		 (current-lvl-exp (if (zerop current-level)
+				      0
+				      (exp-for-gun-level gun-name (1- current-level)))))
+	    (if (= exp (exp-for-gun-level gun-name :max))
+		(push
+		 (make-sprite-drawing :layer :hud-fg :sheet-key :text-box
+				      :src-rect
+				      (create-rect (tiles/2-v 5 9)
+						   (tiles/2-v bar-tile/2-w 1))
+				      :pos exp-pos)
+		 drawings)
+
+		(push
+		 (make-sprite-drawing
+		  :layer :hud
+		  :sheet-key :text-box
+		  :src-rect
+		  (create-rect-cmpts 0 (tiles/2 10)
+				     (floor (* (tiles/2 bar-tile/2-w)
+					       (/ (- exp current-lvl-exp)
+						  (- next-lvl-exp current-lvl-exp))))
+				     (tiles/2 1))
+		  :pos exp-pos)
+		 drawings))
+
+	    (push
+	     (make-sprite-drawing
+	      :layer :hud
+	      :sheet-key :text-box
+	      :src-rect
+	      (create-rect-cmpts (tiles/2 10) (tiles/2 10)
+				 (tiles/2 2) (tiles/2 1))
+	      :pos (make-v (tiles/2 2) (y exp-pos)))
+	     drawings)
+
+	    (appendf drawings (hud-number-drawing 3 (1+ current-level))))))
+      drawings)))
 
 (setfn hud-exp-changed
        (aupdatefn :exp-change-timer #'reset-timer))
@@ -828,9 +829,9 @@ This can be abused with the machine gun in TAS."
       (draw-point focus *cyan*)
       (draw-point (clamp-pos focus camera-bounds) *red*))
     (draw-rect camera-bounds *cyan* :layer :debug-camera))
-  (unless *stage-viewer*
-    (draw-point (camera-target-from-player (estate (entity-id :player)))
-		*white*))
+  (let ((player (estate (entity-id :player))))
+    (unless (or *stage-viewer* (dead? player))
+      (draw-point (camera-target-from-player player) *white*)))
   (let ((mouse-pos (input-mouse-coords (aval *env* :input))))
     (draw-point mouse-pos
 		*white*
@@ -1056,8 +1057,7 @@ This can be abused with the machine gun in TAS."
   (sdl:show-cursor :disable)
 
   (put-all-resources!)
-  (setq *current-song* nil)
-
+  
   (multiple-value-bind (window renderer)
       (sdl:default-window-and-renderer
 	  "Cave Story"
@@ -1066,7 +1066,8 @@ This can be abused with the machine gun in TAS."
 	  '(:target-texture))
     (setq *sdl* (aset *sdl*
 		      :window window
-		      :renderer renderer)))
+		      :renderer renderer
+		      :current-song nil)))
   (sdl:set-render-draw-blend-mode (aval *sdl* :renderer) :blend)
   (reset!))
 
@@ -1255,24 +1256,30 @@ This can be abused with the machine gun in TAS."
 				 (entity-id :player))))
 
 (defun critter-jump-ai (c)
+  (setq c (aset c
+		:player-origin
+		(let ((state (estate (entity-id :player))))
+		  (if state
+		      (origin state)
+		      (aval c :player-origin)))))
   (let ((facing (aval c :facing)))
 
     (if (and (not (timer-active? (aval c :sleep-timer)))
-	     (< (origin-dist c (estate (entity-id :player))) (tiles 4))
+	     (< (dist (origin c) (aval c :player-origin)) (tiles 4))
 	     (aval c :ground-tile))
 	(aupdate c
 		 :stage-physics
 		 (asetfn :vel
 			 (make-v (* 0.04 (if (eq facing :left) -1 1))
 				 (- 0.35))))
-	c)))
+	c))))
 
 (defun critter-drawing (c)
   (let* ((sleep-timer (aval c :sleep-timer))
 	 (sprite-tile-x (cond
 			  ((and sleep-timer (timer-active? sleep-timer))
 			   0)
-			  ((< (origin-dist c (estate (entity-id :player)))
+			  ((< (dist (origin c) (aval c :player-origin))
 			      (tiles 7))
 			   1)
 			  (t
@@ -2952,7 +2959,11 @@ The number of smoke particles to create when destroyed.")
   (eq :closing (aval d :eye-state)))
 
 (defun door-eye-ai (d)
-  (let* ((player-x (x (origin (estate (entity-id :player)))))
+  (let ((player-state (estate (entity-id :player))))
+    (setq d (aset d :player-origin (if player-state
+				       (origin player-state)
+				       (aval d :player-origin)))))
+  (let* ((player-x (x (aval d :player-origin)))
 	 (door-x (x (origin d)))
 	 (player-in-range?
 	  (< (abs (- player-x door-x)) (* 4 *tile-size*))))
