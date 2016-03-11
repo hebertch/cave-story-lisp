@@ -102,30 +102,8 @@
 (defvar* *render-rolling-average* (make-rolling-average (* *fps* 3)))
 
 (defun update-and-render! ()
-  (if (aval *env* :paused?)
-      (progn
-	(rolling-average-time *update-rolling-average*
-	  (setq *debug-render-list* nil))
-	(draw-text-line (zero-v) "PAUSED"))
-      (progn
-	(rolling-average-time *update-rolling-average*
-	  (update-env! (aset *env*
-			     :render-list nil))
-	  (setq *debug-render-list* nil)
-	  (update-env! (update *env*)))
-
-	(draw-text-line
-	 (make-v 0 (- (y *window-dims*) *tile-size*))
-	 (format nil "Renderer: ~,0f%"
-		 (rolling-average-percent *render-rolling-average*)))
-	(draw-text-line
-	 (make-v (* 6 *tile-size*) (- (y *window-dims*) *tile-size*))
-	 (format nil "Update: ~,0f%"
-		 (rolling-average-percent *update-rolling-average*)))
-	(draw-text-line
-	 (make-v (* 12 *tile-size*) (- (y *window-dims*) *tile-size*))
-	 (format nil "Total: ~,0f%"
-		 (rolling-average-percent *frame-rolling-average*)))))
+  (rolling-average-time *update-rolling-average*
+    (update-env! (update *env*)))
 
   (rolling-average-time *render-rolling-average*
     (render! (nconc *debug-render-list* (aval *env* :render-list))
@@ -802,9 +780,13 @@ This can be abused with the machine gun in TAS."
 
 (defun update (env)
   "The Main Loop, called once per *FRAME-TIME*."
+  (setq *debug-render-list* nil)
+  (setq env (aset env :render-list nil))
+
   (when (eq *input-playback* :playback)
     (setq env (aset env :input (next-playback-input))))
-  (setq env (handle-input env))
+  (unless (aval env :paused?)
+    (setq env (handle-input env)))
 
   (case *input-playback*
     (:recording
@@ -812,19 +794,37 @@ This can be abused with the machine gun in TAS."
     (:playback
      (draw-text-line (zero-v) "PLAYBACK")))
 
-  (unless *stage-viewer*
-    (setq env (update-subsystem env :timers #'update-timers-entity))
-    (setq env (update-subsystem env :physics #'update-physics-entity))
-    (setq env (update-subsystem env :bullet #'update-damageable-subsystem))
-    (setq env (update-subsystem env :stage-collision #'update-stage-collision-entity))
-    (setq env (update-subsystem env :pickup #'update-pickup-entity))
-    (setq env (update-subsystem env :damage-collision #'update-damage-collision-entity))
-    (setq env (update-subsystem env :dynamic-collision #'update-dynamic-collision-entity)))
+  (unless (aval env :paused?)
+    (unless *stage-viewer*
+      (setq env (update-subsystem env :timers #'update-timers-entity))
+      (setq env (update-subsystem env :physics #'update-physics-entity))
+      (setq env (update-subsystem env :bullet #'update-damageable-subsystem))
+      (setq env (update-subsystem env :stage-collision #'update-stage-collision-entity))
+      (setq env (update-subsystem env :pickup #'update-pickup-entity))
+      (setq env (update-subsystem env :damage-collision #'update-damage-collision-entity))
+      (setq env (update-subsystem env :dynamic-collision #'update-dynamic-collision-entity)))
+
+    (setq env (remove-all-dead env)))
 
   (setq env (update-subsystem env :drawable #'update-drawable-entity))
-  (setq env (remove-all-dead env))
 
   ;; Debug Drawings Below.
+
+  (when (aval env :paused?)
+    (draw-text-line (zero-v) "PAUSED"))
+
+  (draw-text-line
+   (make-v 0 (- (y *window-dims*) *tile-size*))
+   (format nil "Renderer: ~,0f%"
+	   (rolling-average-percent *render-rolling-average*)))
+  (draw-text-line
+   (make-v (* 6 *tile-size*) (- (y *window-dims*) *tile-size*))
+   (format nil "Update: ~,0f%"
+	   (rolling-average-percent *update-rolling-average*)))
+  (draw-text-line
+   (make-v (* 12 *tile-size*) (- (y *window-dims*) *tile-size*))
+   (format nil "Total: ~,0f%"
+	   (rolling-average-percent *frame-rolling-average*)))
 
   ;; (draw-point (player-nozzle-pos player) *red*)
   (let ((focus (camera-focus (estate (entity-id :camera))))
