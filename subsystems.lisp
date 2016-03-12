@@ -110,9 +110,8 @@ Binds :damage-amt (in obj) to the bullet hit amount."
   (update-world env id #'timers))
 
 (defun update-drawable-entity (env id)
-  (let ((*env* env))
-    (let ((drawings (ensure-list (draw (estate id env)))))
-      (aupdate env :render-list (appendfn drawings)))))
+  (let ((drawings (ensure-list (draw (estate id env)))))
+    (aupdate env :render-list (appendfn drawings))))
 
 (defun update-stage-collision-entity (env id)
   (let ((stage (estate (entity-id :stage env) env)))
@@ -211,9 +210,6 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 
 (defun ticked? (obj timer-key)
   (member timer-key (aval obj :ticks)))
-
-(defun current-entity-states ()
-  *env*)
 
 (defun restore-entity-states! (env)
   (loop for (id . e) in (aval env :entity-registry)

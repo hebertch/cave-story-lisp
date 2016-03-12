@@ -12,13 +12,13 @@
 
 (defvar* *debug-input-keybindings*
     `((((:key :escape)) .
-       ,(lambda () (quit)))
+       quit)
       (((:key :p)
 	(:joy :start)) .
-       ,(lambda () (update-env! (aupdate *env* :paused? #'not))))
+       toggle-paused!)
       (((:key :r)
 	(:joy :select)) .
-       ,(lambda () (reset!)))
+       reset!)
       (((:joy :r)) .
        ,(lambda ()
 		(case *input-playback*
@@ -29,6 +29,9 @@
        ,(lambda ()
 		(when (aval *env* :paused?)
 		  (update-env! (update *env*)))))))
+
+(defun toggle-paused! ()
+  (update-env! (aupdate *env* :paused? #'not)))
 
 (defun make-game
     (&key player camera stage projectile-groups hud gun-exps
@@ -948,7 +951,7 @@ This can be abused with the machine gun in TAS."
      gun-name)))
 
 (defun save-current-state ()
-  (list (current-entity-states) (aval *env* :game)))
+  (list *env* (aval *env* :game)))
 
 (defun restore-state (state)
   (restore-entity-states! (first state))
@@ -1037,8 +1040,9 @@ This can be abused with the machine gun in TAS."
 (defun reset! ()
   ;;(switch-to-new-song! :lastcave)
   (set-music-volume! 20)
-  (update-env! (aset *env* :paused? nil))
-  (update-env! (funcall (comp create-game init-entity-registry) *env*)))
+  (update-env! (funcall (comp (asetfn :paused? nil)
+			      create-game
+			      init-entity-registry) *env*)))
 
 (defun init! ()
   "Called at application startup."
@@ -1048,14 +1052,14 @@ This can be abused with the machine gun in TAS."
 
   (sdl:init '(:audio :video :joystick))
   (sdl.ttf:init)
-  (update-env! nil)
-  (update-env! (aset *env* :font (sdl.ttf:open-font "./content/VeraMoBd.ttf" 19)))
+  (update-env! (alist :font (sdl.ttf:open-font "./content/VeraMoBd.ttf" 19)))
+
   (sdl.mixer:open-audio sdl.mixer:+default-frequency+
 			sdl.mixer:+default-format+
 			2
 			4096)
 
-  (init-input!)
+  (update-env! (init-input *env*))
   (sdl:show-cursor :disable)
 
   (put-all-resources!)
