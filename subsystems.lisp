@@ -91,11 +91,8 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 (defun entity-id (key &optional (env *env*))
   (aval (aval env :game) key))
 
-(defvar *env* (alist :entity-registry nil
-		     :registry nil
-		     :sfx-play-list nil
-		     :game nil)
-  "The globally read-only (convention) environment for the game.")
+(defvar *env* nil
+  "The environment for the game.")
 
 (defun update-env! (env) (setq *env* env))
 
