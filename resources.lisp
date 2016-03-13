@@ -144,48 +144,82 @@
 
 (defstruct resource-type
   put-fn
-  fnames-fn
   cleanup-fn
   load-fn)
 
 (defvar* *resource-types* nil)
 
 (defvar* *sfx-fnames*
-    (mapcan (lambda (a)
+    (mapcar (lambda (a)
 	      (let ((key (first a))
 		    (num (second a)))
-		(list key (format nil "~(fx~2,'0X~)" num))))
+		(cons key (format nil "~(fx~2,'0X~)" num))))
 	    *sound-effects-table*))
 
 (defvar* *song-names*
-    '(:ACCESS "access" :ANZEN "anzen" :BALCONY "balcony" :BALLOS "ballos" :BDOWN
-      "bdown" :BREAKDOWN "breakdown" :CEMETERY "cemetery" :CREDITS "credits" :CURLY
-      "curly" :DR "dr" :ENDING "ending" :ESCAPE "escape" :FANFALE1 "fanfale1"
-      :FANFALE2 "fanfale2" :FANFALE3 "fanfale3" :FIREEYE "fireeye" :GAMEOVER
-      "gameover" :GINSUKE "ginsuke" :GRAND "grand" :GRAVITY "gravity" :HELL "hell"
-      :IRONH "ironh" :JENKA2 "jenka2" :JENKA "jenka" :KAZE "kaze" :KODOU "kodou"
-      :LASTBT3 "lastbt3" :LASTCAVE2 "lastcave2" :LASTCAVE "lastcave" :MARINE
-      "marine" :MAZE "maze" :MDOWN2 "mdown2" :MURA "mura" :OSIDE "oside" :PLANT
-      "plant" :QUIET "quiet" :REQUIEM "requiem" :SILENCE "silence" :TOROKO "toroko"
-      :VIVI "vivi" :WANPAK2 "wanpak2" :WANPAKU_ENDING "wanpaku_ending" :WANPAKU
-      "wanpaku" :WEED "weed" :WHITE "white" :ZONBIE "zonbie"))
+    (alist :ACCESS "access"
+	   :ANZEN "anzen"
+	   :BALCONY "balcony"
+	   :BALLOS "ballos"
+	   :BDOWN "bdown"
+	   :BREAKDOWN "breakdown"
+	   :CEMETERY "cemetery"
+	   :CREDITS "credits"
+	   :CURLY "curly"
+	   :DR "dr"
+	   :ENDING "ending"
+	   :ESCAPE "escape"
+	   :FANFALE1 "fanfale1"
+	   :FANFALE2 "fanfale2"
+	   :FANFALE3 "fanfale3"
+	   :FIREEYE "fireeye"
+	   :GAMEOVER "gameover"
+	   :GINSUKE "ginsuke"
+	   :GRAND "grand"
+	   :GRAVITY "gravity"
+	   :HELL "hell"
+	   :IRONH "ironh"
+	   :JENKA2 "jenka2"
+	   :JENKA "jenka"
+	   :KAZE "kaze"
+	   :KODOU "kodou"
+	   :LASTBT3 "lastbt3"
+	   :LASTCAVE2 "lastcave2"
+	   :LASTCAVE "lastcave"
+	   :MARINE "marine"
+	   :MAZE "maze"
+	   :MDOWN2 "mdown2"
+	   :MURA "mura"
+	   :OSIDE "oside"
+	   :PLANT "plant"
+	   :QUIET "quiet"
+	   :REQUIEM "requiem"
+	   :SILENCE "silence"
+	   :TOROKO "toroko"
+	   :VIVI "vivi"
+	   :WANPAK2 "wanpak2"
+	   :WANPAKU_ENDING "wanpaku_ending"
+	   :WANPAKU "wanpaku"
+	   :WEED "weed"
+	   :WHITE "white"
+	   :ZONBIE "zonbie"))
 
 (defvar* *spritesheet-fnames*
-    (append '(:my-char "MyChar"
-	      :npc-sym "NpcSym"
-	      :arms "Arms"
-	      :bullet "Bullet"
-	      :npc-cemet "NpcCemet"
-	      :caret "Caret"
-	      :text-box "TextBox"
-	      :bk-blue "bkBlue"
-	      :npc-regu "NpcRegu"
-	      :npc-eggs1 "NpcEggs1")
+    (append (alist :my-char "MyChar"
+		   :npc-sym "NpcSym"
+		   :arms "Arms"
+		   :bullet "Bullet"
+		   :npc-cemet "NpcCemet"
+		   :caret "Caret"
+		   :text-box "TextBox"
+		   :bk-blue "bkBlue"
+		   :npc-regu "NpcRegu"
+		   :npc-eggs1 "NpcEggs1")
 	    (loop for d in (directory #p "./content/Prt*.bmp")
-	       appending
+	       collecting
 		 (let* ((fname (file-namestring d))
 			(name  (subseq fname 3 (position #\. fname))))
-		   (list (make-keyword (string-upcase name))
+		   (cons (make-keyword (string-upcase name))
 			 (format nil "Prt~A" name))))))
 
 (defvar* *stage-fields*
@@ -218,6 +252,7 @@ List of (keyword sprite-key attributes-fname entities/stage-fname).")
 	    *stage-fields*)
   "Alist of (keyword . (alist stage attributes entities spritesheet)).")
 
+;; TODO: Remove me!
 (defmacro def-resource-type
     (name (load-args &body load-forms) fnames-form destruct-fn)
   "Introduces Anaphora of FNAME into the load definition. This is to keep consistent args with
@@ -234,12 +269,9 @@ the get- function that is produced."
 			   (unless (typep v 'string)
 			     (funcall ,destruct-fn v)))
 		      (clrhash ,hash-table))
-		    :fnames-fn
-		    (lambda ()
-		      ,fnames-form)
 		    :put-fn
 		    (lambda ()
-		      (loop for (key fname) on ,fnames-form by #'cddr
+		      (loop for (key . fname) in ,fnames-form
 			 do
 			   (setf (gethash key ,hash-table) fname)))
 		    :load-fn

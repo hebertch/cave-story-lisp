@@ -1,4 +1,5 @@
-* entity registry should be functional
+* resource system
+
 * free pre-compiled textures
 * fix laptop only stages not drawing
 
