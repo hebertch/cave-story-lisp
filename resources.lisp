@@ -245,18 +245,15 @@ List of (keyword sprite-key attributes-fname entities/stage-fname).")
 	    *stage-fields*)
   "Alist of (keyword . (alist stage attributes entities spritesheet)).")
 
-(defvar* *resources*
-    (alist :song (make-hash-table)
-	   :sound (make-hash-table)
-	   :spritesheet (make-hash-table)))
+(defvar* *resources* nil)
 
 (defun cleanup-all-resources! ()
   (dolist (entry *resources*)
     (let ((resource-type (car entry))
-	  (hash-table (cdr entry)))
-      (loop for k being the hash-key in hash-table do
-	   (release-resource resource-type k))
-      (clrhash hash-table))))
+	  (table (cdr entry)))
+      (dolist (e table)
+	(release-resource resource-type (car e)))))
+  (setq *resources* nil))
 
 ;;; SPRITES
 
@@ -324,7 +321,6 @@ List of (keyword sprite-key attributes-fname entities/stage-fname).")
 
 ;;; SOUNDS
 
-
 (defun wav-path (fname)
   (format nil "./content/sfx/~A.wav" fname))
 
@@ -353,19 +349,20 @@ List of (keyword sprite-key attributes-fname entities/stage-fname).")
        (load-spritesheet (aval *env* :renderer) (bmp-path fname))))))
 
 (defun release-resource (resource-type key)
-  (let ((resource (gethash key (aval *resources* resource-type))))
+  (let ((resource (aval (aval *resources* resource-type) key)))
     (when resource
       (ecase resource-type
 	(:sound (sdl.mixer:free-chunk resource))
 	(:song (destroy-song! resource))
-	(:spritesheet (sdl:destroy-texture resource))))))
+	(:spritesheet (sdl:destroy-texture resource)))
+      (setq *resources* (aupdate *resources* resource-type (aremfn key))))))
 
 (defun get-resource (resource-type keyword)
   "Gets the resource associated with resource-type and keyword."
-  (let ((hash-table (aval *resources* resource-type)))
-    (let ((val (gethash keyword hash-table)))
-      (if val
-	  val
-	  (let ((resource (acquire-resource resource-type keyword)))
-	    (setf (gethash keyword hash-table) resource)
-	    resource)))))
+  (let ((val (aval (aval *resources* resource-type) keyword)))
+    (if val
+	val
+	(let ((resource (acquire-resource resource-type keyword)))
+	  (setq *resources* (aupdate *resources* resource-type
+				     (asetfn keyword resource)))
+	  resource))))

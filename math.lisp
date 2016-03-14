@@ -115,6 +115,9 @@ If val is provided, expand to a defparameter."
 	       (member (car pair) keys))
 	     alist))
 
+(defun aremfn (&rest keys)
+  #_(arem _ . keys))
+
 (defun call-if (fn val &optional default-fn)
   "Calls fn on val if fn is not null, otherwise returns val.
 If fn is null and default is provided, return (funcall default val)."
