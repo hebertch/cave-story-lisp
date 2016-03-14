@@ -142,12 +142,6 @@
 (defun sound-effect-idx->sound-effect-key (idx)
   (first (member idx *sound-effects-table* :key #'second)))
 
-(defstruct resource-type
-  cleanup-fn
-  acquire-fn)
-
-(defvar* *resource-types* nil)
-
 (defvar* *sfx-fnames*
     (mapcar (lambda (a)
 	      (let ((key (first a))
@@ -251,37 +245,18 @@ List of (keyword sprite-key attributes-fname entities/stage-fname).")
 	    *stage-fields*)
   "Alist of (keyword . (alist stage attributes entities spritesheet)).")
 
-;; TODO: Remove me!
-(defmacro def-resource-type
-    (name acquire-fn release-fn)
-  "Introduces Anaphora of FNAME into the load definition. This is to keep consistent args with
-the get- function that is produced."
-  (with-gensyms (hash-table rt)
-    `(let (,rt
-	   (,hash-table (make-hash-table)))
-       (push (setf ,rt
-		   (make-resource-type
-		    :cleanup-fn
-		    (lambda ()
-		      (loop for k being the hash-key in ,hash-table
-			 using (hash-value v) do
-			   (unless (typep v 'string)
-			     (funcall ,release-fn v)))
-		      (clrhash ,hash-table))
-		    :acquire-fn ,acquire-fn))
-	     *resource-types*)
-       (defun ,(symbolicate 'get- name) (keysym)
-	 (let ((ss (gethash keysym ,hash-table)))
-	   (if ss
-	       ss
-	       (progn
-		 (setf (gethash keysym ,hash-table)
-		       (funcall (resource-type-acquire-fn ,rt) keysym))
-		 (gethash keysym ,hash-table))))))))
+(defvar* *resources*
+    (alist :song (make-hash-table)
+	   :sound (make-hash-table)
+	   :spritesheet (make-hash-table)))
 
 (defun cleanup-all-resources! ()
-  (dolist (rt *resource-types*)
-    (funcall (resource-type-cleanup-fn rt))))
+  (dolist (entry *resources*)
+    (let ((resource-type (car entry))
+	  (hash-table (cdr entry)))
+      (loop for k being the hash-key in hash-table do
+	   (release-resource resource-type k))
+      (clrhash hash-table))))
 
 ;;; SPRITES
 
@@ -296,12 +271,6 @@ the get- function that is produced."
     (prog1
 	(sdl:create-texture-from-surface renderer surf)
       (sdl:free-surface surf))))
-
-(def-resource-type spritesheet
-    (lambda (key)
-      (let ((fname (aval *spritesheet-fnames* key)))
-	(load-spritesheet (aval *env* :renderer) (bmp-path fname))))
-  #'sdl:destroy-texture)
 
 ;;; MUSIC
 (defstruct song intro loop name)
@@ -353,11 +322,6 @@ the get- function that is produced."
   (defun resume-paused-music ()
     ))
 
-(def-resource-type song
-    (lambda (key)
-      (load-song (aval *song-names* key)))
-  #'destroy-song!)
-
 ;;; SOUNDS
 
 
@@ -370,12 +334,6 @@ the get- function that is produced."
     (sdl.mixer:play-channel -1 (get-resource :sound s) 0))
   :done)
 
-(def-resource-type sound
-    (lambda (key)
-      (let ((fname (aval *sfx-fnames* key)))
-	(sdl.mixer:load-wav (wav-path fname))))
-  #'sdl.mixer:free-chunk)
-
 ;; TODO: Generate meaningful names or just live with these?
 (defun generate-song-fnames ()
   (loop for f in (directory "./content/remastered-music/*_intro.ogg")
@@ -383,9 +341,31 @@ the get- function that is produced."
 		      (name (subseq str 0 (- (length str) (length "_intro.ogg")))))
 		 (list (alexandria:make-keyword (format nil "~:@(~A~)" name)) name))))
 
+(defun acquire-resource (resource-type keyword)
+  (ecase resource-type
+    (:song
+     (load-song (aval *song-names* keyword)))
+    (:sound
+     (let ((fname (aval *sfx-fnames* keyword)))
+       (sdl.mixer:load-wav (wav-path fname))))
+    (:spritesheet
+     (let ((fname (aval *spritesheet-fnames* keyword)))
+       (load-spritesheet (aval *env* :renderer) (bmp-path fname))))))
+
+(defun release-resource (resource-type key)
+  (let ((resource (gethash key (aval *resources* resource-type))))
+    (when resource
+      (ecase resource-type
+	(:sound (sdl.mixer:free-chunk resource))
+	(:song (destroy-song! resource))
+	(:spritesheet (sdl:destroy-texture resource))))))
+
 (defun get-resource (resource-type keyword)
   "Gets the resource associated with resource-type and keyword."
-  (ecase resource-type
-    (:song (get-song keyword))
-    (:spritesheet (get-spritesheet keyword))
-    (:sound (get-sound keyword))))
+  (let ((hash-table (aval *resources* resource-type)))
+    (let ((val (gethash keyword hash-table)))
+      (if val
+	  val
+	  (let ((resource (acquire-resource resource-type keyword)))
+	    (setf (gethash keyword hash-table) resource)
+	    resource)))))
