@@ -1062,7 +1062,6 @@ This can be abused with the machine gun in TAS."
   (update-env! (init-input *env*))
   (sdl:show-cursor :disable)
 
-  (put-all-resources!)
   
   (multiple-value-bind (window renderer)
       (sdl:default-window-and-renderer

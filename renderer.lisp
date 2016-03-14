@@ -129,7 +129,7 @@
    renderer
    (aset drawing
 	 :texture
-	 (get-spritesheet (aval drawing :sheet-key) renderer))
+	 (get-resource :spritesheet (aval drawing :sheet-key)))
    camera-pos))
 
 (defun render-rect! (renderer rect-drawing camera-pos)

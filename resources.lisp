@@ -143,9 +143,8 @@
   (first (member idx *sound-effects-table* :key #'second)))
 
 (defstruct resource-type
-  put-fn
   cleanup-fn
-  load-fn)
+  acquire-fn)
 
 (defvar* *resource-types* nil)
 
@@ -254,7 +253,7 @@ List of (keyword sprite-key attributes-fname entities/stage-fname).")
 
 ;; TODO: Remove me!
 (defmacro def-resource-type
-    (name (load-args &body load-forms) fnames-form destruct-fn)
+    (name acquire-fn release-fn)
   "Introduces Anaphora of FNAME into the load definition. This is to keep consistent args with
 the get- function that is produced."
   (with-gensyms (hash-table rt)
@@ -267,31 +266,18 @@ the get- function that is produced."
 		      (loop for k being the hash-key in ,hash-table
 			 using (hash-value v) do
 			   (unless (typep v 'string)
-			     (funcall ,destruct-fn v)))
+			     (funcall ,release-fn v)))
 		      (clrhash ,hash-table))
-		    :put-fn
-		    (lambda ()
-		      (loop for (key . fname) in ,fnames-form
-			 do
-			   (setf (gethash key ,hash-table) fname)))
-		    :load-fn
-		    ;; NOTE: FNAME Anaphora introduced here.
-		    (lambda (fname ,@load-args)
-		      ,@load-forms)))
+		    :acquire-fn ,acquire-fn))
 	     *resource-types*)
-       (defun ,(symbolicate 'get- name) (keysym ,@load-args)
+       (defun ,(symbolicate 'get- name) (keysym)
 	 (let ((ss (gethash keysym ,hash-table)))
-	   (when ss
-	     (if (typep ss 'string)
+	   (if ss
+	       ss
+	       (progn
 		 (setf (gethash keysym ,hash-table)
-		       (funcall (resource-type-load-fn ,rt)
-				ss
-				,@load-args))
-		 ss)))))))
-
-(defun put-all-resources! ()
-  (dolist (rt *resource-types*)
-    (funcall (resource-type-put-fn rt))))
+		       (funcall (resource-type-acquire-fn ,rt) keysym))
+		 (gethash keysym ,hash-table))))))))
 
 (defun cleanup-all-resources! ()
   (dolist (rt *resource-types*)
@@ -312,9 +298,9 @@ the get- function that is produced."
       (sdl:free-surface surf))))
 
 (def-resource-type spritesheet
-    ((renderer)
-     (load-spritesheet renderer (bmp-path fname)))
-  *spritesheet-fnames*
+    (lambda (key)
+      (let ((fname (aval *spritesheet-fnames* key)))
+	(load-spritesheet (aval *env* :renderer) (bmp-path fname))))
   #'sdl:destroy-texture)
 
 ;;; MUSIC
@@ -345,7 +331,7 @@ the get- function that is produced."
 
 (defun switch-to-new-song! (song-key)
   (stop-music!)
-  (let ((song (get-song song-key)))
+  (let ((song (get-resource :song song-key)))
     (sdl.mixer:play-music (song-intro song) 0)
     (update-env! (aset *env* :current-song song)))
   :done)
@@ -368,9 +354,8 @@ the get- function that is produced."
     ))
 
 (def-resource-type song
-    (()
-     (load-song fname))
-  *song-names*
+    (lambda (key)
+      (load-song (aval *song-names* key)))
   #'destroy-song!)
 
 ;;; SOUNDS
@@ -382,13 +367,13 @@ the get- function that is produced."
 (defun play-sounds! (sfx-play-list)
   ;; This works like the renderer. Merge?
   (dolist (s sfx-play-list)
-    (sdl.mixer:play-channel -1 (get-sound s) 0))
+    (sdl.mixer:play-channel -1 (get-resource :sound s) 0))
   :done)
 
 (def-resource-type sound
-    (()
-     (sdl.mixer:load-wav (wav-path fname)))
-  *sfx-fnames*
+    (lambda (key)
+      (let ((fname (aval *sfx-fnames* key)))
+	(sdl.mixer:load-wav (wav-path fname))))
   #'sdl.mixer:free-chunk)
 
 ;; TODO: Generate meaningful names or just live with these?
@@ -397,3 +382,10 @@ the get- function that is produced."
      appending (let* ((str (file-namestring f))
 		      (name (subseq str 0 (- (length str) (length "_intro.ogg")))))
 		 (list (alexandria:make-keyword (format nil "~:@(~A~)" name)) name))))
+
+(defun get-resource (resource-type keyword)
+  "Gets the resource associated with resource-type and keyword."
+  (ecase resource-type
+    (:song (get-song keyword))
+    (:spritesheet (get-spritesheet keyword))
+    (:sound (get-sound keyword))))
