@@ -330,13 +330,7 @@ List of (keyword sprite-key attributes-fname entities/stage-fname).")
     (sdl.mixer:play-channel -1 (get-resource :sound s) 0))
   :done)
 
-;; TODO: Generate meaningful names or just live with these?
-(defun generate-song-fnames ()
-  (loop for f in (directory "./content/remastered-music/*_intro.ogg")
-     appending (let* ((str (file-namestring f))
-		      (name (subseq str 0 (- (length str) (length "_intro.ogg")))))
-		 (list (alexandria:make-keyword (format nil "~:@(~A~)" name)) name))))
-
+;; TODO: Define resource-types in a table
 (defun acquire-resource (resource-type keyword)
   (ecase resource-type
     (:song
