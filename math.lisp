@@ -137,6 +137,13 @@ If fn is null and default is provided, return (funcall default val)."
 		   (cons k (call-if fn (aval alist k)))))
    alist))
 
+(defun akeys (alist)
+  "Return the keys of alist."
+  (mapcar #'car alist))
+(defun avals (alist)
+  "Return the values of alist."
+  (mapcar #'cdr alist))
+
 (defun aupdatefn (&rest keys-and-fns)
   #_(aupdate _ . keys-and-fns))
 

@@ -46,8 +46,6 @@
 	 :text text
 	 :type :text))
 
-(defun make-compiled-drawing (&key layer drawings)
-  (render-drawings-to-texture layer drawings))
 
 (defun drawing-layer (drawing)
   (aval drawing :layer))
@@ -414,12 +412,15 @@ Returns a list of (key . sublist) pairs."
   "Render all drawings on a given layer to an SDL texture."
   (let* ((renderer (aval *env* :renderer))
 	 (rect (drawings-rect drawings))
-	 (target (sdl:create-texture
-		  renderer
-		  (sdl:get-window-display-mode-format (aval *env* :window))
-		  :target
-		  (x (aval rect :size))
-		  (y (aval rect :size)))))
+	 (target (claim-resource
+		  :spritesheet
+		  (gensym)
+		  (sdl:create-texture
+		   renderer
+		   (sdl:get-window-display-mode-format (aval *env* :window))
+		   :target
+		   (x (aval rect :size))
+		   (y (aval rect :size))))))
     (sdl:set-texture-blend-mode target :blend)
     (sdl:set-render-target renderer target)
     (sdl:set-render-draw-color renderer 0 0 0 0)
@@ -439,5 +440,5 @@ Returns a list of (key . sublist) pairs."
 (defun ncompile-drawings (drawings)
   "Return a list of compiled drawings given a list of drawings."
   (mapcar (lambda (pair)
-	    (make-compiled-drawing :layer (car pair) :drawings (cdr pair)))
+	    (render-drawings-to-texture (car pair) (cdr pair)))
 	  (group-by #'drawing-layer (nsort-by-layer drawings))))

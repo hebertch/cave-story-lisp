@@ -1061,7 +1061,6 @@ This can be abused with the machine gun in TAS."
 
   (update-env! (init-input *env*))
   (sdl:show-cursor :disable)
-
   
   (multiple-value-bind (window renderer)
       (sdl:default-window-and-renderer
@@ -1079,6 +1078,10 @@ This can be abused with the machine gun in TAS."
 (defun cleanup! ()
   "Called at application closing to cleanup all subsystems."
   (cleanup-input!)
+  ;; Cleanup stage drawings
+  (mapcar
+   (lambda (texture) (release-resource :spritesheet texture))
+   (mapcar #_ (aval _ :texture) (aval (estate (entity-id :stage)) :drawings)))
   (cleanup-all-resources!)
   (clrhash *character-textures*)
 

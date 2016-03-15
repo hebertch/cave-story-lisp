@@ -330,33 +330,78 @@ List of (keyword sprite-key attributes-fname entities/stage-fname).")
     (sdl.mixer:play-channel -1 (get-resource :sound s) 0))
   :done)
 
-;; TODO: Define resource-types in a table
-(defun acquire-resource (resource-type keyword)
-  (ecase resource-type
-    (:song
-     (load-song (aval *song-names* keyword)))
-    (:sound
-     (let ((fname (aval *sfx-fnames* keyword)))
-       (sdl.mixer:load-wav (wav-path fname))))
-    (:spritesheet
-     (let ((fname (aval *spritesheet-fnames* keyword)))
-       (load-spritesheet (aval *env* :renderer) (bmp-path fname))))))
+(defvar *resource-types* nil
+  "Resource types for acquiring/releasing resources.")
 
-(defun release-resource (resource-type key)
+(defun make-resource-type! (resource-type &key acquire-fn release-fn)
+  (setq *resource-types*
+	(aset *resource-types* resource-type (alist :acquire-fn acquire-fn
+						    :release-fn release-fn))))
+
+(make-resource-type! :song
+		     :acquire-fn
+		     (lambda (key)
+		       (load-song (aval *song-names* key)))
+		     :release-fn
+		     (lambda (resource)
+		       (destroy-song! resource)))
+(make-resource-type! :sound
+		     :acquire-fn
+		     (lambda (key)
+		       (let ((fname (aval *sfx-fnames* key)))
+			 (sdl.mixer:load-wav (wav-path fname))))
+		     :release-fn
+		     (lambda (resource)
+		       (sdl.mixer:free-chunk resource)))
+(make-resource-type! :spritesheet
+		     :acquire-fn
+		     (lambda (key)
+		       (let ((fname (aval *spritesheet-fnames* key)))
+			 (load-spritesheet (aval *env* :renderer) (bmp-path fname))))
+		     :release-fn
+		     (lambda (resource)
+		       (sdl:destroy-texture resource)))
+
+(defun acquire-resource (resource-type key)
+  "Key based acquisition of resource."
+  (let ((rt (aval *resource-types* resource-type)))
+    (funcall (aval rt :acquire-fn) key)))
+
+(defun release-resource-by-key (resource-type key)
   (let ((resource (aval (aval *resources* resource-type) key)))
     (when resource
-      (ecase resource-type
-	(:sound (sdl.mixer:free-chunk resource))
-	(:song (destroy-song! resource))
-	(:spritesheet (sdl:destroy-texture resource)))
+      (let ((rt (aval *resource-types* resource-type)))
+	(funcall (aval rt :release-fn) resource))
       (setq *resources* (aupdate *resources* resource-type (aremfn key))))))
 
-(defun get-resource (resource-type keyword)
-  "Gets the resource associated with resource-type and keyword."
-  (let ((val (aval (aval *resources* resource-type) keyword)))
+(defun release-resource-by-value (resource-type resource)
+  (let ((rt (aval *resource-types* resource-type)))
+    (funcall (aval rt :release-fn) resource))
+  (setq *resources* (aupdate *resources*
+			     resource-type
+			     #_(remove resource _ :key #'cdr))))
+
+(defun release-resource (resource-type key-or-resource)
+  "If key-or-resource is a key, look it up and release it. Otherwise
+release the resource."
+  (if (typep key-or-resource 'keytype)
+      (release-resource-by-key resource-type key-or-resource)
+      (release-resource-by-value resource-type key-or-resource)))
+
+(defun claim-resource (resource-type key resource)
+  "Claims an already created resource, so that it can be released later."
+  (let ((val (aval (aval *resources* resource-type) key)))
+    (when val
+      (warn "Implicitly releasing resource ~A of type ~A (~A)."
+	    key resource-type resource)
+      (release-resource resource-type key))
+    (setq *resources* (aupdate *resources* resource-type (asetfn key resource))))
+  resource)
+
+(defun get-resource (resource-type key)
+  "Gets the resource associated with resource-type and key."
+  (let ((val (aval (aval *resources* resource-type) key)))
     (if val
 	val
-	(let ((resource (acquire-resource resource-type keyword)))
-	  (setq *resources* (aupdate *resources* resource-type
-				     (asetfn keyword resource)))
-	  resource))))
+	(let ((resource (acquire-resource resource-type key)))
+	  (claim-resource resource-type key resource)))))
