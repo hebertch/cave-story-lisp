@@ -1080,7 +1080,7 @@ This can be abused with the machine gun in TAS."
   (cleanup-input!)
   ;; Cleanup stage drawings
   (mapcar
-   (lambda (texture) (release-resource :spritesheet texture))
+   (lambda (texture) (release-resource :texture texture))
    (mapcar #_ (aval _ :texture) (aval (estate (entity-id :stage)) :drawings)))
   (cleanup-all-resources!)
   (clrhash *character-textures*)

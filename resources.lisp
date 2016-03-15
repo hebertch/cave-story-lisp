@@ -241,7 +241,7 @@ List of (keyword sprite-key attributes-fname entities/stage-fname).")
 		      (alist :stage fname
 			     :entities fname
 			     :attributes attributes-fname
-			     :spritesheet spritesheet-key))))
+			     :texture spritesheet-key))))
 	    *stage-fields*)
   "Alist of (keyword . (alist stage attributes entities spritesheet)).")
 
@@ -353,7 +353,7 @@ List of (keyword sprite-key attributes-fname entities/stage-fname).")
 		     :release-fn
 		     (lambda (resource)
 		       (sdl.mixer:free-chunk resource)))
-(make-resource-type! :spritesheet
+(make-resource-type! :texture
 		     :acquire-fn
 		     (lambda (key)
 		       (let ((fname (aval *spritesheet-fnames* key)))

@@ -42,11 +42,10 @@
   (mapc #'load (mapcar (lambda (n) (concatenate 'string n ".lisp")) *system-file-names*))
   :cave-story)
 
-(load-cave-story-system!)
-
 (defmacro reload-cave-story ()
   '(progn
     (in-package :cl-user)
+    (declaim (optimize debug))
     (load-cave-story-system!)
     (in-package :cave-story)))
 

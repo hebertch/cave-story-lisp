@@ -127,7 +127,7 @@
    renderer
    (aset drawing
 	 :texture
-	 (get-resource :spritesheet (aval drawing :sheet-key)))
+	 (get-resource :texture (aval drawing :sheet-key)))
    camera-pos))
 
 (defun render-rect! (renderer rect-drawing camera-pos)
@@ -413,7 +413,7 @@ Returns a list of (key . sublist) pairs."
   (let* ((renderer (aval *env* :renderer))
 	 (rect (drawings-rect drawings))
 	 (target (claim-resource
-		  :spritesheet
+		  :texture
 		  (gensym)
 		  (sdl:create-texture
 		   renderer

@@ -71,7 +71,7 @@
 	    :drawings (ncompile-drawings
 		       (prerendered-stage-drawings
 			data
-			(aval stage-fnames :spritesheet)))
+			(aval stage-fnames :texture)))
 	    :id (gen-entity-id)))))
 
 (defun stage-dims (stage)
