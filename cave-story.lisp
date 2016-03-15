@@ -303,7 +303,11 @@ This can be abused with the machine gun in TAS."
   (rect-offset (dorito-collision-rect (aval d :size)) (physics-pos d)))
 
 (setfn pickup-kill
-       (aupdatefn :sound-effects (pushfn :snd-get-xp))
+       (lambda (pickup)
+	 (aupdate pickup :sound-effects (pushfn (ecase (aval pickup :type)
+						  (:heart :snd-health-refill)
+						  (:dorito :snd-get-xp)
+						  (:missile :snd-get-missile)))))
        (asetfn :dead? t))
 
 (defun dorito-size->exp-amt (size)
@@ -1002,6 +1006,7 @@ This can be abused with the machine gun in TAS."
   (let* ((stage-key :stage-cave)
 	 (damage-numbers (make-damage-numbers))
 	 (projectile-groups (make-projectile-groups))
+
 	 (stage (load-stage-from-stage-key stage-key))
 	 (entities (entities-from-stage-key stage-key))
 	 (hud (make-hud))
