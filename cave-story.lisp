@@ -1006,6 +1006,18 @@ This can be abused with the machine gun in TAS."
 			  (aval stage :data)
 			  (aval (aval *stage-fnames-table* (aval stage :stage-key)) :texture)))))
 
+(defun switch-stage (env stage-key)
+  (setq env (kill-entities (non-persistent-entities env) env))
+  (mapc #_(release-resource :texture _)
+	(mapcar (avalfn :texture) (aval (estate (entity-id :stage env) env) :drawings)))
+  (setq env (estate-set env (entity-id :stage env)
+			(precompile-stage-drawings
+			 (load-stage-from-stage-key stage-key))))
+  (mapc (lambda (entity)
+	  (setq env (create-entity env (aval entity :id) entity)))
+	(entities-from-stage-key stage-key))
+  env)
+
 (defun create-game (env)
   (let* ((stage-key :stage-cave)
 	 (damage-numbers (make-damage-numbers))
