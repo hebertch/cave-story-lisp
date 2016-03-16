@@ -27,6 +27,7 @@
    (alist :subsystems *camera-subsystems*)
    (alist
     :id (gen-entity-id)
+    :persistence :indefinite
     :target
     (make-target-kin-2d
      focus vel

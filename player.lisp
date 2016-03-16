@@ -17,6 +17,7 @@
    (player-fns-alist)
    (alist :subsystems *player-subsystems*)
    (alist :h-facing :left
+	  :persistence :indefinite
 	  :gun-name-cycle (make-cycle :seq *gun-names*)
 	  :health-amt 3
 	  :max-health-amt 3

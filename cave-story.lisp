@@ -616,6 +616,7 @@ This can be abused with the machine gun in TAS."
    (hud-fns-alist)
    (alist :subsystems *hud-subsystems*)
    (alist :id (gen-entity-id)
+	  :persistence :indefinite
 	  :timers '(:exp-change-timer :health-change-timer)
 	  :exp-change-timer (make-expiring-timer (s->ms 1))
 	  :health-change-timer (make-expiring-timer (s->ms 1/2)))))
@@ -911,6 +912,7 @@ This can be abused with the machine gun in TAS."
 
 (defun make-gun-exps ()
   (alist :id (gen-entity-id)
+	 :persistence :indefinite
 	 :guns (loop for g across *gun-names* collecting (cons g 0))))
 
 (defun projectile-groups-remove-dead (g)
@@ -989,12 +991,28 @@ This can be abused with the machine gun in TAS."
 				:entities)))
    nil))
 
+(defun non-persistent-entities (&optional (env *env*))
+  (remove-if #_(aval _ :persistence) (avals (aval env :entity-registry))))
+
+(defun kill-entities (entities env)
+  "Marks entities as dead."
+  (dolist (e entities)
+    (setq env (estate-set env (aval e :id) (aset e :dead? t))))
+  env)
+
+(defun precompile-stage-drawings (stage)
+  (aset stage :drawings (ncompile-drawings
+			 (prerendered-stage-drawings
+			  (aval stage :data)
+			  (aval (aval *stage-fnames-table* (aval stage :stage-key)) :texture)))))
+
 (defun create-game (env)
   (let* ((stage-key :stage-cave)
 	 (damage-numbers (make-damage-numbers))
 	 (projectile-groups (make-projectile-groups))
 
-	 (stage (load-stage-from-stage-key stage-key))
+	 (stage (precompile-stage-drawings
+		 (load-stage-from-stage-key stage-key)))
 	 (entities (entities-from-stage-key stage-key))
 	 (hud (make-hud))
 	 (player (make-player :pos (tile-v 37 10)))
@@ -1013,7 +1031,6 @@ This can be abused with the machine gun in TAS."
 	     player
 	     gun-exps
 	     camera
-
 	     entities))
 
       (aset env

@@ -68,10 +68,8 @@
      (stage-fns-alist)
      (alist :subsystems *stage-subsystems*)
      (alist :data data
-	    :drawings (ncompile-drawings
-		       (prerendered-stage-drawings
-			data
-			(aval stage-fnames :texture)))
+	    :stage-key stage-key
+	    :persistence :indefinite
 	    :id (gen-entity-id)))))
 
 (defun stage-dims (stage)
