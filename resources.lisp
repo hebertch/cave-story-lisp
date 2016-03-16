@@ -1,5 +1,8 @@
 (in-package :cave-story)
 
+(defun song-idx->song-key (idx)
+  (svref *song-names-table* idx))
+
 (defvar* *song-names-table*
     #(nil
       (:song-egg "wanpaku")
@@ -245,7 +248,7 @@ List of (keyword sprite-key attributes-fname entities/stage-fname).")
 	    *stage-fields*)
   "Alist of (keyword . (alist stage attributes entities spritesheet)).")
 
-(defvar* *resources* nil)
+(defvar *resources* nil)
 
 (defun cleanup-all-resources! ()
   (dolist (entry *resources*)
@@ -292,11 +295,13 @@ List of (keyword sprite-key attributes-fname entities/stage-fname).")
   :done)
 
 (defun stop-music! ()
-  (sdl.mixer:halt-music)
+  (sdl.mixer:halt-music) 
   :done)
 
 (defun switch-to-new-song! (song-key)
   (stop-music!)
+  (when-let ((song (aval *env* :current-song)))
+    (release-resource :song song))
   (let ((song (get-resource :song song-key)))
     (sdl.mixer:play-music (song-intro song) 0)
     (update-env! (aset *env* :current-song song)))

@@ -35,15 +35,14 @@
 
 (defun make-game
     (&key player camera stage projectile-groups hud gun-exps
-       damage-numbers active-systems)
+       damage-numbers)
   (alist :player player
 	 :camera camera
 	 :stage stage
 	 :projectile-groups projectile-groups
 	 :gun-exps gun-exps
 	 :hud hud
-	 :damage-numbers damage-numbers
-	 :active-systems active-systems))
+	 :damage-numbers damage-numbers))
 
 (let (debug-toggle-off?)
   (defun handle-debug-input! (transient-input)
@@ -150,7 +149,8 @@ This can be abused with the machine gun in TAS."
     (let ((input (aval env :input)))
       (when (or (joy-pressed? input :b) (key-pressed? input :x))
 	;; Fire Gun
-	(setq env (update-world env (entity-id :player) #'player-fire-gun)))))
+	(unless (dead? (estate (entity-id :player env)))
+	  (setq env (update-world env (entity-id :player env) #'player-fire-gun))))))
 
   env)
 
@@ -888,19 +888,6 @@ This can be abused with the machine gun in TAS."
 (defvar* *dialog-text-pos* (tiles/2-v 7 24))
 (defvar* *entity-systems* '(:game :dialog))
 
-(defun make-active-systems
-    (&key (update (list :game)) (draw (list :game)) (input (list :game)) (id (gen-entity-id)))
-  (alist :update update
-	 :draw draw
-	 :input input
-	 :id id))
-
-(defun active-systems-switch-to-dialog (d)
-  (aset d
-	:update (list :dialog)
-	:draw (list :game :dialog)
-	:input (list :dialog)))
-
 
 (defun damage-numbers-remove-dead (d)
   (aset d
@@ -1011,21 +998,20 @@ This can be abused with the machine gun in TAS."
 	 (entities (entities-from-stage-key stage-key))
 	 (hud (make-hud))
 	 (player (make-player :pos (tile-v 37 10)))
-	 (gun-exps (make-gun-exps))
-	 (active-systems (make-active-systems)))
+	 (gun-exps (make-gun-exps)))
     
     (let ((camera (make-camera (physics-pos player) (zero-v) player)))
       (mapc (lambda (entity)
 	      (setq env (create-entity env (aval entity :id) entity)))
 	    (list*
 	     stage
-	     damage-numbers
 	     projectile-groups
+	     damage-numbers
 	     stage
+	     
 	     hud
 	     player
 	     gun-exps
-	     active-systems
 	     camera
 
 	     entities))
@@ -1039,7 +1025,6 @@ This can be abused with the machine gun in TAS."
 		       :hud (aval hud :id)
 		       :projectile-groups (aval projectile-groups :id)
 		       :gun-exps (aval gun-exps :id)
-		       :active-systems (aval active-systems :id)
 		       :damage-numbers (aval damage-numbers :id))))))
 
 (defun reset! ()

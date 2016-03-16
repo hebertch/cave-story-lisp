@@ -264,6 +264,8 @@ by id updated to have state."
 		    :new-states)))
 
 (defun create-entity (env id initial-state)
+  "Return an updated env with the new entity and the effects (entities)
+that it creates."
   (funcall
    (comp (lambda (env)
 	   (aupdate env

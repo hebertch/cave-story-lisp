@@ -1,8 +1,15 @@
-* free pre-compiled textures
-* fix laptop only stages not drawing
+* warp to stage
+* water stuff
+** die from drowning
+** splash
+*** particles
+*** sfx
 
-* door/warp to stage
-* set song from music index
-* die from drowning
+* open chests
+* items
+* bosses
+
 * use damage amounts from npc table?
 * optimize update times.
+* fix laptop only stages not drawing
+

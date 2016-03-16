@@ -184,9 +184,6 @@
 	 (asetfn :health-amt 0
 		 :dead? t)
 	 (aupdatefn
-	  :new-states
-	  (pushfn (active-systems-switch-to-dialog
-		   (estate (entity-id :active-systems))))
 	  :sound-effects (pushfn :snd-player-die))))
        (t
 	(comp
