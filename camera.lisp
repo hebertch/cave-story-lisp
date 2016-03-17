@@ -40,6 +40,9 @@
 		    :amp (tiles 1/8)
 		    :speed (rand-val-between 0.017 0.022)))
 
+(defun set-camera-focus (camera focus)
+  (aupdate camera :target (asetfn :pos focus)))
+
 (setfn add-camera-shake
        (aupdatefn
 	:physics

@@ -894,7 +894,8 @@ This can be abused with the machine gun in TAS."
 	(remove-if (lambda (pair) (dead? (estate (cdr pair)))) (aval d :pairs))))
 
 (defun make-damage-numbers ()
-  (alist :id (gen-entity-id)))
+  (alist :id (gen-entity-id)
+	 :persistence :indefinite))
 
 (defun gun-exp-for (gun-exps gun-name)
   (aval (aval gun-exps :guns) gun-name))
@@ -932,7 +933,8 @@ This can be abused with the machine gun in TAS."
   (aupdate g :groups (pushfn pg)))
 
 (defun make-projectile-groups ()
-  (alist :id (gen-entity-id)))
+  (alist :id (gen-entity-id)
+	 :persistence :indefinite))
 
 (defun current-gun-exp (player gun-exps)
   (let* ((gun-name (player-current-gun-name (estate player)))
@@ -1011,6 +1013,8 @@ This can be abused with the machine gun in TAS."
   (setq env (estate-set env
 			(precompile-stage-drawings
 			 (load-stage-from-stage-key stage-key (entity-id :stage env)))))
+  (setq env (estate-set env (aset (entity :damage-numbers) :pairs nil)))
+  (setq env (estate-set env (aset (entity :projectile-groups) :groups nil)))
   (dolist (entity (entities-from-stage-key stage-key))
     (setq env (create-entity env (aval entity :id) entity)))
   env)
@@ -1018,7 +1022,8 @@ This can be abused with the machine gun in TAS."
 (defun transport (env map-key player-pos)
   "Moves the player to map-key, at the given tile-pos."
   (setq env (switch-stage env map-key))
-  (estate-set env (set-player-pos (estate (entity-id :player env) env) player-pos)))
+  (setq env (estate-set env (set-player-pos (estate (entity-id :player env) env) player-pos)))
+  (estate-set env (set-camera-focus (entity :camera env) player-pos)))
 
 (defun entity (key &optional (env *env*))
   (estate (entity-id key env) env))
