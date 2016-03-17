@@ -1025,18 +1025,30 @@ This can be abused with the machine gun in TAS."
   (setq env (estate-set env (set-player-pos (estate (entity-id :player env) env) player-pos)))
   (estate-set env (set-camera-focus (entity :camera env) player-pos)))
 
+(defun interpret-tsc-command (env command)
+  "Interpret the command, returning a new environment."
+  (case (aval command :key)
+    (:tra (let ((args (aval command :args)))
+	    (transport env
+		       (map-idx->map-keyword (first args))
+		       (tile-v (third args) (fourth args)))))
+    (t env)))
+
 (defun entity (key &optional (env *env*))
   (estate (entity-id key env) env))
 
 (defun transport-to-cave! ()
   "Moves the  player to the first cave."
-  (setq *env* (transport *env* :stage-cave (tile-v 37 11))))
+  (setq *env*
+	(interpret-tsc-command *env* '((:KEY . :TRA) (:DESCRIPTION . "Load map X, run event Y, transport you to coords Z:W") (:ARGS 12 90 55 9)))))
+
 (defun transport-to-pole! ()
   "Moves the player to the Hermit's house."
-  (setq *env* (transport *env* :stage-pole (tile-v 7 9))))
+  (setq *env*
+	(interpret-tsc-command *env* '((:key . :TRA) (:DESCRIPTION . "Load map X, run event Y, transport you to coords Z:W") (:ARGS 90 92 7 9)))))
 
 (defun create-game (env)
-  (let* ((stage-key :stage-cave)
+  (let* ((stage-key :cave)
 	 (damage-numbers (make-damage-numbers))
 	 (projectile-groups (make-projectile-groups))
 
@@ -1896,7 +1908,7 @@ Returns (command . remaining-line)"
 	 (desc (second (assoc cmd *tsc-command-table*))))
     (if (and (> (length line) 4) (digit-char-p (aref line 4)))
 	(let ((parse (parse-tsc-command-args (subseq line 4))))
-	  (cons (list cmd
+	  (cons (list (cons :key cmd)
 		      (cons :description desc)
 		      (cons :args (car parse)))
 		(cdr parse)))

@@ -219,19 +219,19 @@
 			 (format nil "Prt~A" name))))))
 
 (defvar* *stage-fields*
-    '((:stage-weed :weed "Weed")
-      (:stage-cent :cent "Weed")
-      (:stage-santa :santa "Santa")
-      (:stage-cave :cave "Cave")
-      (:stage-eggs :eggs "Eggs")
-      (:stage-sand-e :sand "Sand" "SandE")
-      (:stage-pens-1 :pens "Pens" "Pens1")
-      (:stage-hell-1 :hell "Hell" "Hell1")
-      (:stage-jail-1 :jail "Jail" "Jail1")
-      (:stage-maze-i :maze "Maze" "MazeI")
-      (:stage-pole :cave "Cave" "Pole"))
+    '((:weed :weed "Weed")
+      (:cent :cent "Weed")
+      (:santa :santa "Santa")
+      (:cave :cave "Cave")
+      (:eggs :eggs "Eggs")
+      (:sande :sand "Sand" "SandE")
+      (:pens1 :pens "Pens" "Pens1")
+      (:hell1 :hell "Hell" "Hell1")
+      (:jail1 :jail "Jail" "Jail1")
+      (:mazei :maze "Maze" "MazeI")
+      (:pole :cave "Cave" "Pole"))
   "Fields used to generate the *stage-fnames-table*.
-List of (keyword sprite-key attributes-fname entities/stage-fname).")
+List of (map-key sprite-key attributes-fname entities/stage-fname).")
 
 (defvar* *stage-fnames-table*
     (mapcar (lambda (fields)
