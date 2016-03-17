@@ -1015,6 +1015,21 @@ This can be abused with the machine gun in TAS."
     (setq env (create-entity env (aval entity :id) entity)))
   env)
 
+(defun transport (env map-key player-pos)
+  "Moves the player to map-key, at the given tile-pos."
+  (setq env (switch-stage env map-key))
+  (estate-set env (set-player-pos (estate (entity-id :player env) env) player-pos)))
+
+(defun entity (key &optional (env *env*))
+  (estate (entity-id key env) env))
+
+(defun transport-to-cave! ()
+  "Moves the  player to the first cave."
+  (setq *env* (transport *env* :stage-cave (tile-v 37 11))))
+(defun transport-to-pole! ()
+  "Moves the player to the Hermit's house."
+  (setq *env* (transport *env* :stage-pole (tile-v 7 9))))
+
 (defun create-game (env)
   (let* ((stage-key :stage-cave)
 	 (damage-numbers (make-damage-numbers))
@@ -1813,6 +1828,10 @@ tile attribute lists."
 			(map 'vector #'tile-attribute-num->tile-attributes
 			     pxa)))
 
+(defun read-tsc-file (path)
+  "Load/decrypt/parse a tsc file given a path."
+  (parse-decrypted-tsc-script (decrypt-tsc-file path)))
+
 (defun decrypt-tsc-file (path)
   "Loads in and decrypts a tsc script file. Returns a string."
   (let* ((bytes (read-file-into-byte-vector path))
@@ -2569,8 +2588,6 @@ of *tile-attributes*.")
       (:YNJ "Ask yes or no, jump to event X if No")
       (:ZAM "All weapons drop to level 1"))
   "List of (COMMAND-KEY DESCRIPTION) pairs for tsc script <XYZ commands.")
-
-
 
 
 (defvar* *directions-table*

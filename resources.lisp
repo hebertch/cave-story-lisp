@@ -228,7 +228,8 @@
       (:stage-pens-1 :pens "Pens" "Pens1")
       (:stage-hell-1 :hell "Hell" "Hell1")
       (:stage-jail-1 :jail "Jail" "Jail1")
-      (:stage-maze-i :maze "Maze" "MazeI"))
+      (:stage-maze-i :maze "Maze" "MazeI")
+      (:stage-pole :cave "Cave" "Pole"))
   "Fields used to generate the *stage-fnames-table*.
 List of (keyword sprite-key attributes-fname entities/stage-fname).")
 

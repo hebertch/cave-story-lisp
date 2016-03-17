@@ -37,6 +37,9 @@
 	   :clamper-vy
 	   (clamper+- *terminal-speed*)))))
 
+(defun set-player-pos (player pos)
+  (aupdate player :stage-physics (asetfn :pos pos)))
+
 (defvar* *player-walk-acc* 0.00083007812)
 (defvar* *player-max-speed-x* 0.15859375)
 (defvar* *player-max-speed-x-water* (/ *player-max-speed-x* 2))
