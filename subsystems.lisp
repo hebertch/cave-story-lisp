@@ -143,7 +143,6 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 	  (setq env
 		(estate-set
 		 env
-		 player
 		 (dynamic-collision-react state side
 					  player-collision-rect
 					  player)))))))
@@ -238,10 +237,10 @@ Binds :damage-amt (in obj) to the bullet hit amount."
 
 (defun make-entity-registry () nil)
 
-(defun estate-set (env id state)
+(defun estate-set (env state)
   "Return an updated environment with the entity identified
-by id updated to have state."
-  (aupdate env :entity-registry (asetfn id state)))
+by (aval state :id) to have state."
+  (aupdate env :entity-registry (asetfn (aval state :id) state)))
 
 (setfn physics motion-set-update)
 (setfn physics-pos motion-set-pos)
@@ -259,7 +258,6 @@ by id updated to have state."
 		 (create-entity env (aval state :id) state))))
 
   (estate-set env
-	      (aval obj :id)
 	      (arem obj
 		    :sound-effects
 		    :new-states)))

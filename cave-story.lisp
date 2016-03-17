@@ -508,14 +508,12 @@ This can be abused with the machine gun in TAS."
 	      (let ((*env* env))
 		(estate-set
 		 env
-		 (entity-id :projectile-groups env)
 		 (projectile-groups-remove-dead
 		  (estate (entity-id :projectile-groups env) env)))))
 	    (lambda (env)
 	      (let ((*env* env))
 		(estate-set
 		 env
-		 (entity-id :damage-numbers env)
 		 (damage-numbers-remove-dead
 		  (estate (entity-id :damage-numbers env) env))))))
 	   env))
@@ -997,7 +995,7 @@ This can be abused with the machine gun in TAS."
 (defun kill-entities (entities env)
   "Marks entities as dead."
   (dolist (e entities)
-    (setq env (estate-set env (aval e :id) (aset e :dead? t))))
+    (setq env (estate-set env (aset e :dead? t))))
   env)
 
 (defun precompile-stage-drawings (stage)
@@ -1010,12 +1008,11 @@ This can be abused with the machine gun in TAS."
   (setq env (kill-entities (non-persistent-entities env) env))
   (mapc #_(release-resource :texture _)
 	(mapcar (avalfn :texture) (aval (estate (entity-id :stage env) env) :drawings)))
-  (setq env (estate-set env (entity-id :stage env)
+  (setq env (estate-set env
 			(precompile-stage-drawings
 			 (load-stage-from-stage-key stage-key (entity-id :stage env)))))
-  (mapc (lambda (entity)
-	  (setq env (create-entity env (aval entity :id) entity)))
-	(entities-from-stage-key stage-key))
+  (dolist (entity (entities-from-stage-key stage-key))
+    (setq env (create-entity env (aval entity :id) entity)))
   env)
 
 (defun create-game (env)
