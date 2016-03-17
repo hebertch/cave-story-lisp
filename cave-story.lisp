@@ -268,7 +268,7 @@ This can be abused with the machine gun in TAS."
      (collision-lambda (data)
        (aupdate data
 		:sound-effects
-		(pushfn :snd-block-move)
+		(pushfn :snd-tink)
 		:stage-physics
 		(asetfn :vel
 			(set-y-v (stage-vel data)
