@@ -56,7 +56,7 @@
   (append (aval stage :drawings)
 	  (destroyable-tile-drawings stage)))
 
-(defun load-stage-from-stage-key (stage-key)
+(defun load-stage-from-stage-key (stage-key &optional (id (gen-entity-id)))
   (let* ((stage-fnames (aval *stage-fnames-table* stage-key))
 	 (data
 	  (stage-from-file-data
@@ -70,7 +70,7 @@
      (alist :data data
 	    :stage-key stage-key
 	    :persistence :indefinite
-	    :id (gen-entity-id)))))
+	    :id id))))
 
 (defun stage-dims (stage)
   (let ((data (aval stage :data)))

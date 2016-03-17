@@ -255,8 +255,9 @@ by id updated to have state."
   (loop for state in (aval obj :new-states) do
        (setq env
 	     (if (estate (aval state :id) env)
-		 (estate-set env (aval state :id) state)
+		 (apply-effects env state)
 		 (create-entity env (aval state :id) state))))
+
   (estate-set env
 	      (aval obj :id)
 	      (arem obj

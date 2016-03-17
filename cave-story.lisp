@@ -1012,7 +1012,7 @@ This can be abused with the machine gun in TAS."
 	(mapcar (avalfn :texture) (aval (estate (entity-id :stage env) env) :drawings)))
   (setq env (estate-set env (entity-id :stage env)
 			(precompile-stage-drawings
-			 (load-stage-from-stage-key stage-key))))
+			 (load-stage-from-stage-key stage-key (entity-id :stage env)))))
   (mapc (lambda (entity)
 	  (setq env (create-entity env (aval entity :id) entity)))
 	(entities-from-stage-key stage-key))
