@@ -1854,15 +1854,20 @@ tile attribute lists."
 
 (defun parse-decrypted-tsc-script (script)
   "Given the decrypted tsc script, return a parsed result."
-  (mapcar
-   (lambda (d)
-     (list (car d) (cons :script (cdr d))))
-   (split-sequence:split-sequence-if
-    (lambda (a) (and (consp a) (eq (car a) :end)))
-    (mapcan #'parse-tsc-line
-	    (remove-if (lambda (d) (zerop (length d)))
-		       (split-sequence:split-sequence #\newline script)))
-    :remove-empty-subseqs t)))
+  (let ((parsed-commands
+	 (mapcan #'parse-tsc-line
+		 (remove-if (lambda (d) (zerop (length d)))
+			    (split-sequence:split-sequence #\newline script)))))
+    (let (scripts
+	  script)
+      (loop for pc in parsed-commands
+	 do
+	   (when (and (consp pc) (eq (car pc) :id))
+	     (push (nreverse script) scripts)
+	     (setq script nil))
+	   (push pc script))
+      (push (nreverse script) scripts)
+      (remove nil (nreverse scripts)))))
 
 (defun rest-of-line (line start)
   (when (>= (length line) start)
