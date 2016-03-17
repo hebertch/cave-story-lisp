@@ -104,6 +104,10 @@
   (rolling-average-time *update-rolling-average*
     (update-env! (update *env*)))
 
+  (when (aval *env* :new-song)
+    (switch-to-new-song! (aval *env* :new-song))
+    (update-env! (arem *env* :new-song)))
+
   (rolling-average-time *render-rolling-average*
     (render! (nconc *debug-render-list* (aval *env* :render-list))
 	     (current-camera-pos))))
@@ -1027,11 +1031,16 @@ This can be abused with the machine gun in TAS."
     (setq env (estate-set env (set-player-pos (estate (entity-id :player env) env) player-pos)))
     (estate-set env (set-camera-focus (entity :camera env) player-pos))))
 
+(defun change-music (env args)
+  "Change the song to song-key."
+  (aset env :new-song (aval args :song-key)))
+
 (defun interpret-tsc-command (env command)
   "Interpret the command, returning a new environment."
   (case (aval command :key)
+    (:cmu (change-music env (aval command :args)))
     (:tra (transport env (aval command :args)))
-    (t env)))
+    (t (warn "Ignoring command: ~A" command))))
 
 (defun entity (key &optional (env *env*))
   (estate (entity-id key env) env))
