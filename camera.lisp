@@ -80,7 +80,7 @@
 
 (defun stage-dims->camera-bounds (stage-dims)
   (create-rect (* *window-dims* 1/2)
-	       (- stage-dims *window-dims*)))
+	       (- stage-dims *window-dims* (tile-v 1 1))))
 
 (defun camera-focus (c)
   (aval (aval c :target) :pos))
