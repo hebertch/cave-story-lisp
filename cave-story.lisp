@@ -1047,8 +1047,12 @@ This can be abused with the machine gun in TAS."
 
 (defun transport-to-cave! ()
   "Moves the  player to the first cave."
-  (setq *env*
-	(interpret-tsc-command *env* `((:key . :tra) (:ARGS . ,(alist :map-key :cave :event-num 90 :pos (tile-v 55 9)))))))
+  (update-env!
+   (funcall
+    (comp
+     #_(interpret-tsc-command _ `((:key . :cmu) (:ARGS . ,(alist :song-key :song-gestation))))
+     #_(interpret-tsc-command _ `((:key . :tra) (:ARGS . ,(alist :map-key :cave :pos (tile-v 55 9))))))
+    *env*)))
 
 (defun transport-to-pole! ()
   "Moves the player to the Hermit's house."
@@ -1303,6 +1307,7 @@ This can be abused with the machine gun in TAS."
      (alist
       :stage-physics (gravity-kin-2d :pos pos)
       :physics '(:stage-physics)
+      :player-origin (zero-v)
       :id id))))
 
 (defvar* *critter-subsystems*
