@@ -1085,7 +1085,7 @@ This can be abused with the machine gun in TAS."
 		       :damage-numbers (aval damage-numbers :id))))))
 
 (defun reset! ()
-  ;;(switch-to-new-song! :lastcave)
+  (switch-to-new-song! :lastcave)
   (set-music-volume! 20)
   (update-env! (funcall (comp (asetfn :paused? nil)
 			      create-game

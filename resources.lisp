@@ -1,7 +1,9 @@
 (in-package :cave-story)
 
 (defun song-idx->song-key (idx)
-  (svref *song-names-table* idx))
+  (first (svref *song-names-table* idx)))
+(defun song-key->song-fname (key)
+  (second (find key *song-names-table* :key #'first)))
 
 (defvar* *song-names-table*
     #(nil
@@ -152,54 +154,6 @@
 		(cons key (format nil "~(fx~2,'0X~)" num))))
 	    *sound-effects-table*))
 
-(defvar* *song-names*
-    (alist :ACCESS "access"
-	   :ANZEN "anzen"
-	   :BALCONY "balcony"
-	   :BALLOS "ballos"
-	   :BDOWN "bdown"
-	   :BREAKDOWN "breakdown"
-	   :CEMETERY "cemetery"
-	   :CREDITS "credits"
-	   :CURLY "curly"
-	   :DR "dr"
-	   :ENDING "ending"
-	   :ESCAPE "escape"
-	   :FANFALE1 "fanfale1"
-	   :FANFALE2 "fanfale2"
-	   :FANFALE3 "fanfale3"
-	   :FIREEYE "fireeye"
-	   :GAMEOVER "gameover"
-	   :GINSUKE "ginsuke"
-	   :GRAND "grand"
-	   :GRAVITY "gravity"
-	   :HELL "hell"
-	   :IRONH "ironh"
-	   :JENKA2 "jenka2"
-	   :JENKA "jenka"
-	   :KAZE "kaze"
-	   :KODOU "kodou"
-	   :LASTBT3 "lastbt3"
-	   :LASTCAVE2 "lastcave2"
-	   :LASTCAVE "lastcave"
-	   :MARINE "marine"
-	   :MAZE "maze"
-	   :MDOWN2 "mdown2"
-	   :MURA "mura"
-	   :OSIDE "oside"
-	   :PLANT "plant"
-	   :QUIET "quiet"
-	   :REQUIEM "requiem"
-	   :SILENCE "silence"
-	   :TOROKO "toroko"
-	   :VIVI "vivi"
-	   :WANPAK2 "wanpak2"
-	   :WANPAKU_ENDING "wanpaku_ending"
-	   :WANPAKU "wanpaku"
-	   :WEED "weed"
-	   :WHITE "white"
-	   :ZONBIE "zonbie"))
-
 (defvar* *spritesheet-fnames*
     (append (alist :my-char "MyChar"
 		   :npc-sym "NpcSym"
@@ -347,7 +301,7 @@ List of (map-key sprite-key attributes-fname entities/stage-fname).")
 (make-resource-type! :song
 		     :acquire-fn
 		     (lambda (key)
-		       (load-song (aval *song-names* key)))
+		       (load-song (song-key->song-fname key)))
 		     :release-fn
 		     (lambda (resource)
 		       (destroy-song! resource)))
