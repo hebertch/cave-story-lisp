@@ -1029,9 +1029,11 @@ This can be abused with the machine gun in TAS."
 (defun tsc-transport (env args)
   "Moves the player to map-key, at the given tile-pos."
   (let ((map-key (aval args :map-key))
+	(script-id (aval args :script-id))
 	(player-pos (aval args :pos)))
     (setq env (switch-stage env map-key))
-    (setq env (estate-set env (set-player-pos (estate (entity-id :player env) env) player-pos)))
+    (setq env (start-tsc-script env (get-stage-tsc-script (entity :stage env) script-id)))
+    (setq env (estate-set env (set-player-pos (entity :player env) player-pos)))
     (estate-set env (set-camera-focus (entity :camera env) player-pos))))
 
 (defun tsc-change-music (env args)
@@ -1044,7 +1046,7 @@ This can be abused with the machine gun in TAS."
 
 (defun interpret-tsc-command (env command)
   "Interpret the command, returning a new environment."
-  (if (typep (aval command :fn) 'function)
+  (if (fboundp (aval command :fn))
       (funcall (aval command :fn) env (aval command :args))
       (warn "Ignoring command ~A" command)))
 
@@ -1074,7 +1076,7 @@ This can be abused with the machine gun in TAS."
 (defun transport-to-pole! ()
   "Moves the player to the Hermit's house."
   (setq *env*
-	(interpret-tsc-command *env* `((:fn . tsc-transport) (:ARGS . ,(alist :map-key :pole :event-num 92 :pos (tile-v 7 9)))))))
+	(interpret-tsc-command *env* `((:fn . tsc-transport) (:ARGS . ,(alist :map-key :pole :script-id 92 :pos (tile-v 7 9)))))))
 
 (defun create-game (env)
   (let* ((stage-key :cave)
@@ -2657,7 +2659,7 @@ of *tile-attributes*.")
       ((:fn . :STC) (:command . "STC") (:description . "Saves the current time to 290.rec"))
       ((:fn . :SVP) (:command . "SVP") (:description . "Save game"))
       ((:fn . :TAM) (:command . "TAM") (:description . "Trade weapon X for weapon Y, set max ammo to Z (max ammo 0000 = no change) (GLITCH: first weapon 0000)"))
-      ((:fn . tsc-transport) (:command . "TRA") (:description . "Load map X, run event Y, transport you to coords Z:W") (:arg-keys :map-num :event-num :tile-x :tile-y))
+      ((:fn . tsc-transport) (:command . "TRA") (:description . "Load map X, run event Y, transport you to coords Z:W") (:arg-keys :map-num :script-id :tile-x :tile-y))
       ((:fn . :TUR) (:command . "TUR") (:description . "Instantly display text. Use after a <MSG/2/3; works until another <MSG/2/3 or an <END."))
       ((:fn . :UNI) (:command . "UNI") (:description . "0000 normal / 0001 zero-g movement, facing direction is locked (disables focus commands) (from Stream boss) / 0002 movement is locked, can still fire"))
       ((:fn . :WAI) (:command . "WAI") (:description . "Pause script for X ticks"))
