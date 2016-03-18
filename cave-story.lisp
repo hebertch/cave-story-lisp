@@ -816,7 +816,9 @@ This can be abused with the machine gun in TAS."
 
     (setq env (remove-all-dead env)))
 
-  (setq env (update-subsystem env :drawable #'update-drawable-entity))
+  (when (aval env :tsc-script)
+    (setq env (run-tsc-script env)))
+  (setq env (update-subsystem env :drawable #'update-drawable-entity)) 
 
   ;; Debug Drawings Below.
 
@@ -1048,7 +1050,9 @@ This can be abused with the machine gun in TAS."
   "Interpret the command, returning a new environment."
   (if (fboundp (aval command :fn))
       (funcall (aval command :fn) env (aval command :args))
-      (warn "Ignoring command ~A" command)))
+      (progn
+	(warn "Ignoring command ~A" command)
+	env)))
 
 (defun start-tsc-script (env script)
   (aset env :tsc-script script))
@@ -1057,8 +1061,9 @@ This can be abused with the machine gun in TAS."
   (loop while (and (aval env :tsc-script)
 		   (not (aval env :tsc-command)))
      do
-       (setq env (interpret-tsc-command env (aval env :tsc-script)))
-       (setq env (aupdate env :tsc-script #'rest))))
+       (setq env (interpret-tsc-command env (first (aval env :tsc-script))))
+       (setq env (aupdate env :tsc-script #'rest)))
+  env)
 
 (defun entity (key &optional (env *env*))
   (estate (entity-id key env) env))
