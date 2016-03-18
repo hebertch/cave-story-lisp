@@ -1852,8 +1852,8 @@ This can be abused with the machine gun in TAS."
   "Get the tile position given an index into the pxa array."
   (make-v (mod idx 16) (floor idx 16)))
 
-(defun pxm-and-attrs->stage (pxm attrs)
-  "Create a stage from a list of row-major tiles, and a vector of
+(defun pxm-and-attrs->stage-data (pxm attrs)
+  "Create stage-data from a list of row-major tiles, and a vector of
 tile attribute lists."
   (let ((width (aval pxm :width))
 	(height (aval pxm :height))
@@ -1869,11 +1869,10 @@ tile attribute lists."
 		      (cdr tile-offset-idxs))))
       stage)))
 
-(defun stage-from-file-data (pxm pxa)
+(defun stage-data-from-file-data (pxm pxa)
   "Create a stage given the file data."
-  (pxm-and-attrs->stage pxm
-			(map 'vector #'tile-attribute-num->tile-attributes
-			     pxa)))
+  (pxm-and-attrs->stage-data pxm
+			     (map 'vector #'tile-attribute-num->tile-attributes pxa)))
 
 (defun read-tsc-file (path)
   "Load/decrypt/parse a tsc file given a path."

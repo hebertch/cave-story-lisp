@@ -58,19 +58,28 @@
 
 (defun load-stage-from-stage-key (stage-key &optional (id (gen-entity-id)))
   (let* ((stage-fnames (aval *stage-fnames-table* stage-key))
-	 (data
-	  (stage-from-file-data
-	   (read-pxm-file (format nil "./content/stages/~A.pxm"
-				  (aval stage-fnames :stage)))
-	   (read-pxa-file (format nil "./content/stages/~A.pxa"
-				  (aval stage-fnames :attributes))))))
+	 (path-fmt "./content/stages/~A.~A")
+	 (pxm (read-pxm-file (format nil path-fmt (aval stage-fnames :stage) "pxm")))
+	 (pxa (read-pxa-file (format nil path-fmt (aval stage-fnames :attributes) "pxa")))
+	 (tsc (read-tsc-file (format nil path-fmt (aval stage-fnames :stage) "tsc")))
+	 (data (stage-data-from-file-data pxm pxa)))
     (amerge
      (stage-fns-alist)
      (alist :subsystems *stage-subsystems*)
      (alist :data data
+	    :tsc-scripts tsc
 	    :stage-key stage-key
 	    :persistence :indefinite
+	    :tsc-scripts 
 	    :id id))))
+
+(defun get-tsc-script (scripts id)
+  "Gets the script with id in scripts. Does not include the id as part of the script."
+  (rest (find id scripts :key (comp cdr first) :test #'=)))
+
+(defun get-stage-tsc-script (stage id)
+  "Gets the tsc script from stage."
+  (get-tsc-script (aval stage :tsc-scripts) id))
 
 (defun stage-dims (stage)
   (let ((data (aval stage :data)))
