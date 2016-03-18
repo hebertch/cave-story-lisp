@@ -1044,9 +1044,19 @@ This can be abused with the machine gun in TAS."
 
 (defun interpret-tsc-command (env command)
   "Interpret the command, returning a new environment."
-  (if (aval command :fn)
+  (if (typep (aval command :fn) 'function)
       (funcall (aval command :fn) env (aval command :args))
       (warn "Ignoring command ~A" command)))
+
+(defun start-tsc-script (env script)
+  (aset env :tsc-script script))
+
+(defun run-tsc-script (env)
+  (loop while (and (aval env :tsc-script)
+		   (not (aval env :tsc-command)))
+     do
+       (setq env (interpret-tsc-command env (aval env :tsc-script)))
+       (setq env (aupdate env :tsc-script #'rest))))
 
 (defun entity (key &optional (env *env*))
   (estate (entity-id key env) env))
@@ -1058,7 +1068,7 @@ This can be abused with the machine gun in TAS."
     (comp
      #_(interpret-tsc-command _ `((:fn . tsc-sound-effect) (:ARGS . ,(alist :sound-effect-key :snd-door))))
      #_(interpret-tsc-command _ `((:fn . tsc-change-music) (:ARGS . ,(alist :song-key :song-gestation))))
-     #_(interpret-tsc-command _ `((:fn . tsc-transport) (:ARGS . ,(alist :map-key :cave :pos (tile-v 55 9))))))
+     #_(interpret-tsc-command _ `((:fn . tsc-transport) (:ARGS . ,(alist :map-key :cave :pos (tile-v 37 11))))))
     *env*)))
 
 (defun transport-to-pole! ()
@@ -1905,6 +1915,11 @@ tile attribute lists."
   (when (>= (length line) start)
     (subseq line start)))
 
+(defun make-text-command (text)
+  (alist :description "Displays text."
+	 :args (alist :text text)
+	 :fn 'tsc-display-text))
+
 (defun parse-tsc-line (line)
   (if (zerop (length line))
       nil
@@ -1913,7 +1928,7 @@ tile attribute lists."
 	(#\< (let ((parse (parse-tsc-command line))) 
 	       (cons (car parse) (parse-tsc-line (cdr parse)))))
 	(t (let ((parse (parse-tsc-text line)))
-	     (cons (car parse) (parse-tsc-line (cdr parse))))))))
+	     (cons (make-text-command (car parse)) (parse-tsc-line (cdr parse))))))))
 
 (defun parse-tsc-text (line)
   "Assumes line starts with text for a message.
