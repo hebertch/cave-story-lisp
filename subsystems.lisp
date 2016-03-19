@@ -250,6 +250,8 @@ by (aval state :id) to have state."
 
 (defun apply-effects (env obj)
   (setq env (aupdate env :sfx-play-list (appendfn (aval obj :sound-effects))))
+  (when-let ((e (aval obj :script-entity)))
+    (setq env (start-tsc-script env (get-stage-tsc-script (entity :stage env) (aval e :tsc-id)))))
   
   (loop for state in (aval obj :new-states) do
        (setq env
@@ -260,6 +262,7 @@ by (aval state :id) to have state."
   (estate-set env
 	      (arem obj
 		    :sound-effects
+		    :script-entity
 		    :new-states)))
 
 (defun create-entity (env id initial-state)

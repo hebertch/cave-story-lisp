@@ -149,17 +149,7 @@
 (defun handle-input (env)
   "Handles input. Often called many times between updates.
 This can be abused with the machine gun in TAS."
-
-  (setq env (update-subsystem env :input #'update-input-entity))
-
-  (let ((*env* env))
-    (let ((input (aval env :input)))
-      (when (or (joy-pressed? input :b) (key-pressed? input :x))
-	;; Fire Gun
-	(unless (dead? (estate (entity-id :player env)))
-	  (setq env (update-world env (entity-id :player env) #'player-fire-gun))))))
-
-  env)
+  (update-subsystem env :input #'update-input-entity))
 
 (defun dialog-ok-pressed! ()
   )
@@ -961,17 +951,13 @@ This can be abused with the machine gun in TAS."
 		     :registry nil
 		     :game (second state))))
 
-(defun stage-from-stage-name (stage-name)
-  (stage-from-file-data
-   (read-pxm-file (format nil "./content/stages/~A.pxm" stage-name))
-   (read-pxa-file (format nil "./content/stages/~A.pxa" stage-name))))
-
 (defun make-pxe-entity (entity game-flags)
+  "Return a list of new entities given the pxe-entity entity"
   (let ((entity-flags (aval entity :flags))
 	(type (aval entity :type)))
     (when (or (not (member :appear-on-flag-id entity-flags))
 	      (member (aval entity :flag-id) game-flags))
-      (let ((data (entity-npc-data type))
+      (let ((data (if type (entity-npc-data type) nil))
 	    (e
 	     (case type
 	       (:bat-blue (make-bat (aval entity :tile-pos)))
@@ -985,9 +971,13 @@ This can be abused with the machine gun in TAS."
 			      (1 :up)
 			      (2 :right)
 			      (3 :down)
-			      (t :left)))))))
+			      (t :left))))
+	       (t
+		(if (not type)
+		    (alist :id (gen-entity-id))
+		    (warn "Not making entity ~A, because I don't know how yet." entity))))))
 	(when e
-	  (amerge data e))))))
+	  (amerge data e entity))))))
 
 (defun make-pxe-entities (pxe flags)
   "Convert a parsed pxe list to a list of entities."
@@ -1037,6 +1027,10 @@ This can be abused with the machine gun in TAS."
     (setq env (start-tsc-script env (get-stage-tsc-script (entity :stage env) script-id)))
     (setq env (estate-set env (set-player-pos (entity :player env) player-pos)))
     (estate-set env (set-camera-focus (entity :camera env) player-pos))))
+
+(defun entities-with-flag (flag &optional (env *env*))
+  "Returns all entities with flag."
+  (remove-if-not (lambda (e) (find flag (aval e :flags))) (mapcar #'cdr (aval env :entity-registry))))
 
 (defun tsc-change-music (env args)
   "Change the song to song-key."
@@ -1092,7 +1086,7 @@ This can be abused with the machine gun in TAS."
 		 (load-stage-from-stage-key stage-key)))
 	 (entities (entities-from-stage-key stage-key))
 	 (hud (make-hud))
-	 (player (make-player :pos (tile-v 37 10)))
+	 (player (make-player :pos (tile-v 53 36)))
 	 (gun-exps (make-gun-exps)))
     
     (let ((camera (make-camera (physics-pos player) (zero-v) player)))
@@ -3170,3 +3164,4 @@ The number of smoke particles to create when destroyed.")
 				      (:down 3)))
 				 25/2))
     :pos (tile-pos (aval s :tile-pos)))))
+

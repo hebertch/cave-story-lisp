@@ -154,14 +154,12 @@
 (defun player-fire-gun (p)
   (let ((gun-name (player-current-gun-name p)))
     (let ((num-projectile-groups
-	   (projectile-groups-count (estate
-				     (entity-id :projectile-groups))
-				    gun-name))
+	   (projectile-groups-count (entity :projectile-groups) gun-name))
 	  (nozzle-pos (player-nozzle-pos p))
 	  (dir (if (player-actual-v-facing p)
 		   (player-actual-v-facing p)
 		   (aval p :h-facing)))
-	  (lvl (gun-level (gun-exp-for (estate (entity-id :gun-exps)) gun-name)
+	  (lvl (gun-level (gun-exp-for (entity :gun-exps) gun-name)
 			  (cdr (assoc gun-name *gun-level-exps*))))
 	  (max-projectiles (cdr (assoc gun-name *max-projectile-groups*))))
       (if (and (not (null max-projectiles))
@@ -301,62 +299,86 @@
 	  :acc-dir dir
 	  :h-facing dir)))
 
+(defun player-interact (p)
+  (let ((player-tile (pos->tile-pos (aval (aval p :stage-physics) :pos)))
+	(entities (entities-with-flag :script-on-activate)))
+    (aset p
+	  :script-entity
+	  (find player-tile entities :key (part (aval _ :tile-pos)) :test #'equalp))))
+
 (defun player-input (p input)
-  (declare (optimize debug))
+  (funcall (comp
+	    (part (player-fire-gun-input _ input))
+	    (part (player-gun-cycle-input _ input))
+	    (part (player-jump-input _ input))
+	    (part (player-left/right-input _ input))
+	    (part (player-up/down-input _ input)))
+	   p))
+
+(defun player-jump-input (p input)
+  (if (or (key-held? input :z) (joy-held? input :a))
+      (player-jump p)
+      (aset p :jumping? nil)))
+
+(defun player-left/right-input (p input)
   (let ((left?  (or (key-held? input :left)
 		    (eq :negative (input-joy-axis-x input))))
 	(right? (or (key-held? input :right)
 		    (eq :positive (input-joy-axis-x input))))
-	(down?  (or (key-held? input :down)
-		    (eq :positive (input-joy-axis-y input))))
-	(up?    (or (key-held? input :up)
-		    (eq :negative (input-joy-axis-y input)))))
+	(walking? (player-walking? p)))
+    (cond
+      ;; Walk/Look based on horizontal direction
+      ((and left? (not right?)) (player-move p :left))
+      ((and right? (not left?)) (player-move p :right))
+      (t
+       (let ((p2 (aset p :acc-dir nil)))
+	 (if walking?
+	     (aupdate p2
+		      :walk-cycle #'timed-cycle-pause
+		      :sound-effects (pushfn :snd-player-walk))
+	     p2))))))
 
-    (let* ((on-ground? (player-on-ground? p))
-	   (walking? (player-walking? p)))
-      (cond
-	;; Look Up/Down or Interact
-	((and up? (not down?))
-	 (setq p (aset p
-		       :interacting? nil
-		       :v-facing :up)))
+(defun player-up/down-input (p input)
+  (let* ((down?  (or (key-held? input :down)
+		     (eq :positive (input-joy-axis-y input))))
+	 (up?    (or (key-held? input :up)
+		     (eq :negative (input-joy-axis-y input))))
+	 (on-ground? (player-on-ground? p))
+	 (face-down? (and down? (not up?))))
+    (cond
+      ;; Look Up/Down or Interact
+      ((and up? (not down?))
+       (aset p
+	     :interacting? nil
+	     :v-facing :up))
 
-	((and down? (not up?))
-	 (unless (eq (aval p :v-facing) :down)
-	   (setq p (aset p
-			 :v-facing :down
-			 :walk-cycle
-			 (timed-cycle-pause (aval p :walk-cycle))
-			 :interacting? on-ground?))))
+      ((and face-down? (eq (aval p :v-facing) :down))
+       p)
+      (face-down?
+       (let ((p2 
+	      (aset p
+		    :v-facing :down
+		    :walk-cycle
+		    (timed-cycle-pause (aval p :walk-cycle))
+		    :interacting? on-ground?)))
+	 (if (aval p2 :interacting?)
+	     (player-interact p2)
+	     p2)))
 
-	(t (setq p (aset p :v-facing nil))))
+      (t (aset p :v-facing nil)))))
 
-      (cond
-	;; Walk/Look based on horizontal direction
-	((and left? (not right?))
-	 (setq p (player-move p :left)))
+(defun player-fire-gun-input (p input)
+  (if (or (joy-pressed? input :b) (key-pressed? input :x))
+      (player-fire-gun p)
+      p))
 
-	((and right? (not left?))
-	 (setq p (player-move p :right)))
-
-	(t
-	 (when walking?
-	   (setq p
-		 (aupdate p
-			  :walk-cycle #'timed-cycle-pause
-			  :sound-effects (pushfn :snd-player-walk))))
-	 (setq p (aset p :acc-dir nil))))
-
-      (if (or (key-held? input :z) (joy-held? input :a))
-	  (setq p (player-jump p))
-	  (setq p (aset p :jumping? nil))))
-
-    (when (or (key-pressed? input :a) (joy-pressed? input :y))
-      (setq p (aset p :gun-name-cycle (cycle-previous (aval p :gun-name-cycle)))))
-
-    (when (or (key-pressed? input :s) (joy-pressed? input :x))
-      (setq p (aset p :gun-name-cycle (cycle-next (aval p :gun-name-cycle)))))
-    p))
+(defun player-gun-cycle-input (p input)
+  (cond
+    ((or (key-pressed? input :a) (joy-pressed? input :y))
+     (aset p :gun-name-cycle (cycle-previous (aval p :gun-name-cycle))))    
+    ((or (key-pressed? input :s) (joy-pressed? input :x))
+     (aset p :gun-name-cycle (cycle-next (aval p :gun-name-cycle))))
+    (t p)))
 
 (defvar* *player-stage-collisions*
     (let ((stop-x
@@ -410,7 +432,6 @@
 	(aval p :tiles)))
 
 (defun player-drawing (p)
-  (declare (optimize debug))
   (let ((kin-2d (aval p :stage-physics)))
     (make-sprite-drawing
      :layer :player
