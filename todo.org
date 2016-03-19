@@ -1,4 +1,3 @@
-* warp to stage
 * water stuff
 ** die from drowning
 ** splash
@@ -6,6 +5,7 @@
 *** sfx
 
 * open chests
+* tsc script command implementations
 * items
 * bosses
 

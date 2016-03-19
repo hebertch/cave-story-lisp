@@ -204,6 +204,14 @@ If fn is null and default is provided, return (funcall default val)."
       (sub-v (zero-v) v)
       (reduce #'sub-v vs :initial-value v)))
 
+(defun v2= (v1 &rest vs)
+  (if (null vs)
+      t
+      (let ((v2 (first vs)))
+	(and (= (x v1) (x v2))
+	     (= (y v1) (y v2))
+	     (apply 'v2= v1 (rest vs))))))
+
 (defun *v (v &rest scalars)
   (scale-v v (apply #'* scalars)))
 
@@ -442,7 +450,15 @@ Returns the value from body."
       (scale-v number (apply 'cl:/ 1 numbers))
       (apply 'cl:/ number numbers)))
 
+(defun = (number &rest numbers)
+  (if (typep number 'v2)
+      (apply 'v2= number numbers)
+      (apply 'cl:= number numbers)))
+
 (defun abs (number)
   (typecase number
     (v2 (abs-v number))
     (t (cl:abs number))))
+
+(defun destructure (form val)
+  "Returns a form that binds to val.")
