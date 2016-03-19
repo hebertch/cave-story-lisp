@@ -460,5 +460,115 @@ Returns the value from body."
     (v2 (abs-v number))
     (t (cl:abs number))))
 
-(defun destructure (form val)
-  "Returns a form that binds to val.")
+(defun keyword-destructure-form? (destructure-form)
+  (keywordp destructure-form))
+
+(defun symbol-destructure-form? (destructure-form)
+  (symbolp destructure-form))
+
+(defun dispatch-destructure-form? (destructure-form)
+  (and (listp destructure-form)
+       (not (null destructure-form))
+       (keywordp (first destructure-form))
+       (find (first destructure-form) (akeys *destructurers*))))
+
+(defun destructure-alist (form val-name)
+  "Destructures an alist.
+Form is a plist of (:key destructure-form  ...)
+Omit a key/destructure-form pair to avoid binding."
+  (labels
+      ((aux (form val-name)
+	 (cond
+	   ((null form) nil)
+	   (t
+	    (let* ((key (first form))
+		   (destructure-form (second form))
+		   (val-form (list 'aval val-name key)))
+	      (if (symbol-destructure-form? destructure-form)
+		  (append (destructure (list destructure-form val-form))
+			  (aux (rest (rest form)) val-name))
+		  (let ((inner-val-name (gensym (string key))))
+		    (append (list (list inner-val-name val-form))
+			    (destructure (list destructure-form inner-val-name))
+			    (aux (rest (rest form)) val-name)))))))))
+    (aux form val-name)))
+
+(defvar* *destructurers*
+    (alist :alist 'destructure-alist)
+  "Alist of (destructure-key . destructure-fn).
+destructure-fn of the form (destructure-fn form val-name).")
+
+(defun dispatch-destructure (structure-key form val-name)
+  "Destructure based on the structure-key."
+  (let ((destructurer (aval *destructurers* structure-key)))
+    (funcall destructurer form val-name)))
+
+(defun destructure-list-form (list-form val-name)
+  "Destructures a list (dotted or no) of destructure-forms."
+  (labels ((aux (cons-form val-name)
+	     (cond
+	       ((null cons-form) nil)
+	       ((listp (cdr cons-form))
+		(let* ((inner-val-name (gensym))
+		       (bindings (aux (cdr cons-form) inner-val-name)))
+		  (if bindings
+		      (append (destructure (list (car cons-form) (list 'car val-name)))
+			      (cons (list inner-val-name (list 'cdr val-name))
+				    bindings))
+		      (destructure (list (car cons-form) (list 'car val-name))))))
+	       (t
+		(append (destructure (list (car cons-form) (list 'car val-name)))
+			(destructure (list (cdr cons-form) (list 'cdr val-name))))))))
+    (aux list-form val-name)))
+
+(defun destructure (binding-form)
+  "Returns a list of destructured binding-forms.
+Binding-form is a list of (destructure-form value-form).
+destructure-form: symbol |
+                  list |
+                  (structure-keyword structure...)"
+  (if (symbolp binding-form)
+      ;; Binding-form (including val-form) is just a symbol. leave it.
+      (list binding-form)
+      (let ((destructure-form (first binding-form))
+	    (val-form (second binding-form)))
+	(cond
+	  ((keyword-destructure-form? destructure-form)
+	   ;; Keywords are ignored.
+	   nil)
+	  ((symbol-destructure-form? destructure-form)
+	   (list binding-form))
+	  ((dispatch-destructure-form? destructure-form)
+	   ;; Structure form. dispatch.
+	   (if (symbolp val-form)
+	       ;; Don't create a new binding if it's already a symbol.
+	       ;; Reduces clutter of generated code.
+	       (dispatch-destructure (first destructure-form) (rest destructure-form) val-form)
+	       (let ((val-name (gensym (string (first destructure-form)))))
+		 (cons (list val-name val-form)
+		       (dispatch-destructure (first destructure-form) (rest destructure-form) val-name)))))
+	  (t
+	   ;; List form.
+	   (if (symbolp val-form)
+	       (destructure-list-form destructure-form val-form)
+	       (let ((val-name (gensym)))
+		 (cons (list val-name val-form)
+		       (destructure-list-form destructure-form val-name)))))))))
+
+(defmacro dlet* ((&rest binding-forms) &body forms)
+  "Destructuring macro. Destructures using destructure."
+  (let ((destructured-bindings (mapcan #'destructure binding-forms)))
+    `(let* ,destructured-bindings
+       ,@forms)))
+
+(defmacro dbind (destructure-form value-form &body forms)
+  `(dlet* ((,destructure-form ,value-form))
+     ,@forms))
+
+(defmacro when-dlet* ((&rest binding-forms) &body forms)
+  "Destructures binding-forms and uses them in when-let*.
+If any binding is nil, when-dlet* short-circuits and returns nil.
+Forms executed with the bindings."
+  (let ((destructured-bindings (mapcan #'destructure binding-forms)))
+    `(when-let* ,destructured-bindings
+       ,@forms)))
