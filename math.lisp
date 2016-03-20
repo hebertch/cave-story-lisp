@@ -472,7 +472,7 @@ Returns the value from body."
        (keywordp (first destructure-form))
        (find (first destructure-form) (akeys *destructurers*))))
 
-(defun destructure-alist (form val-name)
+(defun destructure-alist (form val-form)
   "Destructures an alist.
 Form is a plist of (:key destructure-form  ...)
 Omit a key/destructure-form pair to avoid binding."
@@ -483,18 +483,26 @@ Omit a key/destructure-form pair to avoid binding."
 	   (t
 	    (let* ((key (first form))
 		   (destructure-form (second form))
+		   (rest-alist-form (rest (rest form)))
 		   (val-form (list 'aval val-name key)))
-	      (if (symbol-destructure-form? destructure-form)
-		  (append (destructure (list destructure-form val-form))
-			  (aux (rest (rest form)) val-name))
-		  (let ((inner-val-name (gensym (string key))))
-		    (append (list (list inner-val-name val-form))
-			    (destructure (list destructure-form inner-val-name))
-			    (aux (rest (rest form)) val-name)))))))))
-    (aux form val-name)))
+
+	      (append (destructure (list destructure-form val-form))
+		      (aux rest-alist-form val-name)))))))
+    (let ((val-name (gensym)))
+      (cons (list val-name val-form)
+	    (aux form val-name)))))
+
+(defun destructure-values (form val-form)
+  "Destructures multiple values. 
+Extra values are ignored, values not present are nil.
+Uses multiple-value-list."
+  (let ((val-name (gensym)))
+    (cons (list val-name `(multiple-value-list ,val-form))
+	  (destructure-list-form form val-name))))
 
 (defvar* *destructurers*
-    (alist :alist 'destructure-alist)
+    (alist :alist 'destructure-alist
+	   :values 'destructure-values)
   "Alist of (destructure-key . destructure-fn).
 destructure-fn of the form (destructure-fn form val-name).")
 
@@ -503,7 +511,7 @@ destructure-fn of the form (destructure-fn form val-name).")
   (let ((destructurer (aval *destructurers* structure-key)))
     (funcall destructurer form val-name)))
 
-(defun destructure-list-form (list-form val-name)
+(defun destructure-list-form (list-form val-form)
   "Destructures a list (dotted or no) of destructure-forms."
   (labels ((aux (cons-form val-name)
 	     (cond
@@ -513,13 +521,17 @@ destructure-fn of the form (destructure-fn form val-name).")
 		       (bindings (aux (cdr cons-form) inner-val-name)))
 		  (if bindings
 		      (append (destructure (list (car cons-form) (list 'car val-name)))
+			      ;; If there are more bindings, create a temporary binding
+			      ;; to the cdr.
 			      (cons (list inner-val-name (list 'cdr val-name))
 				    bindings))
 		      (destructure (list (car cons-form) (list 'car val-name))))))
 	       (t
 		(append (destructure (list (car cons-form) (list 'car val-name)))
 			(destructure (list (cdr cons-form) (list 'cdr val-name))))))))
-    (aux list-form val-name)))
+    (let ((val-name (gensym)))
+      (cons (list val-name val-form)
+	    (aux list-form val-name)))))
 
 (defun destructure (binding-form)
   "Returns a list of destructured binding-forms.
@@ -540,20 +552,10 @@ destructure-form: symbol |
 	   (list binding-form))
 	  ((dispatch-destructure-form? destructure-form)
 	   ;; Structure form. dispatch.
-	   (if (symbolp val-form)
-	       ;; Don't create a new binding if it's already a symbol.
-	       ;; Reduces clutter of generated code.
-	       (dispatch-destructure (first destructure-form) (rest destructure-form) val-form)
-	       (let ((val-name (gensym (string (first destructure-form)))))
-		 (cons (list val-name val-form)
-		       (dispatch-destructure (first destructure-form) (rest destructure-form) val-name)))))
+	   (dispatch-destructure (first destructure-form) (rest destructure-form) val-form))
 	  (t
 	   ;; List form.
-	   (if (symbolp val-form)
-	       (destructure-list-form destructure-form val-form)
-	       (let ((val-name (gensym)))
-		 (cons (list val-name val-form)
-		       (destructure-list-form destructure-form val-name)))))))))
+	   (destructure-list-form destructure-form val-form))))))
 
 (defmacro dlet* ((&rest binding-forms) &body forms)
   "Destructuring macro. Destructures using destructure."
