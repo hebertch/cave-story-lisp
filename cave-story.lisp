@@ -220,7 +220,7 @@ This can be abused with the machine gun in TAS."
 	    :size size))))
 
 (defun pickup-ai (d)
-  (aset d :dead? (not (timer-active? (aval d :life-timer)))))
+  (aset d :dead? (ticked? d :life-tiemr)))
 
 (defun dorito-pos (d)
   (physics-pos d))
@@ -356,6 +356,7 @@ This can be abused with the machine gun in TAS."
 
 (defun single-loop-sprite-ai (p)
   (aset p
+	;; End of the first loop?
 	:dead? (and (ticked? p :anim-cycle)
 		    (zerop (anim-cycle-idx p)))))
 
@@ -364,6 +365,7 @@ This can be abused with the machine gun in TAS."
 	 :ai-fn
 	 ;; NOTE: This (ai/timers) is a kludge to make it so particle can set its
 	 ;; dead? flag based on single-loop-sprite.
+	 ;; TODO: maybe particles are-a single-loop-sprite?
 	 (lambda (p)
 	   (aset p :dead? (dead? (estate (aval p :single-loop-sprite)))))))
 
@@ -475,22 +477,24 @@ This can be abused with the machine gun in TAS."
 		  (aval fn :amt)
 		  :layer :floating-text))
 
-(defun floating-number-ai (fn)
-  
-  (let ((dead? (not (timer-active? (aval fn :life-timer))))
-	(offset
-	 (if (< (y (motion-pos (aval fn :offset)))
-		(- (tiles 1)))
-	     (make-offset-motion (zero-v :y (- (tiles 1))) :up 0)
-	     (aval fn :offset))))
+(defun floating-number-ai (fn)  
+  (dlet* ((dead? (ticked? fn :life-timer))
+	  ((:alist :offset offset
+		   :origin origin
+		   :entity entity) fn)
+	  (offset
+	   ;; Stop moving up after 1 tile.
+	   (if (< (y (motion-pos offset))
+		  (- (tiles 1)))
+	       (make-offset-motion (zero-v :y (- (tiles 1))) :up 0)
+	       offset)))
     (aset fn
 	  :dead? dead?
 	  :offset offset
-	  :origin
-	  (let ((state (estate (aval fn :entity))))
-	    (if (dead? state)
-		(aval fn :origin)
-		(origin state))))))
+	  :origin (let ((state (estate entity)))
+		    (if (dead? state)
+			origin
+			(origin state))))))
 
 (defun floating-number-add-amt (fn amount)
   (aupdate fn
@@ -888,9 +892,10 @@ This can be abused with the machine gun in TAS."
 
 
 (defun damage-numbers-remove-dead (d)
-  (aset d
-	:pairs
-	(remove-if (lambda (pair) (dead? (estate (cdr pair)))) (aval d :pairs))))
+  (aupdate d
+	   :pairs
+	   (lambda (pairs)
+	     (remove-if (comp dead? estate cdr) pairs))))
 
 (defun make-damage-numbers ()
   (alist :id (gen-entity-id)
@@ -902,6 +907,7 @@ This can be abused with the machine gun in TAS."
 (defun incr-gun-exp (gun-exps gun-name amt)
   (let* ((guns (aval gun-exps :guns))
 	 (gun-exp (aval guns gun-name)))
+    ;; TODO: nested sets
     (aset gun-exps
 	  :guns (aset guns
 		      gun-name
@@ -914,15 +920,13 @@ This can be abused with the machine gun in TAS."
 	 :guns (loop for g across *gun-names* collecting (cons g 0))))
 
 (defun projectile-groups-remove-dead (g)
-  (aset g
-	:groups
-	(remove-if #'null
-		   (loop for (name . group) in (aval g :groups)
-		      collecting
-			(let ((new-g (remove-if (lambda (x)
-						  (dead? (estate x)))
-						group)))
-			  (when new-g
+  (aupdate g
+	   :groups
+	   (lambda (groups)
+	     (remove nil
+		     (loop for (name . group) in groups
+			collecting
+			  (when-let ((new-g (remove-if (comp dead? estate) group)))
 			    (list* name new-g)))))))
 
 (defun projectile-groups-count (g gun-name)
@@ -1277,14 +1281,10 @@ This can be abused with the machine gun in TAS."
      d stage collision-rects
      (let ((stop-x
 	    (collision-lambda (data)
-	      (aset data
-		    :vel
-		    (set-x-v (stage-vel data) 0))))
+	      (aset data :vel (set-x-v (stage-vel data) 0))))
 	   (stop-y
 	    (collision-lambda (data)
-	      (aset data
-		    :vel
-		    (set-y-v (stage-vel data) 0)))))
+	      (aset data :vel (set-y-v (stage-vel data) 0)))))
        (alist :bottom stop-y :left stop-x
 	      :right stop-x :top stop-y)))))
 
@@ -1347,6 +1347,7 @@ This can be abused with the machine gun in TAS."
 				 (entity-id :player))))
 
 (defun critter-jump-ai (c)
+  ;; TODO: Messy
   (setq c (aset c
 		:player-origin
 		(let ((state (estate (entity-id :player))))
@@ -1389,41 +1390,41 @@ This can be abused with the machine gun in TAS."
 
 (defun dynamic-collision-enemy-react
     (pos origin id dynamic-collision-rect side player-collision-rect player-state)
+  ;; TODO: Messy
   (let* ((kin-2d (aval player-state :stage-physics))
 	 (ground-tile (aval player-state :ground-tile))
-	 (ground-inertia-entity (aval player-state :ground-inertia-entity)))
-    (setq player-state
-	  (aset player-state
-		:stage-physics
-		(let ((player-rect (rect-offset player-collision-rect
-						(aval kin-2d :pos))))
-		  (case side
-		    (:bottom
-		     (cond
-		       ((and (not (player-on-ground? player-state))
-			     (<= (y pos) (bottom player-rect) (+ (y origin))))
-			(setq ground-tile :dynamic
-			      ground-inertia-entity id)
+	 (ground-inertia-entity (aval player-state :ground-inertia-entity))
+	 (stage-physics
+	  (let ((player-rect (rect-offset player-collision-rect
+					  (aval kin-2d :pos))))
+	    (case side
+	      (:bottom
+	       (cond
+		 ((and (not (player-on-ground? player-state))
+		       (<= (y pos) (bottom player-rect) (+ (y origin))))
+		  (setq ground-tile :dynamic
+			ground-inertia-entity id)
+		  (aset
+		   kin-2d
+		   :vel (zero-v :x (x (aval kin-2d :vel)))
+		   :pos (-
+			 (flush-rect-pos
+			  player-rect
+			  (y (rect-pos dynamic-collision-rect))
+			  :up)
+			 (rect-pos player-collision-rect))))
+		 (t kin-2d)))
+	      ((:left :right)
+	       (let ((disp (- (x (aval kin-2d :pos)) (x pos))))
+		 (cond ((> (abs disp) (tiles 1/4))
 			(aset
 			 kin-2d
-			 :vel (zero-v :x (x (aval kin-2d :vel)))
-			 :pos (-
-			       (flush-rect-pos
-				player-rect
-				(y (rect-pos dynamic-collision-rect))
-				:up)
-			       (rect-pos player-collision-rect))))
-		       (t kin-2d)))
-		    ((:left :right)
-		     (let ((disp (- (x (aval kin-2d :pos)) (x pos))))
-		       (cond ((> (abs disp) (tiles 1/4))
-			      (aset
-			       kin-2d
-			       :vel
-			       (make-v (* (/ *terminal-speed* 70) disp) (y (aval kin-2d :vel)))))
-			     (t kin-2d))))
-		    (t kin-2d)))))
+			 :vel
+			 (make-v (* (/ *terminal-speed* 70) disp) (y (aval kin-2d :vel)))))
+		       (t kin-2d))))
+	      (t kin-2d)))))
     (aset player-state
+	  :stage-physics stage-physics
 	  :ground-tile ground-tile
 	  :ground-inertia-entity ground-inertia-entity)))
 
@@ -1626,8 +1627,8 @@ This can be abused with the machine gun in TAS."
 	   :sound-effects (pushfn :snd-enemy-hurt)))
 	 (let ((origin (origin obj)))
 	   (comp
-	    (asetfn :dead? t)
 	    (aupdatefn
+	     :dead? (constantly t)
 	     :new-states
 	     (appendfn
 	      (make-drops origin (aval obj :exp-for-kill))
@@ -1731,6 +1732,7 @@ This can be abused with the machine gun in TAS."
       :left
       (lambda (data)
 	(if (eq (aval data :facing) :left)
+	    ;; TODO: Some kind of set-if or update-if
 	    (aset data :facing :right)
 	    data))
       :right
@@ -1943,6 +1945,7 @@ Parses up to the next <."
 	:test #'string=))
 
 (defun interpret-tsc-command-args (cmd arg-vals)
+  ;; TODO: Messy
   (let ((args (pairlis (if (aval cmd :arg-keys)
 			   (aval cmd :arg-keys)
 			   (subseq '(:x :y :z :w) 0 (length arg-vals)))
@@ -3084,6 +3087,7 @@ The number of smoke particles to create when destroyed.")
   (eq :closing (aval d :eye-state)))
 
 (defun door-eye-ai (d)
+  ;; TODO: Messy
   (let ((player-state (estate (entity-id :player))))
     (setq d (aset d :player-origin (if player-state
 				       (origin player-state)

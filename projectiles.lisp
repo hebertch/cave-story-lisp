@@ -217,9 +217,11 @@ Returns the tile of the collision if one occurred."
 
 (defun projectile-tile-collision (p projectile-reaction stage tile)
   (if tile
-      (aupdate (funcall projectile-reaction p)
-	       :new-states
-	       (pushfn (stage-tile-shot stage tile)))
+      (funcall
+       (compose
+	(aupdatefn :new-states (pushfn (stage-tile-shot stage tile)))
+	projectile-reaction)
+       p)
       p))
 
 (defun polar-star-projectile-stage-collision (p stage)

@@ -314,18 +314,20 @@ If fn is null and default is provided, return (funcall default val)."
   (elt (aval c :seq) (aval c :idx)))
 
 (defun cycle-next (c)
-  (aset c
-	:idx
-	(if (= (aval c :idx) (1- (cycle-len c)))
-	    0
-	    (1+ (aval c :idx)))))
+  (aupdate c
+	   :idx
+	   (lambda (idx)
+	     (if (= idx (1- (cycle-len c)))
+		 0
+		 (1+ idx)))))
 
 (defun cycle-previous (c)
-  (aset c
-	:idx
-	(if (= (aval c :idx) 0)
-	    (1- (cycle-len c))
-	    (1- (aval c :idx)))))
+  (aupdate c
+	   :idx
+	   (lambda (idx)
+	     (if (= idx 0)
+		 (1- (cycle-len c))
+		 (1- idx)))))
 
 (defun cycle-reset (c)
   (aset c :idx 0))

@@ -89,7 +89,6 @@
 	    (hud-health-changed
 	     (estate (entity-id :hud))))))
 
-
 (defun player-walk-acc (p)
   (const-accelerator
    (* (if (player-on-ground? p)
@@ -124,9 +123,9 @@
 
 (defun player-kin-2d-physics (p kin-2d)
   (draw-line (aval kin-2d :pos)
-	      (+ (aval kin-2d :pos)
-		 (* (aval kin-2d :vel) *debug-velocity-scale*))
-	      *magenta*)
+	     (+ (aval kin-2d :pos)
+		(* (aval kin-2d :vel) *debug-velocity-scale*))
+	     *magenta*)
 
   (aset kin-2d
 	:accelerator-x (player-accelerator-x p)
@@ -168,11 +167,12 @@
 	  p))))
 
 (defun player-short-hop-physics (kin-2d)
-  (aset kin-2d
-	:vel
-	(make-v (x (aval kin-2d :vel))
-		(min (y (aval kin-2d :vel))
-		     (- *player-hop-speed*)))))
+  (let ((vel (aval kin-2d :vel)))
+    (aset kin-2d
+	  :vel
+	  (make-v (x vel)
+		  (min (y vel)
+		       (- *player-hop-speed*))))))
 
 (defun player-take-damage (p dmg-amt)
   (call-if
@@ -182,16 +182,15 @@
        ((>= (abs dmg-amt) (aval p :health-amt))
 	(stop-music!)
 	
-	(comp
-	 (asetfn :health-amt 0
-		 :dead? t)
-	 (aupdatefn
-	  :sound-effects (pushfn :snd-player-die))))
+	(aupdatefn
+	 :health-amt (constantly 0)
+	 :dead? (constantly t)
+	 :sound-effects (pushfn :snd-player-die)))
        (t
 	(comp
-	 (asetfn :ground-tile nil)
 	 (damage-number-update-amtfn dmg-amt)
 	 (aupdatefn
+	  :ground-tile (constantly nil)
 	  :invincible-timer #'reset-timer
 	  :health-amt #_(- _ dmg-amt)
 	  :sound-effects (pushfn :snd-player-hurt)
@@ -261,15 +260,16 @@
 		(t 0)))))
 
 (defun player-jump-physics (kin-2d in-water?)
-  (aset kin-2d
-	:vel
-	(+ (aval kin-2d :vel)
-	   (make-v 0 (- (if in-water?
-			    *player-jump-speed-water*
-			    *player-jump-speed*))))))
+  (aupdate kin-2d
+	   :vel
+	   #_(+ _
+		(make-v 0 (- (if in-water?
+				 *player-jump-speed-water*
+				 *player-jump-speed*))))))
 
 (defun player-jump (p)
   (cond ((not (aval p :jumping?))
+	 ;; TODO: Messy
 	 (aset (if (player-on-ground? p)
 		   (aupdate p
 			    :stage-physics #_(player-jump-physics
@@ -355,6 +355,7 @@
       ((and face-down? (eq (aval p :v-facing) :down))
        p)
       (face-down?
+       ;; TODO: messy
        (let ((p2 
 	      (aset p
 		    :v-facing :down
@@ -373,12 +374,13 @@
       p))
 
 (defun player-gun-cycle-input (p input)
-  (cond
-    ((or (key-pressed? input :a) (joy-pressed? input :y))
-     (aset p :gun-name-cycle (cycle-previous (aval p :gun-name-cycle))))    
-    ((or (key-pressed? input :s) (joy-pressed? input :x))
-     (aset p :gun-name-cycle (cycle-next (aval p :gun-name-cycle))))
-    (t p)))
+  (let ((gun-name-cycle (aval p :gun-name-cycle)))
+    (cond
+      ((or (key-pressed? input :a) (joy-pressed? input :y))
+       (aset p :gun-name-cycle (cycle-previous gun-name-cycle)))    
+      ((or (key-pressed? input :s) (joy-pressed? input :x))
+       (aset p :gun-name-cycle (cycle-next gun-name-cycle)))
+      (t p))))
 
 (defvar* *player-stage-collisions*
     (let ((stop-x

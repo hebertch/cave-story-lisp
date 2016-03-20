@@ -130,13 +130,14 @@ new (values DELTA-POS VEL)."
 		     (aval m :accelerator-y)
 		     :clamper-vx (aval m :clamper-vx)
 		     :clamper-vy (aval m :clamper-vy))
-    (let ((pos (+ (aval m :pos) dpos)))
-      (when (aval m :inertia-vel)
-	(setq pos
-	      (+ pos
-		 (accelerate-2d (aval m :inertia-vel)
-				(const-accelerator 0)
-				(const-accelerator 0)))))
+    (let ((pos
+	   (let ((pos (+ (aval m :pos) dpos)))
+	     (if (aval m :inertia-vel)
+		 (+ pos
+		    (accelerate-2d (aval m :inertia-vel)
+				   (const-accelerator 0)
+				   (const-accelerator 0)))
+		 pos))))
       (aset m
 	    :pos pos
 	    :vel nvel))))
@@ -184,16 +185,16 @@ new (values DELTA-POS VEL)."
 
     (when (< (abs (x disp)) 1)
       (setq disp (zero-v :y (y disp)))
-      (setq m (aset m :vel (zero-v :y (y (aval m :vel))))))
+      (setq m (aupdate m :vel (lambda (vel) (zero-v :y (y vel))))))
     (when (< (abs (y disp)) 1)
       (setq disp (zero-v :x (x disp)))
-      (setq m (aset m :vel (zero-v :x (x (aval m :vel))))))
+      (setq m (aupdate m :vel (lambda (vel) (zero-v :x (x vel))))))
 
     (multiple-value-bind (pos vel)
 	(accelerate-2d (aval m :vel)
 		       (const-accelerator (* (signum (x disp)) *camera-acc*))
 		       (const-accelerator (* (signum (y disp)) *camera-acc*))
 		       :clamper-vx clamper-x :clamper-vy clamper-y)
-      (aset m
-	    :pos (+ (aval m :pos) pos)
-	    :vel vel))))
+      (aupdate m
+	       :pos #_(+ _ pos)
+	       :vel (constantly vel)))))
