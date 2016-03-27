@@ -2,6 +2,8 @@
 
 (in-package :cl-user)
 
+(load "../sdl/load.lisp")
+
 #+nil
 (define-key chebert-slime-mode-map "a"
   (lambda ()
@@ -11,7 +13,7 @@
 
 (defparameter *system-dependencies*
   '(:swank-tools
-    :sdl
+    :alexandria
     :split-sequence)
   "External dependencies for the cave-story system.")
 
